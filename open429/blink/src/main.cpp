@@ -1,13 +1,23 @@
-#include <mbed.h>
+#include <jee.h>
 
-Serial console (PA_9, PA_10, 115200);
-DigitalOut led (PG_13);
+UartBufDev< PinA<9>, PinA<10> > console;
 
+int printf(const char* fmt, ...) {
+    va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
+    return 0;
+}
+
+PinG<13> led;
 
 int main() {
-    int i = 0;
+	console.init();
+	enableSysTick();
+
+    led.mode(Pinmode::out);
+
     while (1) {
-        console.printf("hello %d\n", ++i);
+        printf("hello %d\n", ticks);
+
         led = 1;
         wait_ms(100);
         led = 0;
