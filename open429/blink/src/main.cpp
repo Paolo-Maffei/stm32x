@@ -8,19 +8,26 @@ PinG<13> led;
 int main() {
 	console.init();
 #if 0
-	enableSysTick();
-#elif 1
-	fullSpeedClock();
+	#if 1
+		enableSysTick();
+	#else
+		fullSpeedClock();
+	#endif
 #else
-    const int hz = 160000000;
-	enableClkAt160MHz();
+	#if 0
+		const int hz = 160000000;
+		enableClkAt160MHz();
+	#else
+		const int hz = 180000000;
+		enableClkAt180MHz();
+	#endif
     enableSysTick(hz/1000);
 	console.baud(115200, hz/2);
 #endif
 
     led.mode(Pinmode::out);
 
-	// result @ 16 = 1878, @ 160 = 187, @ 168 = 178
+	// result @ 16 = 1878, @ 160 = 187, @ 168 = 178, @ 180 = 166
 	int t = ticks;
 	for (int i = 0; i < 10000000; ++i) __asm("");
 	printf("loop %d ms\n", ticks - t);
