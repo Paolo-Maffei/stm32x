@@ -25,9 +25,10 @@ int main() {
 			can1.transmit(0x123, "abcd1234", 8);
 		}
 
-		if (can2.rxPending()) {
-			printf("R %d\n", ticks);
-			can2.rxClear();
+		int len, id, dat[2];
+		len = can2.receive(&id, dat);
+		if (len >= 0) {
+			printf("R %d @%x #%d: %08x %08x\n", ticks, id, len, dat[0], dat[1]);
 		}
 	}
 }

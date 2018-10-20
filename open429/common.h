@@ -81,7 +81,10 @@ struct CanDev {
     constexpr static uint32_t tdtr = base + 0x184;
     constexpr static uint32_t tdlr = base + 0x188;
     constexpr static uint32_t tdhr = base + 0x18C;
+    constexpr static uint32_t rir  = base + 0x1B0;
     constexpr static uint32_t rdtr = base + 0x1B4;
+    constexpr static uint32_t rdlr = base + 0x1B8;
+    constexpr static uint32_t rdhr = base + 0x1BC;
     constexpr static uint32_t fmr  = base + 0x200;
     constexpr static uint32_t fsr  = base + 0x20C;
     constexpr static uint32_t far  = base + 0x21C;
@@ -127,6 +130,18 @@ struct CanDev {
 
 			MMIO32(tir) |= (1<<0); // TXRQ
 		}
+	}
+
+	static int receive (int* id, void* ptr) {
+		int len = -1;
+		if (rxPending()) {
+			*id = MMIO32(rir) >> 21;
+			len = MMIO32(rdtr) & 0x0F;
+			((uint32_t*) ptr)[0] = MMIO32(rdlr);
+			((uint32_t*) ptr)[1] = MMIO32(rdhr);
+			rxClear();
+		}
+		return len;
 	}
 
 	static bool rxPending () {
