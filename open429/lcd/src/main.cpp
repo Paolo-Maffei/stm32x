@@ -5,7 +5,7 @@
 UartBufDev< PinA<9>, PinA<10> > console;
 #include <../../common.h>
 
-SpiGpio< PinF<9>, PinF<8>, PinF<7>, SlowPin< PinC<2>, 10> > spi;
+SpiGpio< PinF<9>, PinF<8>, PinF<7>, PinC<2> > spi;
 PinD<13> wrx;
 ILI9341< decltype(spi), decltype(wrx) > lcd;
 
