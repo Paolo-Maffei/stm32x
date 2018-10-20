@@ -21,9 +21,8 @@ int main() {
     while (1) {
 		if (ticks / 500 != last) {
 			last = ticks / 500;
-			//printf("%d\n", ticks);
-
-			can1.transmit();
+			printf("T %d\n", ticks);
+			can1.transmit(0x123, "abcd1234", 8);
 		}
 
 		if (can2.rxPending()) {

@@ -117,14 +117,13 @@ struct CanDev {
 		MMIO32(fmr) &= ~(1<<0); // ~FINIT
 	}
 
-	static void transmit () {
+	static void transmit (int id, const void* ptr, int len) {
 		if (MMIO32(tsr) & (1<<26)) { // TME0
-			printf("T %d\n", ticks);
-
-			MMIO32(tir) = (0x321<<21);
-			MMIO32(tdtr) = (8<<0);
-			MMIO32(tdlr) = 0x11223344;
-			MMIO32(tdhr) = 0x05060708;
+			MMIO32(tir) = (id<<21);
+			MMIO32(tdtr) = (len<<0);
+			// this assumes that misaligned word access works
+			MMIO32(tdlr) = ((const uint32_t*) ptr)[0];
+			MMIO32(tdhr) = ((const uint32_t*) ptr)[1];
 
 			MMIO32(tir) |= (1<<0); // TXRQ
 		}
