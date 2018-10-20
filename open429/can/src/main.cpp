@@ -84,7 +84,7 @@ int main() {
 
 	can1.init();
 	can2.init();
-	can2.filterInit(14);
+	can1.filterInit(14);
 
 	uint32_t last = 0;
     while (1) {
