@@ -3,6 +3,7 @@
 UartBufDev< PinA<9>, PinA<10> > console;
 #include <../../common.h>
 
+// both CAN drivers have to be wired together and terminated 2x
 CanDev<0> can1;
 CanDev<1> can2;
 
@@ -26,7 +27,7 @@ int main() {
 		}
 
 		if (can2.rxPending()) {
-			printf("R\n");
+			printf("R %d\n", ticks);
 			can2.rxClear();
 		}
 	}
