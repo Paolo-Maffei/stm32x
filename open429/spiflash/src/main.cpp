@@ -8,12 +8,12 @@ SpiGpio< PinA<7>, PinA<6>, PinA<5>, PinA<4> > spi;
 SpiFlash< decltype(spi) > flash;
 
 int main() {
-	console.init();
-	fullSpeedClock();
+    console.init();
+    fullSpeedClock();
 
-	spi.init();
-	flash.init();
-	printf("flash %x\n", flash.devId());
+    spi.init();
+    flash.init();
+    printf("flash %x\n", flash.devId());
 
     while (1) {}
 }

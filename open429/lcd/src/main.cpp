@@ -10,16 +10,16 @@ PinD<13> wrx;
 ILI9341< decltype(spi), decltype(wrx) > lcd;
 
 int main() {
-	console.init();
-	fullSpeedClock();
-	printf("hello\n");
+    console.init();
+    fullSpeedClock();
+    printf("hello\n");
 
-	spi.init();
-	lcd.init();
+    spi.init();
+    lcd.init();
 
-	for (int x = 0; x < 240; ++x)
-		for (int y = 0; y < 320; ++y)
-			lcd.pixel(x, y, 0xFFE0);
+    for (int x = 0; x < 240; ++x)
+        for (int y = 0; y < 320; ++y)
+            lcd.pixel(x, y, 0xFFE0);
 
     while (1) {}
 }
