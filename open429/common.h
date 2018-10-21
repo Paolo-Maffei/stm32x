@@ -11,7 +11,7 @@ void enableClkAt160MHz () {
     MMIO32(Periph::flash + 0x00) = 0x705; // flash acr, 5 wait states
     MMIO32(rcc + 0x00) = (1<<16); // HSEON
     while ((MMIO32(rcc + 0x00) & (1<<17)) == 0) ; // wait for HSERDY
-    MMIO32(rcc + 0x08) = 1; // switch to HSE
+    MMIO32(rcc + 0x08) = (4<<13) | (5<<10) | (1<<0); // prescalers and use HSE
     MMIO32(rcc + 0x04) = (7<<24) | (1<<22) | (0<<16) | (160<<6) | (4<<0);
     MMIO32(rcc + 0x00) |= (1<<24); // PLLON
     while ((MMIO32(rcc + 0x00) & (1<<25)) == 0) ; // wait for PLLRDY
@@ -24,7 +24,7 @@ void enableClkAt180MHz () {
     MMIO32(Periph::flash + 0x00) = 0x705; // flash acr, 5 wait states
     MMIO32(rcc + 0x00) = (1<<16); // HSEON
     while ((MMIO32(rcc + 0x00) & (1<<17)) == 0) ; // wait for HSERDY
-    MMIO32(rcc + 0x08) = 1; // switch to HSE
+    MMIO32(rcc + 0x08) = (4<<13) | (5<<10) | (1<<0); // prescalers and use HSE
     MMIO32(rcc + 0x04) = (7<<24) | (1<<22) | (0<<16) | (180<<6) | (4<<0);
     MMIO32(rcc + 0x00) |= (1<<24); // PLLON
     while ((MMIO32(rcc + 0x00) & (1<<25)) == 0) ; // wait for PLLRDY
