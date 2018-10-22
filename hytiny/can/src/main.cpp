@@ -7,7 +7,7 @@ int printf(const char* fmt, ...) {
     return 0;
 }
 
-PinC<13> led;
+PinA<1> led;
 
 struct CanDev {
     constexpr static uint32_t base = 0x40006400;
@@ -93,7 +93,7 @@ int main() {
     led.mode(Pinmode::out);
     printf("hello\n");
 
-    can.init(true);
+    can.init();
     can.filterInit(0);
 
     uint32_t last = 0;
@@ -101,7 +101,7 @@ int main() {
         if (ticks / 500 != last) {
             last = ticks / 500;
             printf("T %d\n", ticks);
-            can.transmit(0x321, "ABCD5678", 8);
+            can.transmit(0x456, "a1b2c3d4", 8);
         }
 
         int len, id, dat[2];
