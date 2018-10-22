@@ -33,10 +33,7 @@ struct CanDev {
 
     static void init () {
         MMIO32(Periph::afio + 0x04) |= (2<<13); // CAN remap to B9+B8
-        // alt mode CAN1:    5432109876543210
-        //Port<'B'>::modeMap(0b0000001000000000, Pinmode::alt_out);
         PinB<8>::mode(Pinmode::in_float);
-        //PinB<8>::mode(Pinmode::in_pullup);
         PinB<9>::mode(Pinmode::alt_out);
         MMIO32(Periph::rcc + 0x1C) |= (1<<25);  // enable CAN1
 
