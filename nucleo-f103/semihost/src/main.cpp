@@ -2,7 +2,7 @@
 
 static char semiBuf [100], *semiFill;
 
-void send_command(int command, void *message) {
+void semiCmd (int command, void* message) {
 	asm("mov r0, %[cmd];"
 		"mov r1, %[msg];"
 		"bkpt #0xAB"
@@ -13,6 +13,7 @@ void send_command(int command, void *message) {
 
 int printf(const char* fmt, ...) {
 	semiFill = semiBuf;
+
     va_list ap;
 	va_start(ap, fmt);
 	veprintf([](int c) {
@@ -20,15 +21,16 @@ int printf(const char* fmt, ...) {
 			*semiFill++ = c;
 	}, fmt, ap);
 	va_end(ap);
-	uint32_t m[] = { 2/*stderr*/, (uint32_t) semiBuf, semiFill - semiBuf };
-	send_command(0x05/* some interrupt ID */, m);
+
+	uint32_t m[] = { 2 /*stderr*/, (uint32_t) semiBuf, semiFill - semiBuf };
+	semiCmd(5, m);
 	return 0;
 }
 
 PinA<5> led;
 
 int main() {
-	enableSysTick(); // no HSE crystal
+	enableSysTick(); // no HSE crystal on Nucleo
 	led.mode(Pinmode::out);
 
     while (1) {
