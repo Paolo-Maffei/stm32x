@@ -1,3 +1,13 @@
+// semihosting setup:
+//
+// $ openocd -f board/st_nucleo_f103rb.cfg
+//
+// $ arm-none-eabi-gdb .pioenvs/nucleo/firmware.elf
+// (gdb) tar rem :3333
+// (gdb) mon arm semihosting enable
+// (gdb) load
+// (gdb) c
+
 #include <jee.h>
 
 static char semiBuf [100], *semiFill;
