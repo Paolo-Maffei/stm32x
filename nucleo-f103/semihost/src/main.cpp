@@ -2,6 +2,8 @@
 //
 // $ openocd -f board/st_nucleo_f103rb.cfg
 //
+// or: openocd -f interface/stlink-v2-1.cfg -f target/stm32f1x_stlink.cfg
+//
 // $ arm-none-eabi-gdb .pioenvs/nucleo/firmware.elf
 // (gdb) tar rem :3333
 // (gdb) mon arm semihosting enable
