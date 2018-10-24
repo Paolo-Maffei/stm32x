@@ -1,3 +1,14 @@
+// JTAG via Olimex USB Tiny-H:
+//
+// $ openocd -f interface/ftdi/olimex-arm-usb-tiny-h.cfg -f target/stm32f4x.cfg
+//
+// $ arm-none-eabi-gdb .pioenvs/gold_dragon/firmware.elf
+// [...]
+// (gdb) tar rem :3333
+// Remote debugging using :3333
+// (gdb) load
+// (gdb) c
+
 #include <jee.h>
 
 UartBufDev< PinC<10>, PinC<11> > console;
