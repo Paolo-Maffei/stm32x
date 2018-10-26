@@ -43,16 +43,15 @@ struct CanDev {
         MMIO32(btr) = (7<<20) | (5<<16) | (2<<0); // 1 MBps
         MMIO32(mcr) &= ~(1<<0); // init leave
         while (MMIO32(msr) & (1<<0)) {}
+        MMIO32(fmr) &= ~(1<<0); // ~FINIT
     }
 
     static void filterInit (int num, int id =0, int mask =0) {
-        //MMIO32(fmr) |= (1<<0); // FINIT
-        //MMIO32(far) &= ~(1<<num); // ~FACT
+        MMIO32(far) &= ~(1<<num); // ~FACT
         MMIO32(fsr) |= (1<<num); // FSC 32b
         MMIO32(fr1 + 8 * num) = id;
         MMIO32(fr2 + 8 * num) = mask;
         MMIO32(far) |= (1<<num); // FACT
-        MMIO32(fmr) &= ~(1<<0); // ~FINIT
     }
 
     static void transmit (int id, const void* ptr, int len) {
