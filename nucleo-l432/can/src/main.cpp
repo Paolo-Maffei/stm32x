@@ -37,7 +37,7 @@ struct CanDev {
 		MMIO32(Periph::rcc + 0x58) |= (1<<25);  // enable CAN1
 
         MMIO32(mcr) &= ~(1<<1); // exit sleep
-        MMIO32(mcr) |= (1<<0); // init req
+        MMIO32(mcr) |= (1<<6) | (1<<0); // set ABOM, init req
         while ((MMIO32(msr) & (1<<0)) == 0) {}
         MMIO32(btr) = (7<<20) | (10<<16) | (3<<0); // 1 MBps
         MMIO32(mcr) &= ~(1<<0); // init leave
