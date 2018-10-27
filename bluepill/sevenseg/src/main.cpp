@@ -31,6 +31,7 @@ int main() {
         int len, id, dat[2];
         len = can.receive(&id, dat);
         if (len >= 0) {
+            led.toggle();
 			display.clear();
 
 			// show 11-bit packet id
@@ -39,22 +40,14 @@ int main() {
 			hexDigit(2, id);
 
 			// show first payload byte(s)
-			if (len > 1) {
-				hexDigit(6, dat[0] >> 12);
-				hexDigit(7, dat[0] >> 8);
-			}
 			if (len > 0) {
 				hexDigit(4, dat[0] >> 4);
 				hexDigit(5, dat[0]);
 			}
-
-#if 0
-			// show a dot to indicate packet length
-			if (len > 0)
-				display.pixel(7, len - 1, 1);
-#endif
-
-            led.toggle();
+			if (len > 1) {
+				hexDigit(6, dat[0] >> 12);
+				hexDigit(7, dat[0] >> 8);
+			}
         }
     }
 }
