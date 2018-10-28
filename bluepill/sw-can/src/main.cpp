@@ -58,10 +58,9 @@ int main() {
         }
 
         // process incoming messages
-        int len, id;
+        int id;
         uint8_t dat[8];
-        len = swcan.receive(&id, dat);
-        if (len == 1) {
+        if (swcan.receive(&id, dat) == 1) {
             led1 = (dat[0] >> 0) & 1;
             led2 = (dat[0] >> 1) & 1;
             led3 = (dat[0] >> 2) & 1;
