@@ -9,13 +9,13 @@ PinA<3> led4;   PinB<3> key4;
 struct SingleWireCanDev : public CanDev {
     static void init () {
         Pin<'A',11>::mode(Pinmode::in_float);
-        Pin<'A',12>::mode(Pinmode::alt_out_od);
+        Pin<'A',12>::mode(Pinmode::alt_out_od_2mhz);
         MMIO32(Periph::rcc + 0x1C) |= (1<<25);  // enable CAN1
 
         MMIO32(mcr) &= ~(1<<1); // exit sleep
         MMIO32(mcr) |= (1<<6) | (1<<0); // set ABOM, init req
         while ((MMIO32(msr) & (1<<0)) == 0) {}
-        MMIO32(btr) = (6<<20) | (9<<16) | (23<<0); // 83.3 KBps
+        MMIO32(btr) = (6<<20) | (9<<16) | (1<<0); // 83.3 KBps
         MMIO32(mcr) &= ~(1<<0); // init leave
         while (MMIO32(msr) & (1<<0)) {}
         MMIO32(fmr) &= ~(1<<0); // ~FINIT
@@ -25,7 +25,7 @@ struct SingleWireCanDev : public CanDev {
 SingleWireCanDev swcan;
 
 int main() {
-    enableSysTick();
+    fullSpeedClock();
 
     ledG.mode(Pinmode::out); ledG = 0;  keyG.mode(Pinmode::out); keyG = 0;
     led1.mode(Pinmode::out);            key1.mode(Pinmode::in_pullup);
