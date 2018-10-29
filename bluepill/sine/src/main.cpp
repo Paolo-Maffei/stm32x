@@ -40,9 +40,6 @@ static uint16_t sineTable [256] = {
 int phase;  // signal phase: bits 0..7 are step, bits 8..9 are quadrant
 int err;    // accumulator for 1-bit DAC error
 
-extern "C" void SysTick_Handler () {
-}
-
 int main() {
 	speaker.mode(Pinmode::out);
 
