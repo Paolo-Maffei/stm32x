@@ -2,14 +2,14 @@
 
 // choose breadboard version (0) or 4-colour test board (1)
 #if 0
-constexpr auto inMode = Pinmode::in_pullup;
+constexpr auto pullMode = Pinmode::in_pullup;
 PinA<7> ledG;   PinB<7> keyG;
 PinA<6> led1;   PinB<6> key1;
 PinA<5> led2;   PinB<5> key2;
 PinA<4> led3;   PinB<4> key3;
 PinA<3> led4;   PinB<3> key4;
 #else
-constexpr auto inMode = Pinmode::in_pulldown;
+constexpr auto pullMode = Pinmode::in_pulldown;
 PinB<10> ledG;  PinB<11> keyG;  // unused
 PinA<0> led1;   PinA<4> key1;
 PinA<1> led2;   PinA<5> key2;
@@ -39,10 +39,10 @@ int main() {
     fullSpeedClock();
 
     ledG.mode(Pinmode::out); ledG = 0;  keyG.mode(Pinmode::out); keyG = 0;
-    led1.mode(Pinmode::out);            key1.mode(inMode);
-    led2.mode(Pinmode::out);            key2.mode(inMode);
-    led3.mode(Pinmode::out);            key3.mode(inMode);
-    led4.mode(Pinmode::out);            key4.mode(inMode);
+    led1.mode(Pinmode::out);            key1.mode(pullMode);
+    led2.mode(Pinmode::out);            key2.mode(pullMode);
+    led3.mode(Pinmode::out);            key3.mode(pullMode);
+    led4.mode(Pinmode::out);            key4.mode(pullMode);
 
     // disable JTAG in AFIO-MAPR to release PB3, PB4, and PA15
     constexpr uint32_t afio = 0x40010000;
