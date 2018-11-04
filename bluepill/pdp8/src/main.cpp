@@ -13,7 +13,7 @@ static int rxReceive () { return console.getc(); }
 static int txReady () { return console.writable(); }
 static void txSend (char ch) { console.putc(ch); }
 
-#include "run.h"
+#include "pdp8.h"
 
 uint8_t store [] = {
 #include "rom.h"

@@ -4,10 +4,7 @@
 typedef uint16_t Word;
 
 #define MEMSIZE 4096
-extern uint8_t store [];
-
-static Word incr12(Word w) { return (w+1) & 07777; }
-static Word mask13(Word w) { return w & 017777; }
+extern uint8_t store [MEMSIZE+MEMSIZE/2];
 
 struct Mem12 {
     class MemRef {
@@ -16,11 +13,20 @@ struct Mem12 {
         MemRef (int a) : addr (a) {}
 
         operator Word () const {
-            return ((uint16_t*) store)[addr];
+            uint8_t u = store[MEMSIZE+addr/2];
+            u = addr & 1 ? u >> 4 : u & 0x0F;
+            return store[addr] + (u << 8);
         }
 
         void operator= (Word value) {
-            ((uint16_t*) store)[addr] = value & 07777;
+            uint8_t u = store[MEMSIZE+addr/2];
+            if (addr & 1)
+                u = (u & 0x0F) | ((value & 0xF00) >> 4);
+            else
+                u = (u & 0xF0) | ((value & 0xF00) >> 8);
+            store[MEMSIZE+addr/2] = u;
+
+            store[addr] = value;
         }
     };
 
@@ -28,6 +34,9 @@ struct Mem12 {
         return addr;
     }
 } mem;
+
+static Word incr12 (Word w) { return (w+1) & 07777; }
+static Word mask13 (Word w) { return w & 017777; }
 
 static Word opAddr (int ir, Word pc) {
     Word a = ir & 0177;
