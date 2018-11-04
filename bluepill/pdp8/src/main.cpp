@@ -15,13 +15,12 @@ static void txSend (char ch) { console.putc(ch); }
 
 #include "run.h"
 
-const uint8_t rom[] = {
+uint8_t store [] = {
 #include "rom.h"
 };
 
 int main () {
     console.init();
-    memcpy(mem, rom, sizeof mem);
     run();
     return 0;
 }

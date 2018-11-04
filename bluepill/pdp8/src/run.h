@@ -1,27 +1,48 @@
 // PDP-8 emulator, ported from Posix to STM32F103 with JeeH
 // -jcw, 2016-08-29
 
+typedef uint16_t Word;
+
 #define MEMSIZE 4096
-typedef unsigned short Word;
-Word pc, mem [MEMSIZE];
+extern uint8_t store [];
 
-static Word mask(Word w) { return w & 07777; }
-static Word lmask(Word w) { return w & 017777; }
+static Word incr12(Word w) { return (w+1) & 07777; }
+static Word mask13(Word w) { return w & 017777; }
 
-static Word opAddr (int ir) {
+struct Mem12 {
+    class MemRef {
+        Word addr;
+    public:
+        MemRef (int a) : addr (a) {}
+
+        operator Word () const {
+            return ((uint16_t*) store)[addr];
+        }
+
+        void operator= (Word value) {
+            ((uint16_t*) store)[addr] = value & 07777;
+        }
+    };
+
+    MemRef operator[] (int addr) const {
+        return addr;
+    }
+} mem;
+
+static Word opAddr (int ir, Word pc) {
     Word a = ir & 0177;
     if (ir & 0200)
         a |= (pc - 1) & 07600;
     if (ir & 0400) {
         if ((a & 07770) == 010)
-            mem[a] = mask(mem[a] + 1);
+            mem[a] = mem[a] + 1;
         a = mem[a];
     }
     return a;
 }
 
 void run () {
-    pc = 0200;
+    Word pc = 0200;
     Word sr = 0;
 
     Word ac = 0, mq = 0;
@@ -37,39 +58,39 @@ void run () {
         }
 
         int ir = mem[pc];
-        pc = mask(pc + 1);
+        pc = incr12(pc);
         switch ((ir >> 9) & 07) {
 
             case 0: // AND
-                ac &= mem[opAddr(ir)] | 010000;
+                ac &= mem[opAddr(ir, pc)] | 010000;
                 break;
 
             case 1: // TAD
-                ac = lmask(ac + mem[opAddr(ir)]);
+                ac = mask13(ac + mem[opAddr(ir, pc)]);
                 break;
 
             case 2: { // ISZ
-                Word t = opAddr(ir);
-                mem[t] = mask(mem[t] + 1);
+                Word t = opAddr(ir, pc);
+                mem[t] = mem[t] + 1;
                 if (mem[t] == 0)
-                    pc = mask(pc + 1);
+                    pc = incr12(pc);
                 break;
             }
 
             case 3: // DCA
-                mem[opAddr(ir)] = mask(ac);
+                mem[opAddr(ir, pc)] = ac;
                 ac &= 010000;
                 break;
 
             case 4: { // JMS
-                Word t = opAddr(ir);
+                Word t = opAddr(ir, pc);
                 mem[t] = pc;
-                pc = mask(t + 1);
+                pc = incr12(t);
                 break;
             }
 
             case 5: // JMP
-                pc = opAddr(ir);
+                pc = opAddr(ir, pc);
                 break;
 
             case 6: // IOT
@@ -82,13 +103,13 @@ void run () {
                         break;
                     case 03: // keyboard
                         if ((ir & 01) && rxReady()) // skip if ready
-                            pc = mask(pc + 1);
+                            pc = incr12(pc);
                         if (ir & 04) // read byte
                             ac = (ac & 010000) | rxReceive();
                         break;
                     case 04: // teleprinter
                         if ((ir & 01) && txReady()) // skip if ready
-                            pc = mask(pc + 1);
+                            pc = incr12(pc);
                         if (ir & 04) // send byte
                             txSend(ac & 0177); // strip off parity
                         if (ir & 02) // clear flag
@@ -108,17 +129,17 @@ void run () {
                     if (ir & 020) // CML
                         ac ^= 010000;
                     if (ir & 01) // IAC
-                        ac = lmask(ac + 1);
+                        ac = mask13(ac + 1);
                     switch (ir & 016) {
                         case 012: // RTR
-                            ac = lmask((ac >> 1) | (ac << 12)); // fall through
+                            ac = mask13((ac >> 1) | (ac << 12)); // fall through
                         case 010: // RAR
-                            ac = lmask((ac >> 1) | (ac << 12));
+                            ac = mask13((ac >> 1) | (ac << 12));
                             break;
                         case 06: // RTL
-                            ac = lmask((ac >> 12) | (ac << 1)); // fall through
+                            ac = mask13((ac >> 12) | (ac << 1)); // fall through
                         case 04: // RAL
-                            ac = lmask((ac >> 12) | (ac << 1));
+                            ac = mask13((ac >> 12) | (ac << 1));
                             break;
                         case 02: // BSW
                             ac = (ac & 010000) | ((ac >> 6) & 077)
@@ -131,7 +152,7 @@ void run () {
                             ((ir & 040) && (ac & 07777) == 0) ||
                             ((ir & 020) && (ac & 010000) != 0) ? 0 : 010;
                     if (s == (ir & 010))
-                        pc = mask(pc + 1);
+                        pc = incr12(pc);
                     if (ir & 0200) // CLA
                         ac &= 010000;
                     if (ir & 04) // OSR
