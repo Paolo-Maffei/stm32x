@@ -9,8 +9,6 @@ typedef uint16_t Word;
 #define MEMSIZE 4096
 uint8_t store [MEMSIZE+MEMSIZE/2];
 
-static Word mask12(Word w) { return w & 07777; }
-
 struct Mem12 {
     class MemRef {
         Word addr;
@@ -38,6 +36,8 @@ struct Mem12 {
         return addr;
     }
 } mem;
+
+static Word mask12 (Word w) { return w & 07777; }
 
 int loader (FILE* fp) {
     Word addr = 0;
