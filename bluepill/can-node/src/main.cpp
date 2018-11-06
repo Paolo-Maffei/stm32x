@@ -47,6 +47,21 @@ class Node {
     static constexpr uint16_t QUERY   = 0x7FF; // central -> all
     static constexpr uint16_t VERSION = 0x7FF; // node -> central
 
+    void sendVersion () {
+        printf("VERSION\n");
+        transmit(VERSION, "abcd", 4);
+    }
+
+    void assignSlot (int slot) {
+        printf("ASSIGN %d\n", slot);
+        mySlot = slot;
+        BUS::filterInit(3, mySlot, 0x1F);
+    }
+
+    void handleUpload (const void* ptr, int len) {
+        printf("UPLOAD #%d\n", len);
+    }
+
 public:
     Node () : mySlot (0), whoisClick (~0) {}
 
@@ -70,27 +85,23 @@ public:
     int receive (int* pid, void* ptr) {
         while (true) {
             int len = BUS::receive(pid, ptr);
-            if (len >= 0) {
-                printf("%03x #%d\n", *pid, len);
-                if (*pid == QUERY && len == 1 && *(uint8_t*) ptr == mySlot) {
-                    printf("VERSION\n");
-                    transmit(VERSION, "abcd", 4);
-                    continue;
-                }
-                if ((*pid & 0x7E0) == ASSIGN && len == sizeof myHwId &&
-                            *pid != ASSIGN && memcmp(ptr, myHwId, len) == 0) {
-                    mySlot = *pid & 0x1F;
-                    printf("ASSIGN %d\n", mySlot);
-                    BUS::filterInit(3, mySlot, 0x1F);
-                    continue;
-                }
-                if (*pid == (UPLOAD | mySlot) && mySlot != 0) {
-                    printf("UPLOAD #%d\n", len);
-                    continue;
-                }
-            }
-            return len;
+            if (len < 0)
+                break;
+
+            printf("%03x #%d\n", *pid, len);
+
+            if (*pid == QUERY && len == 1 && *(uint8_t*) ptr == mySlot)
+                sendVersion();
+            else if ((*pid & 0x7E0) == ASSIGN && len == sizeof myHwId &&
+                        *pid != ASSIGN && memcmp(ptr, myHwId, len) == 0)
+                assignSlot(*pid & 0x1F);
+            else if (*pid == (UPLOAD | mySlot) && mySlot != 0)
+                handleUpload(ptr, len);
+            else
+                return len;
         }
+
+        return -1;
     }
 };
 
