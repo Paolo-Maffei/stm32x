@@ -73,12 +73,14 @@ public:
             if (len >= 0) {
                 printf("%03x #%d\n", *pid, len);
                 if (*pid == QUERY && len == 1 && *(uint8_t*) ptr == mySlot) {
+                    printf("VERSION\n");
                     transmit(VERSION, "abcd", 4);
                     continue;
                 }
                 if ((*pid & 0x7E0) == ASSIGN && len == sizeof myHwId &&
                             *pid != ASSIGN && memcmp(ptr, myHwId, len) == 0) {
                     mySlot = *pid & 0x1F;
+                    printf("ASSIGN %d\n", mySlot);
                     BUS::filterInit(3, mySlot, 0x1F);
                     continue;
                 }
