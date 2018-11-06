@@ -61,7 +61,7 @@ int main() {
 
     uint32_t last = 0;
     while (1) {
-        // send key state once every 50 ms
+        // send key state once every 500 ms
         if (ticks / 500 != last) {
             last = ticks / 500;
 
