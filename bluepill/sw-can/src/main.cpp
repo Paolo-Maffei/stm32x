@@ -1,7 +1,7 @@
 #include <jee.h>
 
-// choose breadboard version (0) or 4-colour test board (1)
-#if 0
+// choose breadboard version (1) or 4-colour test board (0)
+#if 1
 constexpr auto pullMode = Pinmode::in_pullup;
 PinA<7> ledG;   PinB<7> keyG;
 PinA<6> led1;   PinB<6> key1;
