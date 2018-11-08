@@ -8,7 +8,6 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-//PinC<2> led;
 PinA<6> led;
 
 SpiGpio< PinB<5>, PinB<4>, PinB<3>, PinB<0> > spi;
@@ -19,7 +18,6 @@ int main() {
 	console.baud(115200, fullSpeedClock()/2);
     wait_ms(1000);
     printf("\n-------------------------------------------------------------\n");
-
 	led.mode(Pinmode::out);
 
     spi.init();

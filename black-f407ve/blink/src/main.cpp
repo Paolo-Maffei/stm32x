@@ -7,7 +7,6 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-//PinC<2> led;
 PinA<6> led;
 
 int main() {
