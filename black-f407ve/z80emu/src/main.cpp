@@ -27,7 +27,7 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-PinC<2> led;
+PinA<6> led;
 
 /* Emulate "zexdoc.com" or "zexall.com". */
 
