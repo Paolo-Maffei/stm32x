@@ -33,7 +33,7 @@ PinC<2> led;
 
 static void emulate (const void* rom, int len)
 {
-    ZEXTEST	context;
+    static ZEXTEST	context;
     memcpy(context.memory + 0x100, rom, len);
 
     /* Patch the memory of the program. Reset at 0x0000 is trapped by an
