@@ -1,0 +1,15 @@
+; generate the header filw ith this command:
+;   z80asm -o - hello.z80 | xxd -i >src/hello.h
+
+	org	100h
+
+	jp	start
+
+msg:    db      13,10,'hello',13,10,'$'
+
+start:	ld	hl,01000h
+	ld	sp,hl
+	ld	de,msg
+	ld	c,9
+	call	0005h
+	jp	0		; warm boot
