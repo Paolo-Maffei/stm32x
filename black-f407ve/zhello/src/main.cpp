@@ -24,15 +24,11 @@ void SystemCall (ZEXTEST*) {
 int main() {
     console.init();
 
-    memcpy(zex.memory + 0x100, rom, sizeof rom);
-
-    zex.is_done = 0;
-
+    memcpy(zex.memory, rom, sizeof rom);
     Z80Reset(&zex.state);
-    zex.state.pc = 0x100;
-    do
+
+    while (!zex.is_done)
         Z80Emulate(&zex.state, 4000000, &zex);
-    while (!zex.is_done);
 
     while (1) {}
 }

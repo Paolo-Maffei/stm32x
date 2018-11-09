@@ -1,8 +1,6 @@
 ; generate the header filw ith this command:
 ;   z80asm -o - hello.z80 | xxd -i >src/hello.h
 
-	org	100h
-
         ld	hl,01000h
 	ld	sp,hl
 	ld	de,msg
