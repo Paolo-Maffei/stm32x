@@ -1,0 +1,13 @@
+; generate the header filw ith this command:
+;   z80asm -o - hello.z80 | xxd -i >src/hello.h
+
+        ld	hl,01000h
+	ld	sp,hl
+	ld	de,msg
+	ld	c,9
+	in      a,(0)     ; puts
+	out     (0),a     ; exit
+
+msg:    db      13,10,'hello',13,10,'$'
+
+        end
