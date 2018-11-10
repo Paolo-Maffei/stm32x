@@ -38,17 +38,40 @@ static uint32_t voffset (int drive, int track, int sector) {
     return offset;
 }
 
-static void vread (int drive, int track, int sector) {
+static void vread () {
     uint32_t pos = voffset(drive, track, sector);
     spif.read(pos, buffer, sizeof buffer);
     dump(buffer, 128);
 }
 
-static void vwrite (int drive, int track, int sector) {
+static void vwrite () {
     uint32_t pos = voffset(drive, track, sector);
     if (pos % 4096 == 0)
         spif.erase(pos >> 8);
     spif.write(pos, buffer, 128);
+}
+
+static void showMap (int d) {
+    uint32_t pos = 256 * 1024 * d;
+    printf("[%06x] %d:", pos, d);
+    for (int i = 0; i < 64; ++i) {
+        char mark = '0';
+        for (int j = 0; j < 4096; j += 128) {
+            spif.read(pos + j, buffer, sizeof buffer);
+            for (int k = 0; k < sizeof buffer; ++k)
+                if (buffer[k] != 0xFF) {
+                    ++mark;
+                    break;
+                }
+            if (mark > '9')
+                break;
+        }
+        pos += 4096;
+        if (i % 16 == 0)
+            printf(" ");
+        printf("%c", mark < '1' ? '.' : mark > '9' ? '+' : mark);
+    }
+    printf("\n");
 }
 
 int main() {
@@ -68,28 +91,22 @@ int main() {
                 printf("\n");
 
             switch (cmd.parse(c)) {
-                case 'h':
-                    printf("hello\n");
-                    break;
-                case 'i':
-                    printf("spif id %x, %d kB\n", spif.devId(), spif.size());
-                    break;
-                case 'd':
-                    drive = cmd.argc > 0 ? cmd.args[0] : 0;
-                    break;
-                case 't':
-                    track = cmd.argc > 0 ? cmd.args[0] : 0;
-                    sector = 0;
-                    break;
-                case 's':
-                    sector = cmd.argc > 0 ? cmd.args[0] : 0;
-                    break;
-                case 'r':
-                    vread(drive, track, sector);
-                    break;
-                case 'w':
-                    vwrite(drive, track, sector);
-                    break;
+                case 'h': // hello
+                    printf("hello\n"); break;
+                case 'i': // info
+                    printf("id %x, %d kB\n", spif.devId(), spif.size()); break;
+                case 'd': // drive
+                    drive = cmd.argc > 0 ? cmd.args[0] : 0; break;
+                case 't': // track
+                    track = cmd.argc > 0 ? cmd.args[0] : 0; break;
+                case 's': // sector
+                    sector = cmd.argc > 0 ? cmd.args[0] : 0; break;
+                case 'r': // read
+                    vread(); break;
+                case 'w': // write
+                    vwrite(); break;
+                case 'm': // map
+                    for (int i = 0; i < 8; ++i) showMap(i); break;
             }
         }
     }
