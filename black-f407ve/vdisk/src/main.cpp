@@ -1,6 +1,7 @@
 #include <jee.h>
 #include <jee/spi-flash.h>
 #include <jee/parse-cmd.h>
+#include <jee/text-ihex.h>
 
 // FIXME input not working for interrupt-driven UartBufDev !
 UartDev< PinA<9>, PinA<10> > console;
@@ -41,7 +42,6 @@ static uint32_t voffset (int drive, int track, int sector) {
 static void vread () {
     uint32_t pos = voffset(drive, track, sector);
     spif.read(pos, buffer, sizeof buffer);
-    dump(buffer, 128);
 }
 
 static void vwrite () {
@@ -74,6 +74,18 @@ static void showMap (int d) {
     printf("\n");
 }
 
+static void loadBuffer () {
+    IntelHex<128> ihex;
+    ihex.init();
+    while (!ihex.parse(console.getc())) {}
+    printf("\n");
+    if (ihex.check != 0)
+        printf("checksum error\n");
+    else if (ihex.type == 0)
+        for (int i = 0; i < ihex.len; ++i)
+            buffer[(ihex.addr + i) % sizeof buffer] = ihex.data[i];
+}
+
 int main() {
     console.init();
     //console.baud(115200, fullSpeedClock()/2);
@@ -91,10 +103,15 @@ int main() {
                 printf("\n");
 
             switch (cmd.parse(c)) {
-                case 'h': // hello
-                    printf("hello\n"); break;
+                case 'h': // help
+                    printf(
+                      "  i - Show Info, <n> [dts] - Set Drive/Track/Sector\n"
+                      "  r - Read, w - Write, m - Show Map, b - Show Buffer\n"
+                      "  :... - Fill 128-byte buffer with Intel HEX bytes\n");
+                    break;
                 case 'i': // info
-                    printf("id %x, %d kB\n", spif.devId(), spif.size()); break;
+                    printf("spif %x %dK, d %d t %d s %d\n",
+                        spif.devId(), spif.size(), drive, track, sector); break;
                 case 'd': // drive
                     drive = cmd.argc > 0 ? cmd.args[0] : 0; break;
                 case 't': // track
@@ -107,6 +124,10 @@ int main() {
                     vwrite(); break;
                 case 'm': // map
                     for (int i = 0; i < 8; ++i) showMap(i); break;
+                case ':': // intel hex
+                    loadBuffer(); break;
+                case 'b': // dump buffer contents
+                    dump(buffer, sizeof buffer); break;
             }
         }
     }
