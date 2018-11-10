@@ -12,7 +12,7 @@ const uint8_t rom [] = {
 #include "hello.h";
 };
 
-UartBufDev< PinA<9>, PinA<10> > console;
+UartDev< PinA<9>, PinA<10> > console;
 
 ZEXTEST zex;
 

@@ -11,8 +11,8 @@ PinA<6> led;
 
 int main() {
     console.init();
-	console.baud(115200, fullSpeedClock()/2);
-	led.mode(Pinmode::out);
+    console.baud(115200, fullSpeedClock()/2);
+    led.mode(Pinmode::out);
 
     while (1) {
         printf("%d\n", ticks);
