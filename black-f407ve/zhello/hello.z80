@@ -1,4 +1,4 @@
-; generate the header filw ith this command:
+; generate the header file with this command:
 ;   z80asm -o - hello.z80 | xxd -i >src/hello.h
 
         ld	hl,01000h
