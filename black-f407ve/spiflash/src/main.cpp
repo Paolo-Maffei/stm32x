@@ -11,7 +11,7 @@ int printf(const char* fmt, ...) {
 PinA<6> led;
 
 SpiGpio< PinB<5>, PinB<4>, PinB<3>, PinB<0> > spi;
-SpiFlash< decltype(spi) > smem;
+SpiFlash< decltype(spi) > spif;
 
 int main() {
     console.init();
@@ -21,9 +21,9 @@ int main() {
 	led.mode(Pinmode::out);
 
     spi.init();
-    smem.init();
+    spif.init();
 
-    printf("smem %x, %d kB\n", smem.devId(), smem.size());
+    printf("spif %x, %d kB\n", spif.devId(), spif.size());
 
     while (1) {
         printf("%d\n", ticks);
