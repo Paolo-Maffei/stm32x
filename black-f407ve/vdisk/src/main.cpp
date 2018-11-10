@@ -2,6 +2,7 @@
 #include <jee/spi-flash.h>
 #include <jee/parse-cmd.h>
 #include <jee/text-ihex.h>
+#include <string.h>
 
 // FIXME input not working for interrupt-driven UartBufDev !
 UartDev< PinA<9>, PinA<10> > console;
@@ -11,7 +12,7 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-PinA<6> led;
+const uint8_t* FlashBase = (const uint8_t*) 0x40000;
 
 SpiGpio< PinB<5>, PinB<4>, PinB<3>, PinB<0> > spi;
 SpiFlash< decltype(spi) > spif;
@@ -49,6 +50,19 @@ static void vwrite () {
     if (pos % 4096 == 0)
         spif.erase(pos >> 8);
     spif.write(pos, buffer, 128);
+}
+
+static void iread () {
+    uint32_t pos = voffset(drive, track, sector) % 0x40000;
+    memcpy(buffer, FlashBase + pos, sizeof buffer);
+}
+
+static void iwrite () {
+    uint32_t pos = voffset(drive, track, sector) % 0x40000;
+    if (pos % 0x20000 == 0)
+        Flash::erasePage(FlashBase + pos);
+    for (int i = 0; i < sizeof buffer; i += 4)
+        Flash::write32(FlashBase + pos + i, ((const uint32_t*) buffer)[i>>2]);
 }
 
 static void showMap (int d) {
@@ -90,7 +104,6 @@ int main() {
     console.init();
     //console.baud(115200, fullSpeedClock()/2);
     printf("\n-------------------------------------------------------------\n");
-    led.mode(Pinmode::out);
 
     spi.init();
     spif.init();
@@ -107,6 +120,7 @@ int main() {
                     printf(
                       "  i - Show Info, <n> [dts] - Set Drive/Track/Sector\n"
                       "  r - Read, w - Write, m - Show Map, b - Show Buffer\n"
+                      "  [internal flash memory] R - Read, W - Write\n"
                       "  :... - Fill 128-byte buffer with Intel HEX bytes\n");
                     break;
                 case 'i': // info
@@ -122,6 +136,10 @@ int main() {
                     vread(); break;
                 case 'w': // write
                     vwrite(); break;
+                case 'R': // read
+                    iread(); break;
+                case 'W': // write
+                    iwrite(); break;
                 case 'm': // map
                     for (int i = 0; i < 8; ++i) showMap(i); break;
                 case ':': // intel hex
