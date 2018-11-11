@@ -1,4 +1,4 @@
-// Run a minimal "hello" example with z80 emu, to illustrate running z80 code
+// Minimal disk bootstrap example with z80 emu, using internal flash.
 
 #include <jee.h>
 #include <string.h>

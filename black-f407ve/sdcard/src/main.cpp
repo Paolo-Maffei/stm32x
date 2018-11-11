@@ -1,3 +1,5 @@
+// Very basic test of the SD-card driver in the JeeH library.
+
 #include <jee.h>
 #include <jee/spi-sdcard.h>
 

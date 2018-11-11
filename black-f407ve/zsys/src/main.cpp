@@ -1,4 +1,4 @@
-// Run a minimal "hello" example with z80 emu, to illustrate running z80 code
+// Launch CP/M, saved inside emulator and copied to internal flash.
 
 #include <jee.h>
 #include <string.h>

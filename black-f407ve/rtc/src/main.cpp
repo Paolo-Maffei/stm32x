@@ -1,3 +1,5 @@
+// Demo of the RTC code in the JeeH library.
+
 #include <jee.h>
 
 UartBufDev< PinA<9>, PinA<10> > console;

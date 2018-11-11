@@ -1,3 +1,5 @@
+// Very basic test of the SPI-flash driver in the JeeH library.
+
 #include <jee.h>
 #include <jee/spi-flash.h>
 

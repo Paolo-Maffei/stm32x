@@ -1,3 +1,7 @@
+// A demo to read/write on internal and external flash, with cmd interface.
+// The emulated disks are 8" SSSD, i.e. 77 tracks of 26 sectors of 128 bytes.
+// Type 'h' to get a brief summary of available commands.
+
 #include <jee.h>
 #include <jee/spi-flash.h>
 #include <jee/parse-cmd.h>

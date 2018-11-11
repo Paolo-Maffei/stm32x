@@ -1,3 +1,5 @@
+// Simple on-board LED blink demo, with periodic messages to the serial port.
+
 #include <jee.h>
 
 UartBufDev< PinA<9>, PinA<10> > console;
