@@ -50,8 +50,7 @@ void SystemCall (ZEXTEST* z, int req) {
 152 FEF3  DB 04               in a,(4)
 153 FEF5  C9          	ret
 #endif
-            int e = state->registers.byte[Z80_E],
-                d = state->registers.byte[Z80_D];
+            uint8_t e = DE, d = DE >> 8;
             int pos = 128 * (e + 26 * d);
             if (pos < sizeof rom)
                 memcpy(z->memory + HL, rom + pos, 128 * B);
