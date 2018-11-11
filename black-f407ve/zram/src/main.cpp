@@ -9,10 +9,13 @@ extern "C" {
 #include "macros.h"
 }
 
-uint8_t ram [0xE000]; // TODO more causes problems with PlatformIO upload (?)
+// use the extra 64K of CCM ram as ram disk for now
+// (the F407's 192K memory is split into 128K main + 64K CCM ram)
+auto ram = (uint8_t* const) 0x10000000;
+constexpr int ramSize = 0x10000;
 
 const uint8_t rom [] = {
-#include "sys.h";
+#include "sys.h"
 };
 
 UartDev< PinA<9>, PinA<10> > console;
@@ -52,7 +55,7 @@ void SystemCall (ZEXTEST* z, int req) {
 #endif
             uint8_t e = DE, d = DE >> 8;
             int pos = 128 * (e + 26 * d);
-            if (pos < sizeof ram)
+            if (pos < ramSize)
                 memcpy(z->memory + HL, ram + pos, 128 * B);
             else
                 memset(z->memory + HL, 0xE5, 128 * B);
@@ -62,7 +65,7 @@ void SystemCall (ZEXTEST* z, int req) {
         case 5: { // write
             uint8_t e = DE, d = DE >> 8;
             int pos = 128 * (e + 26 * d);
-            if (pos + 128 * B < sizeof ram) {
+            if (pos + 128 * B < ramSize) {
                 memcpy(ram + pos, z->memory + HL, 128 * B);
                 A = 0;
             } else
@@ -79,7 +82,7 @@ int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
 
-    memset(ram, 0xE5, sizeof ram);
+    memset(ram, 0xE5, ramSize);
     memcpy(ram, rom, sizeof rom);
 
     // now emulate a boot loader which loads the first "disk" block at 0x0000
