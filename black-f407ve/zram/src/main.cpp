@@ -14,8 +14,12 @@ extern "C" {
 auto ram = (uint8_t* const) 0x10000000;
 constexpr int ramSize = 0x10000;
 
-const uint8_t rom [] = {
+const uint8_t sys [] = {
 #include "sys.h"
+};
+
+const uint8_t hexsave [] = {
+#include "hexsave.h"
 };
 
 UartDev< PinA<9>, PinA<10> > console;
@@ -83,10 +87,13 @@ int main() {
     console.baud(115200, fullSpeedClock()/2);
 
     memset(ram, 0xE5, ramSize);
-    memcpy(ram, rom, sizeof rom);
+    memcpy(ram, sys, sizeof sys);
 
     // now emulate a boot loader which loads the first "disk" block at 0x0000
     memcpy(zex.memory, ram, 128);
+    // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
+    memcpy(zex.memory + 0x0100, hexsave, sizeof hexsave);
+
     Z80Reset(&zex.state);
 
     while (!zex.is_done)
