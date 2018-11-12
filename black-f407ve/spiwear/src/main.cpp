@@ -14,8 +14,8 @@ int printf(const char* fmt, ...) {
 
 // chip select needs a minute slowdown to work at 168 MHz
 SpiGpio< PinB<5>, PinB<4>, PinB<3>, SlowPin< PinB<0>, 2 > > spi;
-SpiFlash< decltype(spi) > spif;
-SpiWear< decltype(spif), PinA<6> > wear;
+SpiFlash< decltype(spi) > spiFlash;
+SpiWear< decltype(spiFlash), PinA<6> > spiWear;
 
 int main() {
     console.init();
@@ -23,10 +23,10 @@ int main() {
     printf("\n-------------------------------------------------------------\n");
 
     spi.init();
-    wear.init();
-    //spif.wipe();
+    spiWear.init();
+    //spiFlash.wipe();
 
-    printf("spif %x, %d kB\n", spif.devId(), spif.size());
+    printf("spiFlash %x, %d kB\n", spiFlash.devId(), spiFlash.size());
 
     static uint8_t buf [128];
 
@@ -34,13 +34,13 @@ int main() {
     for (int n = 0; n < 30; ++n) {
         int offset = n < 15 ? 0 : n < 25 ? 2048 : 4096;
 
-        wear.read128(offset + n % 5, buf);
+        spiWear.read128(offset + n % 5, buf);
         int sum = 0;
         for (uint32_t i = 0; i < sizeof buf; ++i)
             sum += buf[i];
 
         ++buf[0];
-        wear.write128(offset + n % 5, buf);
+        spiWear.write128(offset + n % 5, buf);
 
         printf("block %d ticks %d sum %d buf %02x%02x...\n",
                 offset + n % 5, ticks, sum, buf[0], buf[1]);
