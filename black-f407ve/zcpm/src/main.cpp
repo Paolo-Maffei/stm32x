@@ -88,20 +88,19 @@ int main() {
     spi.init();
     spiWear.init();
 
-    if (0) {
+    if (0) // wipe all spi flash disks
         spiFlash.wipe();
 
-        // set up system tracks
+    if (0) // set up system tracks on disk 1
         for (uint32_t i = 0; i < sizeof sys; i += 128)
             spiWear.write128(i / 128, sys + i);
 
-        // set up empty directory blocks
+    if (0) // set up empty directory blocks on disk 1
         for (int i = 0; i < 16; ++i) {
             uint8_t buf [128];
             memset(buf, 0xE5, sizeof buf);
             spiWear.write128(2*26 + i, buf);
         }
-    }
 
     // emulate a boot loader which loads the first block of "disk" A: at 0x0000
     spiWear.read128(0, zex.memory);
