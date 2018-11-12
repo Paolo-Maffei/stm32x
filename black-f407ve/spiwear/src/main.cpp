@@ -20,7 +20,7 @@ SpiFlash< decltype(spi) > spif;
 
 template< typename SPIF >
 class SpiWear {
-    constexpr static bool DEBUG = true;
+    constexpr static bool DEBUG = false;
     constexpr static uint32_t groupSize   = 256*1024;
     constexpr static uint32_t pageSize    = 4*1024;
     constexpr static uint32_t blockSize   = 128;
@@ -29,8 +29,10 @@ class SpiWear {
 
     int mapBase = -1;
     uint16_t map [blockSize/2];  // only [1..pageSize] entries actually used
+    uint8_t flushBuf [pageSize];
 
     void loadMap (int blk) {
+        // the map is on the first block of the last page of each group
         int base = (blk / groupBlocks + 1) * groupBlocks - pageBlocks;
         if (mapBase != base) {
             mapBase = base;
@@ -65,9 +67,35 @@ class SpiWear {
     }
 
     void flushMapEntries () {
-        if (DEBUG) printf("flushMapEntries\n");
+        int groupBase = (mapBase / groupBlocks) * groupBlocks;
+        if (DEBUG) printf("flushMapEntries %d..%d\n", groupBase, mapBase);
+
+        if (DEBUG) {
+            printf("map:");
+            for (uint32_t i = 0; i < pageBlocks; ++i)
+                printf(" %d", map[i]);
+            printf("\n");
+        }
+
+        // go through all the pages and rewrite them if they have map entries
+        for (int g = groupBase; g < mapBase; g += pageBlocks) {
+            for (uint32_t slot = 1; slot < pageBlocks; ++slot)
+                if (g <= map[slot] && map[slot] < g + pageBlocks) {
+                    if (DEBUG) printf("flushing %d..%d\n", g, g+pageBlocks-1);
+                    // there is at least one remapped block we need to flush
+                    // so first, read all the blocks, with remapping
+                    for (uint32_t i = 0; i < pageBlocks; ++i)
+                        read128(g + i, flushBuf + blockSize * i);
+                    // ... and then, write out all the blocks, unmapped
+                    for (uint32_t i = 0; i < pageBlocks; ++i)
+                        writeUnmapped(g + i, flushBuf + blockSize * i);
+                    break;
+                }
+        }
+
+        if (DEBUG) printf("flush done, clear map %d\n", mapBase);
         memset(map, 0xFF, sizeof map);
-        writeUnmapped(mapBase, map);
+        SPIF::erase(mapBase>>1);
     }
 
     void readUnmapped (int blk, void* buf) {
@@ -119,17 +147,18 @@ int main() {
 
     // only run a few times, don't wear out flash while testing
     for (int n = 0; n < 35; ++n) {
-        ++buf[0];
-        printf("\tWRITE\n");
-        spiw.write128(0, buf);
-
         printf("\tREAD\n");
-        spiw.read128(0, buf);
+        spiw.read128(n % 5, buf);
         int sum = 0;
         for (uint32_t i = 0; i < sizeof buf; ++i)
             sum += buf[i];
 
-        printf("%d sum %d buf %02x%02x...\n", ticks, sum, buf[0], buf[1]);
+        ++buf[0];
+        printf("\tWRITE\n");
+        spiw.write128(n % 5, buf);
+
+        printf("block %d ticks %d sum %d buf %02x%02x...\n",
+                n % 5, ticks, sum, buf[0], buf[1]);
 
         led = 0;
         wait_ms(100);
