@@ -168,7 +168,7 @@ punch:
 
 ; Data area --------------------------------------------------------------------
 
-dirbuf: db ' 64K CP/M 2.2',13,10,0
+dirbuf: db '64K CP/M 2.2',13,10,0
         ds dirbuf+128-$ ; scratch directory area
 
 sekdsk: ds 1   ; seek disk number
