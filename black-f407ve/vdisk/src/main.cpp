@@ -18,7 +18,8 @@ int printf(const char* fmt, ...) {
 
 const uint8_t* FlashBase = (const uint8_t*) 0x40000;
 
-SpiGpio< PinB<5>, PinB<4>, PinB<3>, PinB<0> > spi;
+// chip select needs a minute slowdown to work at 168 MHz
+SpiGpio< PinB<5>, PinB<4>, PinB<3>, SlowPin< PinB<0>, 0 > > spi;
 SpiFlash< decltype(spi) > spif;
 
 Command cmd;
@@ -106,7 +107,7 @@ static void loadBuffer () {
 
 int main() {
     console.init();
-    //console.baud(115200, fullSpeedClock()/2);
+    console.baud(115200, fullSpeedClock()/2);
     printf("\n-------------------------------------------------------------\n");
 
     spi.init();

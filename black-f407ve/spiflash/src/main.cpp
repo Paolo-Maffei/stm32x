@@ -12,7 +12,8 @@ int printf(const char* fmt, ...) {
 
 PinA<6> led;
 
-SpiGpio< PinB<5>, PinB<4>, PinB<3>, PinB<0> > spi;
+// chip select needs a minute slowdown to work at 168 MHz
+SpiGpio< PinB<5>, PinB<4>, PinB<3>, SlowPin< PinB<0>, 0 > > spi;
 SpiFlash< decltype(spi) > spif;
 
 int main() {
@@ -26,7 +27,7 @@ int main() {
 
     printf("spif %x, %d kB\n", spif.devId(), spif.size());
 
-    static uint8_t buf [10000];
+    static uint8_t buf [4000];
 
     while (1) {
         spif.read(0, buf, sizeof buf);
@@ -34,6 +35,8 @@ int main() {
         for (int i = 0; i < sizeof buf; ++i)
             sum += buf[i];
         printf("%d sum %d\n", ticks, sum);
+
+        spif.write(0, buf, sizeof buf);
 
         led = 0;
         wait_ms(100);
