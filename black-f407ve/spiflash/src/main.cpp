@@ -17,18 +17,24 @@ SpiFlash< decltype(spi) > spif;
 
 int main() {
     console.init();
-	console.baud(115200, fullSpeedClock()/2);
-    wait_ms(1000);
+    console.baud(115200, fullSpeedClock()/2);
     printf("\n-------------------------------------------------------------\n");
-	led.mode(Pinmode::out);
+    led.mode(Pinmode::out);
 
     spi.init();
     spif.init();
 
     printf("spif %x, %d kB\n", spif.devId(), spif.size());
 
+    static uint8_t buf [10000];
+
     while (1) {
-        printf("%d\n", ticks);
+        spif.read(0, buf, sizeof buf);
+        int sum = 0;
+        for (int i = 0; i < sizeof buf; ++i)
+            sum += buf[i];
+        printf("%d sum %d\n", ticks, sum);
+
         led = 0;
         wait_ms(100);
         led = 1;
