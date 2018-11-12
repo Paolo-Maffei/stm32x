@@ -20,6 +20,8 @@ const uint8_t hexsave [] = {
 };
 
 UartDev< PinA<9>, PinA<10> > console;
+PinE<4> key0;
+PinE<3> key1;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
@@ -84,23 +86,43 @@ void SystemCall (ZEXTEST* z, int req) {
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
+    printf("\r\n");
+
+    key0.mode(Pinmode::in_pullup); // inverted logic
+    key1.mode(Pinmode::in_pullup); // inverted logic
 
     spi.init();
     spiWear.init();
 
-    if (0) // wipe all spi flash disks
-        spiFlash.wipe();
+    // The "K0" and "K1" buttons are checked on power-up and reset:
+    //  - both pressed: wipe all, re-install system and clear directory on 1
+    //  - left "K0" button pressed: clear directory on 1
+    //  - right "K1" button pressed: re-install system on 1
+    // Disk 1 is the first 256 KB of spi flash, normally mounted as A:
 
-    if (0) // set up system tracks on disk 1
+    if (!key0 && !key1) { // wipe entire spi flash
+        printf("[erasing SPI flash]\n");
+        spiFlash.wipe();
+    }
+
+    if (!key1) { // set up system tracks on disk 1
+        printf("[updating system tracks]\n");
         for (uint32_t i = 0; i < sizeof sys; i += 128)
             spiWear.write128(i / 128, sys + i);
+    }
 
-    if (0) // set up empty directory blocks on disk 1
+    if (!key0) { // set up empty directory blocks on disk 1
+        printf("[clearing boot directory]\n");
         for (int i = 0; i < 16; ++i) {
             uint8_t buf [128];
             memset(buf, 0xE5, sizeof buf);
             spiWear.write128(2*26 + i, buf);
         }
+    }
+
+    // wait for both keys to be released
+    while (!key0 || !key1)
+        wait_ms(100); // debounce
 
     // emulate a boot loader which loads the first block of "disk" A: at 0x0000
     spiWear.read128(0, zex.memory);

@@ -19,7 +19,7 @@ boot:	ld de,greet
 
         jp BIOS                 ; jump to bios cold start
 
-greet:  db 13,10,'[RetroLab Z80]',13,10,0
+greet:  db 13,10,'[RetroLab Z80] ',0
 
         ds 127-$
         db 0                    ; so generated code is exactly 128 bytes
