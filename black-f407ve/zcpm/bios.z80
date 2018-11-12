@@ -41,6 +41,7 @@ wboote: jp wboot    ;  1 Warm boot
 
 dpbase:	dw 0,0,0,0,dirbuf,dpb,0,alv0
 	dw 0,0,0,0,dirbuf,dpb,0,alv1
+	dw 0,0,0,0,dirbuf,dpb,0,alv2
 
 dpb:	dw 26  ; SPT - sectors per track
 	db 3   ; BSH - block shift factor
@@ -109,7 +110,7 @@ reader:	ld a,1Ah
 ; Disk I/O ---------------------------------------------------------------------
 
 seldsk: ld a,c
-	cp 2
+	cp 3
         jr nc,baddsk
         ld h,0
         ld l,c
@@ -145,14 +146,14 @@ sectrn: ld l,c
 	ld h,b
         ret
 
-read:	ld a,(usrdrv)
+read:	ld a,(sekdsk)
         ld b,1
         ld de,(seksat)
         ld hl,(dmaadr)
         in a,(4)
 	ret
 
-write:	ld a,(usrdrv)
+write:	ld a,(sekdsk)
         ld b,1
         ld de,(seksat)
         ld hl,(dmaadr)
@@ -174,8 +175,9 @@ sekdsk: ds 1   ; seek disk number
 seksat: ds 2   ; seek sector and track number
 dmaadr: ds 2   ; last dma address
 
-alv0:   ds 31  ; allocation vector 0 (max 248 blocks)
-alv1:   ds 31  ; allocation vector 1 (max 248 blocks)
+alv0:   ds 32  ; allocation vector 0 (max 255 blocks)
+alv1:   ds 32  ; allocation vector 1 (max 255 blocks)
+alv2:   ds 32  ; allocation vector 2 (max 255 blocks)
 
 spare:  equ BEND-$
         ds spare                ; BIOS base page and version number
