@@ -17,7 +17,6 @@ PinA<6> led;
 SpiGpio< PinB<5>, PinB<4>, PinB<3>, SlowPin< PinB<0>, 2 > > spi;
 SpiFlash< decltype(spi) > spif;
 
-
 template< typename SPIF >
 class SpiWear {
     constexpr static bool DEBUG = false;
@@ -87,8 +86,11 @@ class SpiWear {
                     for (uint32_t i = 0; i < pageBlocks; ++i)
                         read128(g + i, flushBuf + blockSize * i);
                     // ... and then, write out all the blocks, unmapped
+                    // XXX power loss after this point can lead to data loss
+                    // the reason is that the first write will do a page erase
                     for (uint32_t i = 0; i < pageBlocks; ++i)
                         writeUnmapped(g + i, flushBuf + blockSize * i);
+                    // XXX end of critical area, power loss is no longer risky
                     break;
                 }
         }
@@ -110,6 +112,8 @@ class SpiWear {
 
 public:
     void init () {
+        led.mode(Pinmode::out);
+        led = 1; // off, inverted logic
         SPIF::init();
     }
 
@@ -119,6 +123,7 @@ public:
     }
 
     void write128 (int blk, const void* buf) {
+        led = 0; // on, inverted logic
         loadMap(blk);
         int slot = findFreeSlot();
         if (slot == 0) {
@@ -126,6 +131,7 @@ public:
             slot = 1; // the map is now free again
         }
         writeNewSlot(slot, blk, buf);
+        led = 1; // off, inverted logic
     }
 };
 
@@ -135,35 +141,30 @@ int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
     printf("\n-------------------------------------------------------------\n");
-    led.mode(Pinmode::out);
 
     spi.init();
-    spif.init();
+    spiw.init();
     //spif.wipe();
 
     printf("spif %x, %d kB\n", spif.devId(), spif.size());
 
     static uint8_t buf [128];
+    constexpr int offset = 2048;
 
     // only run a few times, don't wear out flash while testing
     for (int n = 0; n < 35; ++n) {
-        printf("\tREAD\n");
-        spiw.read128(n % 5, buf);
+        spiw.read128(offset + n % 5, buf);
         int sum = 0;
         for (uint32_t i = 0; i < sizeof buf; ++i)
             sum += buf[i];
 
         ++buf[0];
-        printf("\tWRITE\n");
-        spiw.write128(n % 5, buf);
+        spiw.write128(offset + n % 5, buf);
 
         printf("block %d ticks %d sum %d buf %02x%02x...\n",
                 n % 5, ticks, sum, buf[0], buf[1]);
 
-        led = 0;
         wait_ms(100);
-        led = 1;
-        wait_ms(900);
     }
 
     while (true) {}
