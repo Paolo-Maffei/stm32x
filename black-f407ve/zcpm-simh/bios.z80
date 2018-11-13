@@ -72,7 +72,7 @@ boot:	di
 wboot:	di
 	ld sp,0100h
 
-        ld a,(usrdrv)
+	xor a
         ld b,44                 ; read CCP + BDOS into memory
         ld de,1                 ; skip first sector on first track
         ld hl,CCP               ; start address
