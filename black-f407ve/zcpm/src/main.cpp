@@ -52,7 +52,7 @@ static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
 
     int sect = blk / 4;  // CP/M blocks are 128b, SD card sectors are 512b
     if (dmp != currDisk || sect != currSect) {
-        if (currDisk != 0 && currDirty)
+        if (currDirty) // implies currDisk being valid
             if (!currDisk->writeSect(currSect, currBuf))
                 printf("WERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
         currDisk = dmp;
