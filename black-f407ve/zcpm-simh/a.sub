@@ -1,0 +1,21 @@
+; Assemble all source files -jcw, 2017-03-17
+;
+r bios.z80
+z80asm bios/f
+w bios.com b
+w bios.lst t
+;
+r bdos22.z80
+z80asm bdos22/f
+w bdos22.com b
+w bdos22.lst t
+;
+r boot.z80
+z80asm boot/f
+w boot.com b
+w boot.lst t
+;
+r hexsave.z80
+z80asm hexsave/f
+w hexsave.com b
+w hexsave.lst t
