@@ -36,7 +36,7 @@ SpiWear< decltype(spiFlash), PinA<6> > spiWear;
 
 SpiGpio< PinD<2>, PinC<8>, PinC<12>, PinC<11> > spi2;
 SdCard< decltype(spi2) > sdCard;
-FatFS< decltype(sdCard), 3 > fatFs;
+FatFS< decltype(sdCard) > fatFs;
 
 // TODO yucky init
 typedef FileMap< decltype(fatFs), 9 > DiskMap;
