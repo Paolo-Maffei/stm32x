@@ -36,7 +36,7 @@ SpiWear< decltype(spiFlash), PinA<6> > spiWear;
 
 SpiGpio< PinD<2>, PinC<8>, PinC<12>, PinC<11> > spi2;
 SdCard< decltype(spi2) > sdCard;
-FatFS< decltype(sdCard) > fatFs;
+FatFS< decltype(sdCard), 3 > fatFs;
 
 // TODO yucky init
 typedef FileMap< decltype(fatFs), 9 > DiskMap;
@@ -143,7 +143,7 @@ ZEXTEST zex;
 
 int main() {
     console.init();
-    enableSysTick(); //console.baud(115200, fullSpeedClock()/2);
+    console.baud(115200, fullSpeedClock()/2);
     printf("\r\n");
 
     key0.mode(Pinmode::in_pullup); // inverted logic
