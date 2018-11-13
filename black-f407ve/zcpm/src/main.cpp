@@ -42,11 +42,14 @@ FatFS< decltype(sdCard) > fatFs;
 typedef FileMap< decltype(fatFs), 9 > DiskMap;
 DiskMap disks [] = {fatFs,fatFs};
 DiskMap* currDisk;
-int currSect;
-bool currDirty;
-uint8_t currBuf [512];
 
-void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
+ZEXTEST zex;
+
+static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
+    static int currSect;
+    static bool currDirty;
+    static uint8_t currBuf [512];
+
     int sect = blk / 4;  // CP/M blocks are 128b, SD card sectors are 512b
     if (dmp != currDisk || sect != currSect) {
         if (currDisk != 0 && currDirty)
@@ -63,11 +66,10 @@ void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
     return currBuf + (blk*128) % 512;
 }
 
-const uint8_t skewMap [] = {
-    1,7,13,19,25,5,11,17,23,3,9,15,21,2,8,14,20,26,6,12,18,24,4,10,16,22
-};
-
 void SystemCall (ZEXTEST* z, int req) {
+    static const uint8_t skewMap [] = {
+        1,7,13,19,25,5,11,17,23,3,9,15,21,2,8,14,20,26,6,12,18,24,4,10,16,22
+    };
 
     Z80_STATE* state = &(z->state);
     //printf("req %d A %d\n", req, A);
@@ -86,14 +88,14 @@ void SystemCall (ZEXTEST* z, int req) {
                 console.putc(z->memory[i]);
             break;
         case 4: { // read
-#if 0
-read:   ld a,(sekdrv)
-        ld b,1
-        ld de,(seksat)
-        ld hl,(dmaadr)
-        in a,(4)
-	ret
-#endif
+            /*
+             *  ld a,(sekdrv)
+             *  ld b,1
+             *  ld de,(seksat)
+             *  ld hl,(dmaadr)
+             *  in a,(4)
+             *  ret
+             */
             uint8_t sec = DE, trk = DE >> 8, dsk = A;
             //printf("r128: cnt %d dsk %d trk %d sec %d -> %d\n",
             //        B, dsk, trk, sec, skewMap[sec]);
@@ -106,14 +108,6 @@ read:   ld a,(sekdrv)
                     memcpy(ptr, reBlock128(&disks[dsk-1], blk+i, false), 128);
                 else
                     spiWear.read128((256*1024/128)*dsk + blk + i, ptr);
-            }
-            if (dsk > 10) {
-                uint8_t* ptr = (uint8_t*) reBlock128(&disks[dsk-1], blk, false);
-                for (int i = 0; i < 128; ++i) {
-                    printf("%c", ' ' <= ptr[i] && ptr[i] <= '~' ? ptr[i] : '.');
-                    if (i % 32 == 31)
-                        printf("\n");
-                }
             }
             A = 0;
             break;
@@ -139,7 +133,28 @@ read:   ld a,(sekdrv)
     }
 }
 
-ZEXTEST zex;
+void listSdFiles () {
+    printf("\n");
+    for (int i = 0; i < fatFs.rmax; ++i) {
+        int off = (i*32) % 512;
+        if (off == 0)
+            sdCard.read512(fatFs.rdir + i/16, fatFs.buf);
+        int length = *(int32_t*) (fatFs.buf+off+28);
+        if (length >= 0 && '!' < fatFs.buf[off] &&
+                fatFs.buf[off] <= '~' && fatFs.buf[off+6] != '~') {
+            uint8_t attr = fatFs.buf[off+11];
+            printf("   %s\t", attr & 8 ? "vol:" : attr & 16 ? "dir:" : "");
+            for (int j = 0; j < 11; ++j) {
+                int c = fatFs.buf[off+j];
+                if (j == 8)
+                    printf(".");
+                printf("%c", c);
+            }
+            printf(" %7d b\n", length);
+        }
+    }
+    printf("\n");
+}
 
 int main() {
     console.init();
@@ -162,26 +177,7 @@ int main() {
                                     fatFs.base, fatFs.spc, fatFs.rdir,
                                     fatFs.rmax, fatFs.data, fatFs.clim);
 #endif
-        printf("\n");
-        for (int i = 0; i < fatFs.rmax; ++i) {
-            int off = (i*32) % 512;
-            if (off == 0)
-                sdCard.read512(fatFs.rdir + i/16, fatFs.buf);
-            int length = *(int32_t*) (fatFs.buf+off+28);
-            if (length >= 0 && '!' < fatFs.buf[off] &&
-                    fatFs.buf[off] <= '~' && fatFs.buf[off+6] != '~') {
-                uint8_t attr = fatFs.buf[off+11];
-                printf("   %s\t", attr & 8 ? "vol:" : attr & 16 ? "dir:" : "");
-                for (int j = 0; j < 11; ++j) {
-                    int c = fatFs.buf[off+j];
-                    if (j == 8)
-                        printf(".");
-                    printf("%c", c);
-                }
-                printf(" %7d b\n", length);
-            }
-        }
-        printf("\n");
+        listSdFiles();
 
         int len;
         len = disks[0].open("CPMA    CPM");
