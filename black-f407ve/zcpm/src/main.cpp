@@ -1,4 +1,4 @@
-// Launch CP/M, saved inside emulator and copied to a RAM-based disk.
+// Launch CP/M, with virtual disks on SPI flash and SD card.
 
 #include <jee.h>
 #include <jee/spi-flash.h>
@@ -52,15 +52,13 @@ static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
 
     int sect = blk / 4;  // CP/M blocks are 128b, SD card sectors are 512b
     if (dmp != currDisk || sect != currSect) {
-        if (currDirty) // implies currDisk being valid
-            if (!currDisk->writeSect(currSect, currBuf))
-                printf("WERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
+        if (currDirty && !currDisk->ioSect(true, currSect, currBuf))
+            printf("WR-ERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
         currDisk = dmp;
         currSect = sect;
         currDirty = false;
-        if (currDisk != 0)
-            if (!currDisk->readSect(currSect, currBuf))
-                printf("RERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
+        if (currDisk != 0 && !currDisk->ioSect(false, currSect, currBuf))
+            printf("RD-ERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
     }
     currDirty |= dirty;
     return currBuf + (blk*128) % 512;
@@ -87,44 +85,39 @@ void SystemCall (ZEXTEST* z, int req) {
             for (uint16_t i = DE; z->memory[i] != 0; i++)
                 console.putc(z->memory[i]);
             break;
-        case 4: { // read
-            /*
-             *  ld a,(sekdrv)
-             *  ld b,1
-             *  ld de,(seksat)
-             *  ld hl,(dmaadr)
-             *  in a,(4)
-             *  ret
-             */
-            uint8_t sec = DE, trk = DE >> 8, dsk = A;
-            //printf("r128: cnt %d dsk %d trk %d sec %d -> %d\n",
-            //        B, dsk, trk, sec, skewMap[sec]);
-            if (dsk > 0)
-                sec = skewMap[sec]-1;
-            int blk = 26 * trk + sec;
-            for (int i = 0; i < B; ++i) {
-                void* ptr = z->memory + HL + 128 * i;
-                if (dsk > 0)
-                    memcpy(ptr, reBlock128(&disks[dsk-1], blk+i, false), 128);
-                else
-                    spiWear.read128((256*1024/128)*dsk + blk + i, ptr);
-            }
-            A = 0;
-            break;
-        }
+        case 4:   // read
+            //  ld a,(sekdrv)
+            //  ld b,1
+            //  ld de,(seksat)
+            //  ld hl,(dmaadr)
+            //  in a,(4)
+            //  ret
         case 5: { // write
+            bool out = req == 5;
             uint8_t sec = DE, trk = DE >> 8, dsk = A;
+            //printf("rw128: out %d cnt %d dsk %d trk %d sec %d -> %d\n",
+            //        out, B, dsk, trk, sec, skewMap[sec]);
             if (dsk > 0)
                 sec = skewMap[sec]-1;
             int blk = 26 * trk + sec;
-            for (int i = 0; i < B; ++i) {
-                void* ptr = z->memory + HL + 128 * i;
-                if (dsk > 0)
-                    memcpy(reBlock128(&disks[dsk-1], blk+i, true), ptr, 128);
-                else
-                    spiWear.write128((256*1024/128)*dsk + blk + i, ptr);
-            }
+
             A = 0;
+            for (int i = 0; i < B; ++i) {
+                void* mem = z->memory + HL + 128 * i;
+                if (dsk > 0) {
+                    void* ptr = reBlock128(disks + dsk - 1, blk + i, out);
+                    if (out)
+                        memcpy(ptr, mem, 128);
+                    else
+                        memcpy(mem, ptr, 128);
+                } else {
+                    int off = (256*1024/128)*dsk + blk + i;
+                    if (out)
+                        spiWear.write128(off, mem);
+                    else
+                        spiWear.read128(off, mem);
+                }
+            }
             break;
         }
         default:
