@@ -101,18 +101,18 @@ int main() {
     // Disk 1 is the first 256 KB of spi flash, normally mounted as A:
 
     if (!key0 && !key1) { // wipe entire spi flash
-        printf("[erasing SPI flash]\n");
+        printf("[erasing SPI flash] ");
         spiFlash.wipe();
     }
 
     if (!key1) { // set up system tracks on disk 1
-        printf("[updating system tracks]\n");
+        printf("[updating system tracks] ");
         for (uint32_t i = 0; i < sizeof sys; i += 128)
             spiWear.write128(i / 128, sys + i);
     }
 
     if (!key0) { // set up empty directory blocks on disk 1
-        printf("[clearing boot directory]\n");
+        printf("[clearing boot directory] ");
         for (int i = 0; i < 16; ++i) {
             uint8_t buf [128];
             memset(buf, 0xE5, sizeof buf);
