@@ -2,6 +2,7 @@
 
 #include <jee.h>
 #include <jee/spi-flash.h>
+#include <jee/spi-sdcard.h>
 #include <string.h>
 #include "spi-wear.h"
 
@@ -29,9 +30,15 @@ int printf(const char* fmt, ...) {
 }
 
 // chip select needs a minute slowdown to work at 168 MHz
-SpiGpio< PinB<5>, PinB<4>, PinB<3>, SlowPin< PinB<0>, 2 > > spi;
-SpiFlash< decltype(spi) > spiFlash;
+SpiGpio< PinB<5>, PinB<4>, PinB<3>, SlowPin< PinB<0>, 2 > > spi1;
+SpiFlash< decltype(spi1) > spiFlash;
 SpiWear< decltype(spiFlash), PinA<6> > spiWear;
+
+SpiGpio< PinD<2>, PinC<8>, PinC<12>, PinC<11> > spi2;
+SdCard< decltype(spi2) > sdCard;
+FatFS< decltype(sdCard), 3 > fatFs;
+FileMap< decltype(fatFs), 9 > cpma (fatFs);
+FileMap< decltype(fatFs), 9 > zork1 (fatFs);
 
 ZEXTEST zex;
 
@@ -91,8 +98,49 @@ int main() {
     key0.mode(Pinmode::in_pullup); // inverted logic
     key1.mode(Pinmode::in_pullup); // inverted logic
 
-    spi.init();
+    spi1.init();
     spiWear.init();
+
+    spi2.init();
+    if (sdCard.init()) {
+        printf("[sd card: sdhc %d]\n", sdCard.sdhc);
+
+        fatFs.init();
+
+        printf("base %d spc %d rdir %d rmax %d data %d clim %d\n\n",
+                                    fatFs.base, fatFs.spc, fatFs.rdir,
+                                    fatFs.rmax, fatFs.data, fatFs.clim);
+
+        for (int i = 0; i < fatFs.rmax; ++i) {
+            int o = (i*32) % 512;
+            if (o == 0)
+                sdCard.read512(fatFs.rdir + i/16, fatFs.buf);
+            int length = *(int32_t*) (fatFs.buf+o+28);
+            if (length >= 0 && '!' < fatFs.buf[o] &&
+                    fatFs.buf[o] <= '~' && fatFs.buf[o+6] != '~') {
+                uint8_t attr = fatFs.buf[o+11];
+                printf("   %s\t", attr & 8 ? "vol:" : attr & 16 ? "dir:" : "");
+                for (int j = 0; j < 11; ++j) {
+                    int c = fatFs.buf[o+j];
+                    if (c != ' ') {
+                        if (j == 8 && (attr & 0x08) == 0)
+                            printf(".");
+                        printf("%c", c);
+                    }
+                }
+                printf(" (%db)\n", length);
+            }
+        }
+        printf("\n");
+
+        int len;
+        len = cpma.open("CPMA    CPM");
+        if (len > 0)
+            printf("  cpma = %db\n", len);
+        len = zork1.open("ZORK1   CPM");
+        if (len > 0)
+            printf("  zork1 = %db\n", len);
+    }
 
     // The "K0" and "K1" buttons are checked on power-up and reset:
     //  - both pressed: wipe all, re-install system and clear directory on 1
