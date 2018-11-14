@@ -146,18 +146,13 @@ sectrn: ld l,c
 	ld h,b
         ret
 
-read:	ld a,(sekdsk)
-        ld b,1
+read:	ld b,1
+        jr rdwr
+write:	ld b,1+128
+rdwr:   ld a,(sekdsk)
         ld de,(seksat)
         ld hl,(dmaadr)
         in a,(4)
-	ret
-
-write:	ld a,(sekdsk)
-        ld b,1
-        ld de,(seksat)
-        ld hl,(dmaadr)
-        in a,(5)
 	ret
 
 listst:
@@ -168,7 +163,7 @@ punch:
 
 ; Data area --------------------------------------------------------------------
 
-dirbuf: db '64K CP/M 2.2',13,10,0
+dirbuf: db '64k CP/M vers 2.2',13,10,0
         ds dirbuf+128-$ ; scratch directory area
 
 sekdsk: ds 1   ; seek disk number

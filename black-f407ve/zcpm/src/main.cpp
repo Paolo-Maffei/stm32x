@@ -85,24 +85,23 @@ void SystemCall (ZEXTEST* z, int req) {
             for (uint16_t i = DE; z->memory[i] != 0; i++)
                 console.putc(z->memory[i]);
             break;
-        case 4:   // read
+        case 4: { // read/write
             //  ld a,(sekdrv)
-            //  ld b,1
+            //  ld b,1 ; +128 for write
             //  ld de,(seksat)
             //  ld hl,(dmaadr)
             //  in a,(4)
             //  ret
-        case 5: { // write
-            bool out = req == 5;
-            uint8_t sec = DE, trk = DE >> 8, dsk = A;
+            bool out = (B & 0x80) != 0;
+            uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
             //printf("rw128: out %d cnt %d dsk %d trk %d sec %d -> %d\n",
-            //        out, B, dsk, trk, sec, skewMap[sec]);
+            //        out, cnt, dsk, trk, sec, skewMap[sec]);
             if (dsk > 0)
                 sec = skewMap[sec]-1;
             int blk = 26 * trk + sec;
 
             A = 0;
-            for (int i = 0; i < B; ++i) {
+            for (int i = 0; i < cnt; ++i) {
                 void* mem = z->memory + HL + 128 * i;
                 if (dsk > 0) {
                     void* ptr = reBlock128(disks + dsk - 1, blk + i, out);
