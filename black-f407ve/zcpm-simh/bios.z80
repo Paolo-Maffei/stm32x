@@ -148,7 +148,7 @@ sectrn: ld l,c
 
 read:	ld b,1
         jr rdwr
-write:	ld b,1+128
+write:	ld b,1+80h
 rdwr:   ld a,(sekdsk)
         ld de,(seksat)
         ld hl,(dmaadr)

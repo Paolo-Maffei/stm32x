@@ -157,7 +157,7 @@ BIOS    Z80
   148                   
   149 FEF5  06 01       read:	ld b,1
   150 FEF7  18 02               jr rdwr
-  151 FEF9  06 81       write:	ld b,1+128
+  151 FEF9  06 81       write:	ld b,1+80h
   152 FEFB  3A FF8A     rdwr:   ld a,(sekdsk)
   153 FEFE  ED 5B FF8B          ld de,(seksat)
   154 FF02  2A FF8D             ld hl,(dmaadr)
