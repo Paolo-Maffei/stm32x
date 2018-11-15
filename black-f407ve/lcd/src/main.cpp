@@ -39,18 +39,13 @@ int main () {
     initFsmcLcd();
     lcd.init();
     uint32_t start = ticks;
-    for (int i = 0; i < 100; ++i)
-        lcd.clear();
+    lcd.clear();
     printf("%d ms\n", ticks - start);
 
     backlight = 1;
 
     while (true) {
         printf("hello %d\n", ticks);
-        led = 0;
-        wait_ms(100);
-        led = 1;
-        wait_ms(400);
 
         static uint16_t colour = 0xF800;
         lcd.fill(0, 0, 140, 300, colour);
@@ -61,5 +56,10 @@ int main () {
         static uint8_t s = 0;
         lcd.vscroll(s);
         s += 8;
+
+        led = 0;
+        wait_ms(100);
+        led = 1;
+        wait_ms(400);
     }
 }
