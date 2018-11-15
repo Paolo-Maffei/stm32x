@@ -1,6 +1,9 @@
 // see [1] https://jeelabs.org/ref/STM32F4-RM0090.pdf
 
 #include <jee.h>
+#include <jee/mem-ili9341.h>
+
+ILI9341<0x60080000> lcd;
 
 UartDev< PinA<9>, PinA<10> > console;
 
@@ -8,10 +11,6 @@ int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
     return 0;
 }
-
-#include "mem-ili9341.h"
-
-ILI9341< 0x60080000 > lcd;
 
 static void initFsmcLcd () {
     MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FSMC [1] p.245
@@ -30,7 +29,7 @@ PinA<6> led;
 PinB<1> backlight;
 
 int main () {
-    //backlight.mode(Pinmode::out); // turn backlight off
+    backlight.mode(Pinmode::out); // turn backlight off
 
     console.init();
     console.baud(115200, fullSpeedClock()/2);
@@ -44,11 +43,7 @@ int main () {
         lcd.clear();
     printf("%d ms\n", ticks - start);
 
-    //backlight = 1;
-
-    //lcd.fill(0, 0, 240, 160, 0xF800);
-    //lcd.fill(0, 0, 240, 320, 0x001F);
-    //lcd.fill(0, 0, 240, 320, 0x07E0);
+    backlight = 1;
 
     while (true) {
         printf("hello %d\n", ticks);
@@ -57,10 +52,11 @@ int main () {
         led = 1;
         wait_ms(400);
 
-        static uint16_t colour = 0xF000;
+        static uint16_t colour = 0xF800;
         lcd.fill(0, 0, 140, 300, colour);
-        lcd.fill(200, 10, 10, 200, colour);
         colour = ~colour;
+
+        lcd.fill(200, 10, 10, 200, 0xFFE0);
 
         static uint8_t s = 0;
         lcd.vscroll(s);
