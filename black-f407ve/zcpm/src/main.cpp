@@ -43,6 +43,8 @@ typedef FileMap< decltype(fatFs), 9 > DiskMap;
 DiskMap disks [] = {fatFs,fatFs};
 DiskMap* currDisk;
 
+RTC rtc;
+
 ZEXTEST zex;
 
 static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
@@ -119,6 +121,29 @@ void SystemCall (ZEXTEST* z, int req) {
             }
             break;
         }
+        case 5: { // time get/set
+            if (C == 0) {
+                RTC::DateTime dt = rtc.get();
+                printf("%d %02d/%02d/%02d %02d:%02d:%02d\n", ticks,
+                        dt.yr, dt.mo, dt.dy, dt.hh, dt.mm, dt.ss);
+                HL = DE;
+                uint8_t* ptr = z->memory + HL;
+                ptr[0] = 1; // TODO garbage, for now
+                ptr[1] = 2;
+                ptr[2] = dt.hh + 6*(dt.hh/10); // hours, to BCD
+                ptr[3] = dt.mm + 6*(dt.mm/10); // minutes, to BCD
+                ptr[4] = dt.ss + 6*(dt.ss/10); // seconcds, to BCD
+            } else {
+                RTC::DateTime dt;
+                uint8_t* ptr = z->memory + HL;
+                // TODO set clock date & time
+                dt.hh = ptr[2] - 6*(ptr[2]>>4); // hours, from BCD
+                dt.mm = ptr[3] - 6*(ptr[3]>>4); // minutes, from BCD
+                dt.ss = ptr[4] - 6*(ptr[4]>>4); // seconds, from BCD
+                rtc.set(dt);
+            }
+            break;
+        }
         default:
             printf("syscall %d @ %04x ?\n", req, state->pc);
             while (1) {}
@@ -155,6 +180,8 @@ int main() {
 
     key0.mode(Pinmode::in_pullup); // inverted logic
     key1.mode(Pinmode::in_pullup); // inverted logic
+
+    rtc.init();
 
     spi1.init();
     spiWear.init();

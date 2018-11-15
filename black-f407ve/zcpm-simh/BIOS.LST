@@ -22,184 +22,184 @@ BIOS    Z80
    19                   
    20                   ; BIOS jump table --------------------------------------------------------------
    21                   
-   22 FE00  C3 FE72     	jp boot     ;  0 Initialize
-   23 FE03  C3 FE84     wboote: jp wboot    ;  1 Warm boot
-   24 FE06  C3 FEB4     	jp conist   ;  2 Console status
-   25 FE09  C3 FEB7     	jp conin    ;  3 Console input
-   26 FE0C  C3 FEBA     	jp conout   ;  4 Console OUTput
-   27 FE0F  C3 FF08     	jp list     ;  5 List OUTput
-   28 FE12  C3 FF08     	jp punch    ;  6 punch OUTput
-   29 FE15  C3 FEBD     	jp reader   ;  7 Reader input
-   30 FE18  C3 FEE1     	jp home     ;  8 Home disk
-   31 FE1B  C3 FEC0     	jp seldsk   ;  9 Select disk
-   32 FE1E  C3 FEE3     	jp settrk   ; 10 Select track
-   33 FE21  C3 FEE8     	jp setsec   ; 11 Select sector
-   34 FE24  C3 FEED     	jp setdma   ; 12 Set DMA ADDress
-   35 FE27  C3 FEF5     	jp read     ; 13 Read 128 bytes
-   36 FE2A  C3 FEF9     	jp write    ; 14 Write 128 bytes
-   37 FE2D  C3 FF08     	jp listst   ; 15 List status
-   38 FE30  C3 FEF2     	jp sectrn   ; 16 Sector translate
-   39                   
-   40                   ; Disk Parameter Headers -------------------------------------------------------
-   41                   
-   42 FE33  0000  0000  dpbase:	dw 0,0,0,0,dirbuf,dpb,0,alv0
-   43 FE43  0000  0000  	dw 0,0,0,0,dirbuf,dpb,0,alv1
-   44 FE53  0000  0000  	dw 0,0,0,0,dirbuf,dpb,0,alv2
-   45                   
-   46 FE63  001A        dpb:	dw 26  ; SPT - sectors per track
-   47 FE65  03          	db 3   ; BSH - block shift factor
-   48 FE66  07          	db 7   ; BLM - block mask
-   49 FE67  00          	db 0   ; EXM - Extent mask
-   50 FE68  00F2        	dw 242 ; DSM - Storage size (blocks - 1)
-   51 FE6A  003F        	dw 63  ; DRM - Number of directory entries - 1
-   52 FE6C  C0          	db 192 ; AL0 - 1 bit set per directory block
-   53 FE6D  00          	db 0   ; AL1 - ... 8 more bits
-   54 FE6E  0000        	dw 0   ; CKS - DIR check vector size (DRM+1)/4 (0=fixed disk)
-   55 FE70  0002        	dw 2   ; OFF - Reserved tracks
-   56                   
-   57                   ; Cold boot --------------------------------------------------------------------
-   58                   
+   22 FE00  C3 FE75     	jp boot     ;  0 Initialize
+   23 FE03  C3 FE87     wboote: jp wboot    ;  1 Warm boot
+   24 FE06  C3 FEB7     	jp conist   ;  2 Console status
+   25 FE09  C3 FEBA     	jp conin    ;  3 Console input
+   26 FE0C  C3 FEBD     	jp conout   ;  4 Console OUTput
+   27 FE0F  C3 FF11     	jp list     ;  5 List OUTput
+   28 FE12  C3 FF11     	jp punch    ;  6 punch OUTput
+   29 FE15  C3 FEC0     	jp reader   ;  7 Reader input
+   30 FE18  C3 FEE4     	jp home     ;  8 Home disk
+   31 FE1B  C3 FEC3     	jp seldsk   ;  9 Select disk
+   32 FE1E  C3 FEE6     	jp settrk   ; 10 Select track
+   33 FE21  C3 FEEB     	jp setsec   ; 11 Select sector
+   34 FE24  C3 FEF0     	jp setdma   ; 12 Set DMA ADDress
+   35 FE27  C3 FEFE     	jp read     ; 13 Read 128 bytes
+   36 FE2A  C3 FF02     	jp write    ; 14 Write 128 bytes
+   37 FE2D  C3 FF11     	jp listst   ; 15 List status
+   38 FE30  C3 FEF5     	jp sectrn   ; 16 Sector translate
+   39 FE33  C3 FEF8             jp timeat   ; 17 (p2dos) Time Get/Set
+   40                   
+   41                   ; Disk Parameter Headers -------------------------------------------------------
+   42                   
+   43 FE36  0000  0000  dpbase:	dw 0,0,0,0,dirbuf,dpb,0,alv0
+   44 FE46  0000  0000  	dw 0,0,0,0,dirbuf,dpb,0,alv1
+   45 FE56  0000  0000  	dw 0,0,0,0,dirbuf,dpb,0,alv2
+   46                   
+   47 FE66  001A        dpb:	dw 26  ; SPT - sectors per track
+   48 FE68  03          	db 3   ; BSH - block shift factor
+   49 FE69  07          	db 7   ; BLM - block mask
+   50 FE6A  00          	db 0   ; EXM - Extent mask
+   51 FE6B  00F2        	dw 242 ; DSM - Storage size (blocks - 1)
+   52 FE6D  003F        	dw 63  ; DRM - Number of directory entries - 1
+   53 FE6F  C0          	db 192 ; AL0 - 1 bit set per directory block
+   54 FE70  00          	db 0   ; AL1 - ... 8 more bits
+   55 FE71  0000        	dw 0   ; CKS - DIR check vector size (DRM+1)/4 (0=fixed disk)
+   56 FE73  0002        	dw 2   ; OFF - Reserved tracks
+   57                   
+   58                   ; Cold boot --------------------------------------------------------------------
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 BIOS    Z80
 
-   59 FE72  F3          boot:	di
-   60 FE73  31 0100     	ld sp,0100h
-   61                   
-   62 FE76  11 FF0A             ld de,dirbuf
-   63 FE79  DB 03               in a,(3)                ; display greeting
-   64                   
-   65 FE7B  AF          	xor a
-   66 FE7C  32 0003     	ld (iobyte),a
-   67 FE7F  32 0004     	ld (usrdrv),a
-   68 FE82  18 0F       	jr gocpm
-   69                   
-   70                   ; Warm boot --------------------------------------------------------------------
-   71                   
-   72 FE84  F3          wboot:	di
-   73 FE85  31 0100     	ld sp,0100h
-   74                   
-   75 FE88  AF          	xor a
-   76 FE89  06 2C               ld b,44                 ; read CCP + BDOS into memory
-   77 FE8B  11 0001             ld de,1                 ; skip first sector on first track
-   78 FE8E  21 E800             ld hl,CCP               ; start address
-   79 FE91  DB 04       	in a,(4)                ; disk read request
-   80                   
-   81                   ; Common code for cold and warm boot
-   82                   
-   83 FE93  21 0080     gocpm:	ld hl,tpabuf            ; Address of BIOS DMA buffer
-   84 FE96  22 FF8D     	ld (dmaadr),hl
-   85 FE99  3E C3       	ld a,0C3h               ; Opcode for 'JP'
-   86 FE9B  32 0000     	ld (00h),a              ; Load at start of RAM
-   87 FE9E  21 FE03     	ld hl,wboote            ; Address of jump for a warm boot
-   88 FEA1  22 0001     	ld (01h),hl
-   89 FEA4  32 0005     	ld (05h),a              ; Opcode for 'JP'
-   90 FEA7  21 F006     	ld hl,BDOS              ; Address of jump for the BDOS
-   91 FEAA  22 0006     	ld (06h),hl
-   92 FEAD  3A 0004     	ld a,(usrdrv)           ; Save new drive number (0)
-   93 FEB0  4F          	ld c,a                  ; Pass drive number in C
-   94 FEB1  C3 E800     	jp CCP                  ; Start CP/M by jumping to the CCP
-   95                   
-   96                   ; Console I/O ------------------------------------------------------------------
-   97                   
-   98 FEB4  DB 00       conist:	in a,(0)
-   99 FEB6  C9          	ret
-  100                   
-  101 FEB7  DB 01       conin:	in a,(1)
-  102 FEB9  C9          	ret
-  103                   
-  104 FEBA  DB 02       conout:	in a,(2)
-  105 FEBC  C9          	ret
-  106                   
-  107 FEBD  3E 1A       reader:	ld a,1Ah
-  108 FEBF  C9          	ret
-  109                   
-  110                   ; Disk I/O ---------------------------------------------------------------------
-  111                   
-  112 FEC0  79          seldsk: ld a,c
-  113 FEC1  FE 03       	cp 3
-  114 FEC3  30 0F               jr nc,baddsk
-  115 FEC5  26 00               ld h,0
-  116 FEC7  69                  ld l,c
+   59                   
+   60 FE75  F3          boot:	di
+   61 FE76  31 0100     	ld sp,0100h
+   62                   
+   63 FE79  11 FF13             ld de,dirbuf
+   64 FE7C  DB 03               in a,(3)                ; display greeting
+   65                   
+   66 FE7E  AF          	xor a
+   67 FE7F  32 0003     	ld (iobyte),a
+   68 FE82  32 0004     	ld (usrdrv),a
+   69 FE85  18 0F       	jr gocpm
+   70                   
+   71                   ; Warm boot --------------------------------------------------------------------
+   72                   
+   73 FE87  F3          wboot:	di
+   74 FE88  31 0100     	ld sp,0100h
+   75                   
+   76 FE8B  AF          	xor a
+   77 FE8C  06 2C               ld b,44                 ; read CCP + BDOS into memory
+   78 FE8E  11 0001             ld de,1                 ; skip first sector on first track
+   79 FE91  21 E800             ld hl,CCP               ; start address
+   80 FE94  DB 04       	in a,(4)                ; disk read request
+   81                   
+   82                   ; Common code for cold and warm boot
+   83                   
+   84 FE96  21 0080     gocpm:	ld hl,tpabuf            ; Address of BIOS DMA buffer
+   85 FE99  22 FF96     	ld (dmaadr),hl
+   86 FE9C  3E C3       	ld a,0C3h               ; Opcode for 'JP'
+   87 FE9E  32 0000     	ld (00h),a              ; Load at start of RAM
+   88 FEA1  21 FE03     	ld hl,wboote            ; Address of jump for a warm boot
+   89 FEA4  22 0001     	ld (01h),hl
+   90 FEA7  32 0005     	ld (05h),a              ; Opcode for 'JP'
+   91 FEAA  21 F006     	ld hl,BDOS              ; Address of jump for the BDOS
+   92 FEAD  22 0006     	ld (06h),hl
+   93 FEB0  3A 0004     	ld a,(usrdrv)           ; Save new drive number (0)
+   94 FEB3  4F          	ld c,a                  ; Pass drive number in C
+   95 FEB4  C3 E800     	jp CCP                  ; Start CP/M by jumping to the CCP
+   96                   
+   97                   ; Console I/O ------------------------------------------------------------------
+   98                   
+   99 FEB7  DB 00       conist:	in a,(0)
+  100 FEB9  C9          	ret
+  101                   
+  102 FEBA  DB 01       conin:	in a,(1)
+  103 FEBC  C9          	ret
+  104                   
+  105 FEBD  DB 02       conout:	in a,(2)
+  106 FEBF  C9          	ret
+  107                   
+  108 FEC0  3E 1A       reader:	ld a,1Ah
+  109 FEC2  C9          	ret
+  110                   
+  111                   ; Disk I/O ---------------------------------------------------------------------
+  112                   
+  113 FEC3  79          seldsk: ld a,c
+  114 FEC4  FE 03       	cp 3
+  115 FEC6  30 0F               jr nc,baddsk
+  116 FEC8  26 00               ld h,0
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
 BIOS    Z80
 
-  117 FEC8  29                  add hl,hl
-  118 FEC9  29                  add hl,hl
-  119 FECA  29                  add hl,hl
-  120 FECB  29                  add hl,hl
-  121 FECC  11 FE33             ld de,dpbase
-  122 FECF  19                  add hl,de
-  123 FED0  32 FF8A     savdsk:	ld (sekdsk),a
-  124 FED3  C9                  ret
-  125                   
-  126 FED4  21 0000     baddsk: ld hl,0
-  127 FED7  3A 0004             ld a,(usrdrv)
-  128 FEDA  91                  sub a,c
-  129 FEDB  C0                  ret nz
-  130 FEDC  32 0004             ld (usrdrv),a
-  131 FEDF  18 EF               jr savdsk
-  132                   
-  133 FEE1  0E 00       home:	ld c,0
-  134 FEE3  79          settrk: ld a,c
-  135 FEE4  32 FF8C     	ld (seksat+1),a
-  136 FEE7  C9                  ret
-  137                   
-  138 FEE8  21 FF8B     setsec: ld hl,seksat
-  139 FEEB  71                  ld (hl),c
-  140 FEEC  C9                  ret
-  141                   
-  142 FEED  ED 43 FF8D  setdma: ld (dmaadr),bc
-  143 FEF1  C9                  ret
-  144                   
-  145 FEF2  69          sectrn: ld l,c
-  146 FEF3  60          	ld h,b
-  147 FEF4  C9                  ret
-  148                   
-  149 FEF5  06 01       read:	ld b,1
-  150 FEF7  18 02               jr rdwr
-  151 FEF9  06 81       write:	ld b,1+80h
-  152 FEFB  3A FF8A     rdwr:   ld a,(sekdsk)
-  153 FEFE  ED 5B FF8B          ld de,(seksat)
-  154 FF02  2A FF8D             ld hl,(dmaadr)
-  155 FF05  DB 04               in a,(4)
-  156 FF07  C9          	ret
-  157                   
-  158 FF08              listst:
-  159 FF08              list:
-  160 FF08              punch:
-  161 FF08  AF          	xor a
-  162 FF09  C9          	ret
-  163                   
-  164                   ; Data area --------------------------------------------------------------------
-  165                   
-  166 FF0A  36 34 6B 20 dirbuf: db '64k CP/M vers 2.2',13,10,0
-  167 FF1E    006C              ds dirbuf+128-$ ; scratch directory area
+  117 FECA  69                  ld l,c
+  118 FECB  29                  add hl,hl
+  119 FECC  29                  add hl,hl
+  120 FECD  29                  add hl,hl
+  121 FECE  29                  add hl,hl
+  122 FECF  11 FE36             ld de,dpbase
+  123 FED2  19                  add hl,de
+  124 FED3  32 FF93     savdsk:	ld (sekdsk),a
+  125 FED6  C9                  ret
+  126                   
+  127 FED7  21 0000     baddsk: ld hl,0
+  128 FEDA  3A 0004             ld a,(usrdrv)
+  129 FEDD  91                  sub a,c
+  130 FEDE  C0                  ret nz
+  131 FEDF  32 0004             ld (usrdrv),a
+  132 FEE2  18 EF               jr savdsk
+  133                   
+  134 FEE4  0E 00       home:	ld c,0
+  135 FEE6  79          settrk: ld a,c
+  136 FEE7  32 FF95     	ld (seksat+1),a
+  137 FEEA  C9                  ret
+  138                   
+  139 FEEB  21 FF94     setsec: ld hl,seksat
+  140 FEEE  71                  ld (hl),c
+  141 FEEF  C9                  ret
+  142                   
+  143 FEF0  ED 43 FF96  setdma: ld (dmaadr),bc
+  144 FEF4  C9                  ret
+  145                   
+  146 FEF5  69          sectrn: ld l,c
+  147 FEF6  60          	ld h,b
+  148 FEF7  C9                  ret
+  149                   
+  150 FEF8  11 FFF8     timeat: ld de,timbuf
+  151 FEFB  DB 05               in a,(5)
+  152 FEFD  C9                  ret
+  153                   
+  154 FEFE  06 01       read:	ld b,1
+  155 FF00  18 02               jr rdwr
+  156 FF02  06 81       write:	ld b,1+80h
+  157 FF04  3A FF93     rdwr:   ld a,(sekdsk)
+  158 FF07  ED 5B FF94          ld de,(seksat)
+  159 FF0B  2A FF96             ld hl,(dmaadr)
+  160 FF0E  DB 04               in a,(4)
+  161 FF10  C9          	ret
+  162                   
+  163 FF11              listst:
+  164 FF11              list:
+  165 FF11              punch:
+  166 FF11  AF          	xor a
+  167 FF12  C9          	ret
   168                   
-  169 FF8A    0001      sekdsk: ds 1   ; seek disk number
-  170 FF8B    0002      seksat: ds 2   ; seek sector and track number
-  171 FF8D    0002      dmaadr: ds 2   ; last dma address
-  172                   
-  173 FF8F    0020      alv0:   ds 32  ; allocation vector 0 (max 255 blocks)
-  174 FFAF    0020      alv1:   ds 32  ; allocation vector 1 (max 255 blocks)
+  169                   ; Data area --------------------------------------------------------------------
+  170                   
+  171 FF13  36 34 6B 20 dirbuf: db '64k CP/M vers 2.2',13,10,0
+  172 FF27    006C              ds dirbuf+128-$ ; scratch directory area
+  173                   
+  174 FF93    0001      sekdsk: ds 1   ; seek disk number
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
 BIOS    Z80
 
-  175 FFCF    0020      alv2:   ds 32  ; allocation vector 2 (max 255 blocks)
-  176                   
-  177         000F      spare:  equ BEND-$
-  178 FFEF    000F              ds spare                ; BIOS base page and version number
-  179 FFFE  FE01                dw BIOS + VERS          ; ... at end of memory
-  180                   
-  181                   ; ------------------------------------------------------------------------------
-  182                   
-  183                           end
- 0 Error(s) Detected.
- 40 Symbols Detected.
-----------------------------------------------------------------------------
+  175 FF94    0002      seksat: ds 2   ; seek sector and track number
+  176 FF96    0002      dmaadr: ds 2   ; last dma address
+  177                   
+  178 FF98    0020      alv0:   ds 32  ; allocation vector 0 (max 255 blocks)
+  179 FFB8    0020      alv1:   ds 32  ; allocation vector 1 (max 255 blocks)
+  180 FFD8    0020      alv2:   ds 32  ; allocation vector 2 (max 255 blocks)
+  181                   
+  182 FFF8    0005      timbuf: ds 5
+  183                   
+  184         0001      spare:  equ BEND-$
+  185 FFFD    0001              ds spare                ; BIOS base page and version number
+  186 FFFE  FE01                dw BIOS + VERS          ; ... at end of memory
   187                   
-  188                           end
+  188                   ; ------------------------------------------------------------------------------
+  189                   
+  190                           end
  0 Error(s) Detected.
- 39 Symbols Detected.
-s Detected.
-Detected.
+ 42 Symbols Detected.
 
