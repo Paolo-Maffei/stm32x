@@ -2,10 +2,15 @@
 
 #include <jee.h>
 #include <jee/mem-ili9341.h>
+#include <jee/text-font.h>
 
 ILI9341<0x60080000> lcd;
-
+#if 1
+TextLcd< decltype(lcd) > text;
+Font5x7< decltype(text) > console;
+#else
 UartDev< PinA<9>, PinA<10> > console;
+#endif
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
@@ -31,9 +36,13 @@ PinB<1> backlight;
 int main () {
     backlight.mode(Pinmode::out); // turn backlight off
 
+#if 0
     console.init();
     console.baud(115200, fullSpeedClock()/2);
     printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+#else
+    fullSpeedClock();
+#endif
     led.mode(Pinmode::out);
 
     initFsmcLcd();
@@ -46,7 +55,7 @@ int main () {
 
     while (true) {
         printf("hello %d\n", ticks);
-
+#if 0
         static uint16_t colour = 0xF800;
         lcd.fill(0, 0, 140, 300, colour);
         colour = ~colour;
@@ -61,5 +70,6 @@ int main () {
         wait_ms(100);
         led = 1;
         wait_ms(400);
+#endif
     }
 }
