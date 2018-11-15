@@ -9,16 +9,11 @@ struct ILI9341 {
     static void init () {
         static uint8_t const config [] = {
             // cmd, count, data bytes ...
-#if 0
-           0x01, 0,
-           0xFF, 150,
-           0x28, 0,
-           0x3A, 1, 0x55,
-           0x11, 0,
-           0xFF, 150,
-           0x29, 0,
-           0x36, 1, 0x48,
-           0xB0, 1, 0x40,
+#if 1
+           0x3A, 1, 0x55, // pxiel format 16b
+           0x36, 1, 0xB8, // orientation, bits 7..4 = MY MX MV ML
+           0x11, 0,       // sleep off
+#elif 0
             0xB1, 2, 0x00, 0x18,                     // FRMCTR1
             0xB6, 3, 0x08, 0x82, 0x27,               // DFUNCTR
             0xF2, 1, 0x00,
@@ -51,7 +46,7 @@ struct ILI9341 {
             0xE1, 15, 0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1,
                       0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F,  // GMCTRN1
             0x11, 0,                                 // SLPOUT
-#elif 1
+#elif 0
             0xCB, 5, 0x39, 0x2C, 0x00, 0x34, 0x02,
             0xCF, 3, 0x00, 0xA2, 0xF0,
             0xE8, 3, 0x84, 0x11, 0x7A,
@@ -121,11 +116,15 @@ struct ILI9341 {
 
     static void pixel (int x, int y, uint16_t rgb) {
         cmd(0x2A);
+        out16(y>>8);
         out16(y);
+        out16(yEnd>>8);
         out16(yEnd);
 
         cmd(0x2B);
+        out16(x>>8);
         out16(x);
+        out16(xEnd>>8);
         out16(xEnd);
 
         cmd(0x2C);
@@ -159,6 +158,7 @@ struct ILI9341 {
 
     static void vscroll (int vscroll =0) {
         cmd(0x37);
+        out16(vscroll>>8);
         out16(vscroll);
     }
 

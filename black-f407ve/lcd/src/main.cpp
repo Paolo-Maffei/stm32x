@@ -22,7 +22,7 @@ static void initFsmcLcd () {
     constexpr uint32_t bcr1 = Periph::fsmc;
     constexpr uint32_t btr1 = bcr1 + 0x04;
     MMIO32(bcr1) = (1<<12) | (1<<7) | (1<<4);
-    MMIO32(btr1) = (1<<20) | (6<<8) | (1<<4) | (2<<0);
+    MMIO32(btr1) = (1<<20) | (3<<8) | (1<<4) | (1<<0);
     MMIO32(bcr1) |= (1<<0);
 }
 
@@ -40,10 +40,15 @@ int main () {
     initFsmcLcd();
     lcd.init();
     uint32_t start = ticks;
-    lcd.clear();
+    for (int i = 0; i < 100; ++i)
+        lcd.clear();
     printf("%d ms\n", ticks - start);
 
     //backlight = 1;
+
+    //lcd.fill(0, 0, 240, 160, 0xF800);
+    //lcd.fill(0, 0, 240, 320, 0x001F);
+    //lcd.fill(0, 0, 240, 320, 0x07E0);
 
     while (true) {
         printf("hello %d\n", ticks);
@@ -53,7 +58,12 @@ int main () {
         wait_ms(400);
 
         static uint16_t colour = 0xF000;
-        lcd.fill(0, 0, 240, 320, colour);
+        lcd.fill(0, 0, 140, 300, colour);
+        lcd.fill(200, 10, 10, 200, colour);
         colour = ~colour;
+
+        static uint8_t s = 0;
+        lcd.vscroll(s);
+        s += 8;
     }
 }
