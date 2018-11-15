@@ -2,7 +2,7 @@
 
 #include <jee.h>
 
-UartBufDev< PinA<9>, PinA<10> > console;
+UartDev< PinA<9>, PinA<10> > console;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
@@ -15,14 +15,12 @@ RTC rtc;
 
 int main() {
     console.init();
-	console.baud(115200, fullSpeedClock()/2);
-	led.mode(Pinmode::out);
+    console.baud(115200, fullSpeedClock()/2);
+    led.mode(Pinmode::out);
 
     rtc.init();
-    
-#if 1
-    rtc.set(RTC::DateTime{18,2,28,23,59,55});
-#endif
+
+    //rtc.set(RTC::DateTime{18,2,28,23,59,55});
 
     while (1) {
         RTC::DateTime dt = rtc.get();
