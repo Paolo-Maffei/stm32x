@@ -3,6 +3,8 @@
 #include <jee.h>
 #include <jee/spi-flash.h>
 #include <jee/spi-sdcard.h>
+#include <jee/mem-ili9341.h>
+#include <jee/text-font.h>
 #include <string.h>
 #include "spi-wear.h"
 
@@ -20,12 +22,21 @@ const uint8_t hexsave [] = {
 #include "hexsave.h"
 };
 
+ILI9341<0x60080000> lcd;
+TextLcd< decltype(lcd) > text;
+Font5x7< decltype(text) > screen;
+
 UartBufDev< PinA<9>, PinA<10> > console;
 PinE<4> key0;
 PinE<3> key1;
 
+static void putcBoth (int c) {
+    console.putc(c);
+    screen.putc(c);
+}
+
 int printf(const char* fmt, ...) {
-    va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
+    va_list ap; va_start(ap, fmt); veprintf(putcBoth, fmt, ap); va_end(ap);
 	return 0;
 }
 
@@ -46,6 +57,19 @@ DiskMap* currDisk;
 RTC rtc;
 
 ZEXTEST zex;
+
+static void initFsmcLcd () {
+    MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FSMC [1] p.245
+
+    Port<'D'>::modeMap(0b1110011110110011, Pinmode::alt_out, 12);
+    Port<'E'>::modeMap(0b1111111110000000, Pinmode::alt_out, 12);
+
+    constexpr uint32_t bcr1 = Periph::fsmc;
+    constexpr uint32_t btr1 = bcr1 + 0x04;
+    MMIO32(bcr1) = (1<<12) | (1<<7) | (1<<4);
+    MMIO32(btr1) = (1<<20) | (3<<8) | (1<<4) | (1<<0);
+    MMIO32(bcr1) |= (1<<0);
+}
 
 static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
     static int currSect;
@@ -81,11 +105,11 @@ void SystemCall (ZEXTEST* z, int req) {
             A = console.getc();
             break;
         case 2: // conout
-            console.putc(C);
+            putcBoth(C);
             break;
         case 3: // constr
             for (uint16_t i = DE; z->memory[i] != 0; i++)
-                console.putc(z->memory[i]);
+                putcBoth(z->memory[i]);
             break;
         case 4: { // read/write
             //  ld a,(sekdrv)
@@ -176,6 +200,11 @@ void listSdFiles () {
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
+
+    initFsmcLcd();
+    lcd.init();
+    lcd.clear();
+
     printf("\r\n");
 
     key0.mode(Pinmode::in_pullup); // inverted logic
