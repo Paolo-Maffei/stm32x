@@ -186,18 +186,21 @@ void SystemCall (Context* z, int req) {
         case 6: // banked memory config
             setBankSplit(A);
             break;
-        case 7: // switch banks
-            context.bank = A & 0xF;
+        case 7: // selmem
+            context.bank = A % NBANKS;
             break;
-        case 8: { // inter-bank copying of up to 255 bytes
-            uint8_t *fa = MAINMEM + DE, *ta = MAINMEM + HL;
+        case 8: { // for use in xmove, inter-bank copying of 1..256 bytes
+            uint8_t *src = MAINMEM + DE, *dst = MAINMEM + HL;
             // never map above the split, i.e. in the common area
-            if (fa < context.split)
-                fa += context.offset[B % NBANKS];
-            if (ta < context.split)
-                ta += context.offset[C % NBANKS];
+            if (dst < context.split)
+                dst += context.offset[B % NBANKS];
+            if (src < context.split)
+                src += context.offset[C % NBANKS];
             // TODO careful, this won't work across the split!
-            memcpy(ta, fa, A);
+            int n = 256 - A; // e.g. 0 -> 256b, 128 -> 128b
+            memcpy(dst, src, n);
+            DE += n;
+            HL += n;
             break;
         }
         default:
