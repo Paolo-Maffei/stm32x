@@ -59,6 +59,19 @@ RTC rtc;
 Context context;
 uint8_t bankedMem [0x18000]; // 96 KB for additional memory banks on F407
 
+static void setBankSplit (uint8_t page) {
+    context.split = MAINMEM + (page << 8);
+    memset(context.offset, 0, sizeof context.offset);
+    uint8_t* base = bankedMem;
+    for (int i = 0; i < NBANKS; ++i) {
+        uint8_t* limit = base + (page << 8);
+        if (limit >= bankedMem + sizeof bankedMem)
+            break; // no more complete banks left
+        context.offset[i] = base - MAINMEM;
+        base = limit;
+    }
+}
+
 static void initFsmcLcd () {
     MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FSMC [1] p.245
 
@@ -168,6 +181,23 @@ void SystemCall (Context* z, int req) {
                 dt.ss = ptr[4] - 6*(ptr[4]>>4); // seconds, from BCD
                 rtc.set(dt);
             }
+            break;
+        }
+        case 6: // banked memory config
+            setBankSplit(A);
+            break;
+        case 7: // switch banks
+            context.bank = A & 0xF;
+            break;
+        case 8: { // inter-bank copying of up to 255 bytes
+            uint8_t *fa = MAINMEM + DE, *ta = MAINMEM + HL;
+            // never map above the split, i.e. in the common area
+            if (fa < context.split)
+                fa += context.offset[B % NBANKS];
+            if (ta < context.split)
+                ta += context.offset[C % NBANKS];
+            // TODO careful, this won't work across the split!
+            memcpy(ta, fa, A);
             break;
         }
         default:
