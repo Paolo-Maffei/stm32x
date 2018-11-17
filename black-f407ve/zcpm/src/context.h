@@ -20,7 +20,7 @@ extern void SystemCall (Context *ctx, int request);
 // defined as static in this header, so that it will be inlined where possible
 static uint8_t* mapMem (void* cp, uint16_t addr) {
     uint8_t* ptr = MAINMEM + addr;
-#if 1
+#if NBANKS > 1
     Context* ctx = (Context*) cp;
     if (ptr < ctx->split)
         ptr += ctx->offset[ctx->bank];

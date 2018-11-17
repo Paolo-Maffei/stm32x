@@ -57,11 +57,15 @@ DiskMap* currDisk;
 RTC rtc;
 
 Context context;
-uint8_t bankedMem [0x18000]; // 96 KB for additional memory banks on F407
+
+#if NBANKS > 1
+uint8_t bankedMem [96*1024]; // additional memory banks on F407
+#endif
 
 static void setBankSplit (uint8_t page) {
     context.split = MAINMEM + (page << 8);
     memset(context.offset, 0, sizeof context.offset);
+#if NBANKS > 1
     uint8_t* base = bankedMem;
     for (int i = 0; i < NBANKS; ++i) {
         uint8_t* limit = base + (page << 8);
@@ -70,6 +74,7 @@ static void setBankSplit (uint8_t page) {
         context.offset[i] = base - MAINMEM;
         base = limit;
     }
+#endif
 }
 
 static void initFsmcLcd () {
