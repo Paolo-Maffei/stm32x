@@ -120,7 +120,7 @@ void SystemCall (ZEXTEST* z, int req) {
             //  ret
             bool out = (B & 0x80) != 0;
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
-            //printf("rw128: out %d cnt %d dsk %d trk %d sec %d -> %d\n",
+            //printf("\nrw128: out %d cnt %d dsk %d trk %d sec %d -> %d\n",
             //        out, cnt, dsk, trk, sec, skewMap[sec]);
             if (dsk > 0)
                 sec = skewMap[sec]-1;
@@ -234,6 +234,7 @@ int main() {
         len = disks[1].open("ZORK1   CPM");
         //if (len > 0)
         //    printf("  zork1 = %db\n", len);
+        (void) len;
     }
 
     // The "K0" and "K1" buttons are checked on power-up and reset:
