@@ -10,15 +10,20 @@
 #define __ZEXTEST_INCLUDED__
 
 #include "z80emu.h"
+#include <stdint.h>
 
-typedef struct ZEXTEST {
+typedef struct {
 
 	Z80_STATE	state;
-	unsigned char	memory[1 << 16];
-	int 		is_done;
+	int 		done;
+	uint8_t 	bankMem [0x18000];
 
-} ZEXTEST;
+} Context;
 
-extern void     SystemCall (ZEXTEST *zextest, int request);
+extern void     SystemCall (Context *zextest, int request);
+
+static uint8_t* mapMem (uint16_t addr) {
+    return (uint8_t*) 0x10000000 + addr;
+}
 
 #endif

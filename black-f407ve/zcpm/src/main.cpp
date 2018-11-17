@@ -56,7 +56,7 @@ DiskMap* currDisk;
 
 RTC rtc;
 
-ZEXTEST zex;
+Context zex;
 
 static void initFsmcLcd () {
     MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FSMC [1] p.245
@@ -90,7 +90,7 @@ static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
     return currBuf + (blk*128) % 512;
 }
 
-void SystemCall (ZEXTEST* z, int req) {
+void SystemCall (Context* z, int req) {
     static const uint8_t skewMap [] = {
         1,7,13,19,25,5,11,17,23,3,9,15,21,2,8,14,20,26,6,12,18,24,4,10,16,22
     };
@@ -108,8 +108,8 @@ void SystemCall (ZEXTEST* z, int req) {
             putcBoth(C);
             break;
         case 3: // constr
-            for (uint16_t i = DE; z->memory[i] != 0; i++)
-                putcBoth(z->memory[i]);
+            for (uint16_t i = DE; *mapMem(i) != 0; i++)
+                putcBoth(*mapMem(i));
             break;
         case 4: { // read/write
             //  ld a,(sekdrv)
@@ -128,7 +128,8 @@ void SystemCall (ZEXTEST* z, int req) {
 
             A = 0;
             for (int i = 0; i < cnt; ++i) {
-                void* mem = z->memory + HL + 128 * i;
+                // TODO careful with wrapping in paged memory!!!
+                void* mem = mapMem(HL + 128 * i);
                 if (dsk > 0) {
                     void* ptr = reBlock128(disks + dsk - 1, blk + i, out);
                     if (out)
@@ -151,7 +152,7 @@ void SystemCall (ZEXTEST* z, int req) {
                 printf("%d %02d/%02d/%02d %02d:%02d:%02d\n", ticks,
                         dt.yr, dt.mo, dt.dy, dt.hh, dt.mm, dt.ss);
                 HL = DE;
-                uint8_t* ptr = z->memory + HL;
+                uint8_t* ptr = mapMem(HL);
                 ptr[0] = 1; // TODO garbage, for now
                 ptr[1] = 2;
                 ptr[2] = dt.hh + 6*(dt.hh/10); // hours, to BCD
@@ -159,7 +160,7 @@ void SystemCall (ZEXTEST* z, int req) {
                 ptr[4] = dt.ss + 6*(dt.ss/10); // seconcds, to BCD
             } else {
                 RTC::DateTime dt;
-                uint8_t* ptr = z->memory + HL;
+                uint8_t* ptr = mapMem(HL);
                 // TODO set clock date & time
                 dt.hh = ptr[2] - 6*(ptr[2]>>4); // hours, from BCD
                 dt.mm = ptr[3] - 6*(ptr[3]>>4); // minutes, from BCD
@@ -268,15 +269,15 @@ int main() {
         wait_ms(100); // debounce
 
     // emulate a boot loader which loads the first block of "disk" A: at 0x0000
-    spiWear.read128(0, zex.memory);
+    spiWear.read128(0, mapMem(0));
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
-    memcpy(zex.memory + 0x0100, ram, sizeof ram);
+    memcpy(mapMem(0x0100), ram, sizeof ram);
 
     Z80Reset(&zex.state);
 
     do {
         Z80Emulate(&zex.state, 4000000, &zex);
-        if (zex.memory[zex.state.pc-1] == 0x76)
+        if (*mapMem(zex.state.pc-1) == 0x76)
             break; // HALT instruction
 
         static uint32_t last;
@@ -284,7 +285,7 @@ int main() {
             last = ticks/3000; // approx every 3s ...
             reBlock128();      // ... flush pending changes to SD card
         }
-    } while (!zex.is_done);
+    } while (!zex.done);
 
     printf("\nhalted at %04x\n", zex.state.pc-1);
 

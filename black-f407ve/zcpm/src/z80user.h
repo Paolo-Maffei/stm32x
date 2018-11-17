@@ -1,6 +1,5 @@
 /* z80user.h
- * Add your code here to interface the emulated system with z80emu. See towards
- * the end of the file for an example for running zextest.
+ * Add your code here to interface the emulated system with z80emu.
  *
  * Copyright (c) 2016, 2017 Lin Ke-Fong
  *
@@ -84,61 +83,26 @@ extern "C" {
  *                      instructions.h for a list.
  */
 
-/* Here are macros for emulating zexdoc and zexall. Read/write memory macros
- * are written for a linear 64k RAM. Input/output port macros are used as 
- * "traps" to simulate system calls. 
- */
+// Read/write memory macros use mapMem(), defined in "context.h".
+// Input/output port macros are used as "traps" to simulate system calls. 
 
 #include "context.h"
 
-#define Z80_READ_BYTE(address, x)                                       \
-{                                                                       \
-        (x) = ((ZEXTEST *) context)->memory[(address) & 0xffff];	\
-}
+#define Z80_READ_BYTE(a,x) { (x) = *mapMem(a); }
+#define Z80_READ_WORD(a,x) { (x) = *mapMem(a) | (*mapMem(a+1) << 8); }
 
-#define Z80_FETCH_BYTE(address, x)		Z80_READ_BYTE((address), (x))
+#define Z80_WRITE_BYTE(a,x) { *mapMem(a) = (x); }
+#define Z80_WRITE_WORD(a,x) { *mapMem(a) = (x); *mapMem(a+1) = (x) >> 8; }
 
-#define Z80_READ_WORD(address, x)                                       \
-{                                                                       \
-	unsigned char	*memory;					\
-									\
-	memory = ((ZEXTEST *) context)->memory;				\
-        (x) = memory[(address) & 0xffff]                                \
-                | (memory[((address) + 1) & 0xffff] << 8);              \
-}
+#define Z80_FETCH_BYTE(a,x)           Z80_READ_BYTE((a), (x))
+#define Z80_FETCH_WORD(a,x)           Z80_READ_WORD((a), (x))
+#define Z80_READ_WORD_INTERRUPT(a,x)  Z80_READ_WORD((a), (x))
+#define Z80_WRITE_WORD_INTERRUPT(a,x) Z80_WRITE_WORD((a), (x))
 
-#define Z80_FETCH_WORD(address, x)		Z80_READ_WORD((address), (x))
+#define Z80_INPUT_BYTE(port,x) { SystemCall((Context*) context, port); }
 
-#define Z80_WRITE_BYTE(address, x)                                      \
-{                                                                       \
-        ((ZEXTEST *) context)->memory[(address) & 0xffff] = (x);	\
-}
-
-#define Z80_WRITE_WORD(address, x)                                      \
-{                                                                       \
-	unsigned char	*memory;					\
-									\
-	memory = ((ZEXTEST *) context)->memory;				\
-        memory[(address) & 0xffff] = (x); 				\
-        memory[((address) + 1) & 0xffff] = (x) >> 8; 			\
-}
-
-#define Z80_READ_WORD_INTERRUPT(address, x)	Z80_READ_WORD((address), (x))
-
-#define Z80_WRITE_WORD_INTERRUPT(address, x)	Z80_WRITE_WORD((address), (x))
-
-#define Z80_INPUT_BYTE(port, x)                                         \
-{                                                                       \
-        int n;                                                          \
-        Z80_FETCH_BYTE(pc-1, n);                                        \
-        SystemCall((ZEXTEST *) context, n);		                \
-}
-
-#define Z80_OUTPUT_BYTE(port, x)                                        \
-{                                                                       \
-        ((ZEXTEST *) context)->is_done = !0; 				\
-        number_cycles = 0;                                              \
-}
+#define Z80_OUTPUT_BYTE(port,x) \
+    { ((Context*) context)->done = !0; number_cycles = 0; }
 
 #ifdef __cplusplus
 }
