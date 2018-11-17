@@ -175,7 +175,7 @@ void SystemCall (ZEXTEST* z, int req) {
 }
 
 void listSdFiles () {
-    printf("\n");
+    //printf("\n");
     for (int i = 0; i < fatFs.rmax; ++i) {
         int off = (i*32) % 512;
         if (off == 0)
@@ -194,7 +194,7 @@ void listSdFiles () {
             printf(" %7d b\n", length);
         }
     }
-    printf("\n");
+    //printf("\n");
 }
 
 int main() {
@@ -217,7 +217,7 @@ int main() {
 
     spi2.init();
     if (sdCard.init()) {
-        printf("[sd card: sdhc %d]\n", sdCard.sdhc);
+        //printf("[sd card: sdhc %d]\n", sdCard.sdhc);
 
         fatFs.init();
 #if 0
@@ -229,11 +229,11 @@ int main() {
 
         int len;
         len = disks[0].open("CPMA    CPM");
-        if (len > 0)
-            printf("  cpma = %db\n", len);
+        //if (len > 0)
+        //    printf("  cpma = %db\n", len);
         len = disks[1].open("ZORK1   CPM");
-        if (len > 0)
-            printf("  zork1 = %db\n", len);
+        //if (len > 0)
+        //    printf("  zork1 = %db\n", len);
     }
 
     // The "K0" and "K1" buttons are checked on power-up and reset:
@@ -275,6 +275,8 @@ int main() {
 
     do {
         Z80Emulate(&zex.state, 4000000, &zex);
+        if (zex.memory[zex.state.pc-1] == 0x76)
+            break; // HALT instruction
 
         static uint32_t last;
         if (last != ticks/3000) {
@@ -282,6 +284,8 @@ int main() {
             reBlock128();      // ... flush pending changes to SD card
         }
     } while (!zex.is_done);
+
+    printf("\nhalted at %04x\n", zex.state.pc-1);
 
     while (1) {}
 }
