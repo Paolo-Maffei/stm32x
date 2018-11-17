@@ -1,0 +1,174 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+LDRBIOS Z80
+
+    1                   ; Minimal CPM Plus Loader BIOS -jcw, 2018-11-16
+    2                   
+    3                   	cseg
+    4                   
+    5                   ; BIOS jump table --------------------------------------------------------------
+    6                   
+    7 0000' C3 008D'    	jp boot     ;  0 Initialize
+    8 0003' C3 00D1'            jp wboot    ;  1 Warm boot
+    9 0006' C3 00D1'    	jp conist   ;  2 Console status
+   10 0009' C3 00D1'    	jp conin    ;  3 Console input
+   11 000C' C3 009B'    	jp conout   ;  4 Console OUTput
+   12 000F' C3 00D1'    	jp list     ;  5 List OUTput
+   13 0012' C3 00D1'    	jp punch    ;  6 punch OUTput
+   14 0015' C3 00D1'    	jp reader   ;  7 Reader input
+   15 0018' C3 00A8'    	jp home     ;  8 Home disk
+   16 001B' C3 009E'    	jp seldsk   ;  9 Select disk
+   17 001E' C3 00AB'    	jp settrk   ; 10 Select track
+   18 0021' C3 00B0'    	jp setsec   ; 11 Select sector
+   19 0024' C3 00B5'    	jp setdma   ; 12 Set DMA ADDress
+   20 0027' C3 00BD'    	jp read     ; 13 Read 128 bytes
+   21 002A' C3 00D1'    	jp write    ; 14 Write 128 bytes
+   22 002D' C3 00D1'    	jp listst   ; 15 List status
+   23 0030' C3 00BA'    	jp sectrn   ; 16 Sector translate
+   24 0033' C3 00D1'    	jp conost	; return console output status
+   25 0036' C3 00D1'    	jp auxist	; return aux device input status
+   26 0039' C3 00D1'    	jp auxost	; return aux device output status
+   27 003C' C3 00D1'    	jp devtbl	; return address of character i/o table
+   28 003F' C3 00D1'    	jp devini	; init character i/o devices
+   29 0042' C3 00D1'    	jp drvtbl	; return address of disk drive table
+   30 0045' C3 00D1'    	jp multio	; set number of consec. sec. to read/write
+   31 0048' C3 00D1'    	jp flush	; flush user [de]blocking buffers
+   32 004B' C3 00CC'    	jp move		; copy memory to memory
+   33 004E' C3 00D1'    	jp time		; signal time and date operation
+   34 0051' C3 00D1'    	jp selmem	; select memory bank
+   35 0054' C3 00D1'    	jp setbnk	; set bank for next dma
+   36 0057' C3 00D1'    	jp xmove	; set banks for next move
+   37 005A' C3 0000     	jp 0		; reserved for future expansion
+   38 005D' C3 0000     	jp 0		; reserved for future expansion
+   39 0060' C3 0000     	jp 0		; reserved for future expansion
+   40                   
+   41                   ; Disk Parameter Headers -------------------------------------------------------
+   42                   
+   43 0063' 0000  0000  dph0:	dw 0,0,0,0,0,0
+   44 006F' 007C' FFFE          dw dpb,0FFFEh
+   45 0073' FFFE  FFFE          dw 0FFFEh,0FFFEh
+   46 0077' FFFF  FFFF          dw 0FFFFh,0FFFFh
+   47 007B' 00                  db 0
+   48                   
+   49 007C' 001A        dpb:	dw 26  ; SPT - sectors per track
+   50 007E' 03          	db 3   ; BSH - block shift factor
+   51 007F' 07          	db 7   ; BLM - block mask
+   52 0080' 00          	db 0   ; EXM - Extent mask
+   53 0081' 00F2        	dw 242 ; DSM - Storage size (blocks - 1)
+   54 0083' 003F        	dw 63  ; DRM - Number of directory entries - 1
+   55 0085' C0          	db 192 ; AL0 - 1 bit set per directory block
+   56 0086' 00          	db 0   ; AL1 - ... 8 more bits
+   57 0087' 0010        	dw 16  ; CKS - DIR check vector size (DRM+1)/4 (8000h=fixed disk)
+   58 0089' 0002        	dw 2   ; OFF - Reserved tracks
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+LDRBIOS Z80
+
+   59 008B' 00                  db 0   ; PSH - physical record shift
+   60 008C' 00                  db 0   ; PSM - physical record mask
+   61                   
+   62                   ; Cold Boot --------------------------------------------------------------------
+   63                   
+   64 008D' 11 00D2'    boot:	ld de,ldrvrs	; display loader version
+   65 0090' 1A          msg:	ld a,(de)	; get next character
+   66 0091' FE 24       	cp '$'		; '$' denotes end of string
+   67 0093' C8          	ret z		; done if current character is '$'
+   68 0094' 4F          	ld c,a		; conout expects character in <C>
+   69 0095' CD 009B'    	call conout	; display character on console
+   70 0098' 13          	inc de		; point to next character
+   71 0099' 18 F5       	jr msg		; and repeat
+   72                   
+   73                   
+   74                   ; Console I/O ------------------------------------------------------------------
+   75                   
+   76 009B' DB 02       conout:	in a,(2)
+   77 009D' C9          	ret
+   78                   
+   79                   ; Disk I/O ---------------------------------------------------------------------
+   80                   
+   81 009E' 21 0000     seldsk:	ld hl,0		; bad drive
+   82 00A1' 79          	ld a,c		; drive request
+   83 00A2' B7          	or a
+   84 00A3' C0          	ret nz
+   85 00A4' 21 0063'    	ld hl,dph0
+   86 00A7' C9                  ret
+   87                   
+   88 00A8' AF          home:	xor a
+   89 00A9' 18 01               jr settr1
+   90 00AB' 79          settrk: ld a,c
+   91 00AC' 32 00F2'    settr1:	ld (seksat+1),a
+   92 00AF' C9                  ret
+   93                   
+   94 00B0' 79          setsec: ld a,c
+   95 00B1' 32 00F1'            ld (seksat),a
+   96 00B4' C9                  ret
+   97                   
+   98 00B5' ED 43 00F3' setdma: ld (dmaadr),bc
+   99 00B9' C9                  ret
+  100                   
+  101 00BA' 69          sectrn: ld l,c
+  102 00BB' 60          	ld h,b
+  103 00BC' C9                  ret
+  104                   
+  105 00BD' AF          read:	xor a
+  106 00BE' 06 01               ld b,1
+  107 00C0' D5                  push de
+  108 00C1' ED 5B 00F1'         ld de,(seksat)
+  109 00C5' 2A 00F3'            ld hl,(dmaadr)
+  110 00C8' DB 04               in a,(4)
+  111 00CA' D1                  pop de
+  112 00CB' C9          	ret
+  113                   
+  114 00CC' EB          move:	ex de,hl
+  115 00CD' ED B0       	ldir
+  116 00CF' EB          	ex de,hl
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+LDRBIOS Z80
+
+  117 00D0' C9          	ret
+  118                   
+  119 00D1'             wboot:
+  120 00D1'             conist:
+  121 00D1'             conin:
+  122 00D1'             conost:
+  123 00D1'             auxist:
+  124 00D1'             auxost:
+  125 00D1'             devtbl:
+  126 00D1'             devini:
+  127 00D1'             drvtbl:
+  128 00D1'             multio:
+  129 00D1'             flush:
+  130 00D1'             time:
+  131 00D1'             selmem:
+  132 00D1'             setbnk:
+  133 00D1'             xmove:
+  134 00D1'             listst:
+  135 00D1'             list:
+  136 00D1'             punch:
+  137 00D1'             reader:
+  138 00D1'             write:
+  139 00D1' C9          	ret
+  140                   
+  141                   ; Data area --------------------------------------------------------------------
+  142                   
+  143 00D2' 0D 0A 4C 44 ldrvrs:	db	13, 10, 'LDRBIOS3 v1.07 27-Jun-2010', 13, 10, '$'
+  144                   
+  145 00F1'   0002      seksat: ds 2   ; seek sector and track number
+  146 00F3'   0002      dmaadr: ds 2   ; last dma address
+  147                   
+  148 00F5'   0010      bcbr:   ds 16
+  149 0105'   0010      bcba:   ds 16
+  150 0115'   0010      chk0:   ds 16
+  151 0125'   003E      alv0:   ds 62  ; allocation vector 0 (max 255 blocks)
+  152                   
+  153                   ; ------------------------------------------------------------------------------
+  154                   
+  155                           end
+ 0 Error(s) Detected. 355 Program Bytes.
+ 41 Symbols Detected.
+Fh
+  155         0000      	org $ or 0FFh
+  156 0000  00                  db 0
+  157                   
+  158                           end
+ 2 Error(s) Detected. 353 Program Bytes.
+ 1 Absolute Bytes. 41 Symbols Detected.
+

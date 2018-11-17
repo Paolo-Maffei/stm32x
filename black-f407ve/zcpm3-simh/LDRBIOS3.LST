@@ -1,0 +1,554 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+LDRBIOS3Z80
+
+    1                   ; LDRBIOS for CP/M Plus (for ALTAIR 8800 with Z80 CPU as SIMH simulation)
+    2                   ; written by Peter Schorn (December 2001)
+    3                   ; based on work by Bill Smith (CPM3ON2)
+    4                   ; and on Charles (Dutch) Owen's BIOS for CPM2.2
+    5                   ; and on Digital Research's modular BIOS
+    6                   
+    7                   ; Change history
+    8                   
+    9                   ; 27-Jun-2010, P. Schorn, fixed SIMH interface version check
+   10                   ; 15-Apr-2002, P. Schorn, simplifed disk read / write code
+   11                   
+   12                   	.Z80
+   13                   
+   14         00FF      track1	equ	255		; maximum number of tracks + 1
+   15         0089      asecsiz	equ	137		; size of ALTAIR physical sector
+   16         0080      csecsiz	equ	0080h		; sector size CP/M
+   17         0089      secsiz	equ	137		; size of ALTAIR physical sector
+   18         0020      spt	equ	32		; sectors per track
+   19         001F      sptmask	equ	spt-1		; mask corresponding to 'spt'
+   20         000D      cr	equ	13		; Carriage Return
+   21         000A      lf	equ	10		; Line Feed
+   22         0001      bioserr	equ	1		; 1 indicates BIOS error
+   23                   
+   24         00FE      simhport		equ	0feh		; SIMH port
+   25         0006      getVersionSIMHCmd	equ	6		; version command
+   26                   
+   27                   
+   28                   ;	Address		Mode	Function
+   29                   ;	-------		----	--------
+   30                   ;	selout		Out	Selects and enables controller and drive
+   31                   ;	statin		In	Indicates status of drive and controller
+   32                   ;	dskcon		Out	Controls disk function
+   33                   ;	secpos		In	Indicates current sector position of disk
+   34                   ;	dskwrit		Out	Write data
+   35                   ;	dskread		In	Read data
+   36                   
+   37         0008      selout	equ	8		; port to select and enable controller and drive (OUT)
+   38                   ;	+---+---+---+---+---+---+---+---+
+   39                   ;	| C | X | X | X |   Device      |
+   40                   ;	+---+---+---+---+---+---+---+---+
+   41                   ;
+   42                   ;	C	= If this bit is 1, the disk controller selected by 'device' is
+   43                   ;		  cleared. If the bit is zero, 'device' is selected as the
+   44                   ;		  device being controlled by subsequent I/O operations.
+   45                   ;	X	= not used
+   46                   ;	Device	= value zero thru 15, selects drive to be controlled.
+   47                   
+   48         0008      statin	equ	8		; port indicating status of drive and controller (IN)
+   49                   ;	+---+---+---+---+---+---+---+---+
+   50                   ;	| R | Z | I | X | X | H | M | W |
+   51                   ;	+---+---+---+---+---+---+---+---+
+   52                   ;
+   53                   ;	W - When 0, write circuit ready to write another byte.
+   54                   ;	M - When 0, head movement is allowed
+   55                   ;	H - When 0, indicates head is loaded for read/write
+   56                   ;	X - not used (will be 0)
+   57                   ;	I - When 0, indicates interrupts enabled (not used this simulator)
+   58                   ;	Z - When 0, indicates head is on track 0
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+LDRBIOS3Z80
+
+   59                   ;	R - When 0, indicates that read circuit has new byte to read
+   60                   
+   61         0009      dskcon	equ	9		; port to control disc function (OUT)
+   62                   ;	+---+---+---+---+---+---+---+---+
+   63                   ;	| W | C | D | E | U | H | O | I |
+   64                   ;	+---+---+---+---+---+---+---+---+
+   65                   ;
+   66                   ;	I - When 1, steps head IN one track
+   67                   ;	O - When 1, steps head OUT one track
+   68                   ;	H - When 1, loads head to drive surface
+   69                   ;	U - When 1, unloads head
+   70                   ;	E - Enables interrupts (ignored by this simulator)
+   71                   ;	D - Disables interrupts (ignored by this simulator)
+   72                   ;	C - When 1 lowers head current (ignored by this simulator)
+   73                   ;	W - When 1, starts Write Enable sequence:
+   74                   ;	    W bit on device 'statin' (see above) will go 1 and data will be read from
+   75                   ;	    port 'dskread' until 137 bytes have been read by the controller from
+   76                   ;	    that port. The W bit will go off then, and the sector data will be written
+   77                   ;	    to disk. Before you do this, you must have stepped the track to the desired
+   78                   ;	    number, and waited until the right sector number is presented on
+   79                   ;	    device 'secpos', then set this bit.
+   80                   
+   81         0009      secpos	equ	9		; port to indicate current sector position of disk (IN)
+   82                   ;	As the sectors pass by the read head, they are counted and the
+   83                   ;	number of the current one is available in this register.
+   84                   ;
+   85                   ;	+---+---+---+---+---+---+---+---+
+   86                   ;	| X | X |  Sector Number    | T |
+   87                   ;	+---+---+---+---+---+---+---+---+
+   88                   ;
+   89                   ;	X		= Not used
+   90                   ;	Sector number	= binary of the sector number currently under the head, 0-31.
+   91                   ;	T		= Sector True, is a 1 when the sector is positioned to read or write.
+   92                   
+   93         000A      dskread	equ	10		; port to read data (IN)
+   94                   
+   95                   ;	All I/O is via programmed I/O. Each device has a status port
+   96                   ;	and a data port. A write to the status port can select
+   97                   ;	some options for the device although the simulator only
+   98                   ;	recognizes the reset command (0x03).
+   99                   ;	A read of the status port gets the port status:
+  100                   ;
+  101                   ;	+---+---+---+---+---+---+---+---+
+  102                   ;	| X | X | X | X | X | X | O | I |
+  103                   ;	+---+---+---+---+---+---+---+---+
+  104                   ;
+  105                   ;	I - A 1 in this bit position means a character has been received
+  106                   ;		on the data port and is ready to be read.
+  107                   ;	O - A 1 in this bit means the port is ready to receive a character
+  108                   ;		on the data port and transmit it out over the serial line.
+  109                   ;
+  110                   ;	A read to the data port gets the buffered character, a write
+  111                   ;	to the data port writes the character to the device.
+  112         0010      constat	equ	16		; sio port 1 status port
+  113         0011      condata	equ	17		; sio port 1 data port
+  114                   
+  115                   ; masks for disk controller (statin)
+  116         0002      mhm	equ	02h		; head movement mask
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+LDRBIOS3Z80
+
+  117         0040      mtzero	equ	40h		; head on track zero mask
+  118         00FF      mall	equ	0ffh		; everything ok mask
+  119                   
+  120                   ; commands for disk controller (dskcon)
+  121         0001      cstepin	equ	01h		; step in command
+  122         0002      cstepot	equ	02h		; step out command
+  123         0004      cload	equ	04h		; load head to drive surface command
+  124         0008      cuload	equ	08h		; unload head from drive surface command
+  125                   
+  126                   ; Macro Definitions for CP/M3 BIOS Data Structures.
+  127                   
+  128                   	; dph	translate$table,	- disk parameter header
+  129                   	;	disk$parameter$block,
+  130                   	;	checksum$size,			(optional)
+  131                   	;	alloc$size			(optional)
+  132                   
+  133                   	; dpb	physical$sector$size,	- disk parameter block
+  134                   	;	physical$sectors$per$track,
+  135                   	;	number$tracks,
+  136                   	;	block$size,
+  137                   	;	number$dir$entries,
+  138                   	;	track$offset,
+  139                   	;	checksum$vec$size		(optional)
+  140                   
+  141                   ; Drive Table. Contains 16 one word entries.
+  142                   
+  143                   dph macro ?trans,?dpb,?csize,?asize
+  144                       local ?csv,?alv
+  145                   	dw ?trans		; translate table address
+  146                   	db 0,0,0,0,0,0,0,0,0	; BDOS Scratch area
+  147                   	db 0			; media flag
+  148                   	dw ?dpb			; disk parameter block
+  149                       if not nul ?csize
+  150                   	dw ?csv			; checksum vector
+  151                       else
+  152                   	dw 0FFFEh		; checksum vector allocated by
+  153                       endif			; GENCPM
+  154                       if not nul ?asize
+  155                   	dw ?alv			; allocation vector
+  156                       else
+  157                   	dw 0FFFEh		; alloc vector allocated by GENCPM
+  158                       endif
+  159                   	dw 0fffeh		; dirbcb allocated by GENCPM
+  160                   	dw 0ffffh		; dtabcb not used (record size 128))
+  161                   	dw 0ffffh		; no hashing
+  162                   	db 0			; hash bank
+  163                   
+  164                       if not nul ?csize
+  165                   ?csv	ds	?csize		; checksum vector
+  166                       endif
+  167                       if not nul ?asize
+  168                   ?alv	ds	?asize		; allocation vector
+  169                       endif
+  170                   
+  171                       endm
+  172                   
+  173                   dpb macro ?psize,?pspt,?trks,?bls,?ndirs,?off,?ncks
+  174                       local ?spt,?bsh,?blm,?exm,?dsm,?drm,?al0,?al1,?cks,?psh,?psm
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
+LDRBIOS3Z80
+
+  175                       local ?n
+  176                   ;; physical sector mask and physical sector shift
+  177                       ?psh	defl 0
+  178                       ?n		defl ?psize/128
+  179                       ?psm	defl ?n-1
+  180                   	rept 8
+  181                   	?n	defl ?n/2
+  182                    	    if ?n EQ 0
+  183                   	    exitm
+  184                   	    endif
+  185                   	?psh	defl ?psh + 1
+  186                   	endm
+  187                       ?spt	defl ?pspt*(?psize/128)
+  188                   
+  189                       ?bsh	defl 3
+  190                       ?n		defl ?bls/1024
+  191                   	rept 8
+  192                   	?n	defl ?n/2
+  193                   	    if ?n EQ 0
+  194                   	    exitm
+  195                   	    endif
+  196                   	?bsh	defl ?bsh + 1
+  197                   	endm
+  198                       ?blm	defl ?bls/128-1
+  199                       ?size	defl (?trks-?off)*?spt
+  200                       ?dsm	defl ?size/(?bls/128)-1
+  201                   
+  202                       ?exm	defl ?bls/1024
+  203                   	if ?dsm GT 255
+  204                   	    if ?bls EQ 1024
+  205                   .'Error, can''t have this size disk with 1k block size'
+  206                   	    exitm
+  207                   	    endif
+  208                   	?exm	defl ?exm/2
+  209                   	endif
+  210                       ?exm	defl ?exm-1
+  211                       ?all	defl 0
+  212                       ?n		defl (?ndirs*32+?bls-1)/?bls
+  213                   	rept ?n
+  214                   	?all	defl (?all shr 1) or 8000h
+  215                   	endm
+  216                       ?al0	defl high ?all
+  217                       ?al1	defl low ?all
+  218                       ?drm	defl ?ndirs-1
+  219                       if not nul ?ncks
+  220                       	?cks	defl ?ncks
+  221                       else
+  222                   	?cks	defl ?ndirs/4
+  223                       endif
+  224                   	dw	?spt		; 128 byte records per track
+  225                   	db	?bsh,?blm	; block shift and mask
+  226                   	db	?exm		; extent mask
+  227                   	dw	?dsm		; maximum block number
+  228                   	dw	?drm		; maximum directory entry number
+  229                   	db	?al0,?al1	; alloc vector for directory
+  230                   	dw	?cks		; checksum size
+  231                   	dw	?off		; offset for system tracks
+  232                   	db	?psh,?psm	; physical sector size shift
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   5
+LDRBIOS3Z80
+
+  233                   				; and mask
+  234                       endm
+  235                   
+  236                   ;--------------------------------------------------------
+  237                   ;
+  238                   ;	cp/m plus version 3.0 jump table
+  239                   ;
+  240                   ;--------------------------------------------------------
+  241                   
+  242                   	cseg
+  243                   
+  244                   	; * needs to be implemented in LDRBIOS
+  245 0000' C3 0070'    	jp	boot		; * arrive here from cold start load
+  246 0003' C3 0090'    	jp	wboot		;   arrive here for warm start
+  247 0006' C3 0090'    	jp	const		;   return console input status
+  248 0009' C3 0090'    	jp	conin		;   read console character
+  249 000C' C3 009D'    	jp	conout		; * write console character
+  250 000F' C3 0090'    	jp	list		;   write list character
+  251 0012' C3 0090'    	jp	auxout		;   write aux character
+  252 0015' C3 0090'    	jp	auxin		;   read aux character
+  253 0018' C3 00B6'    	jp	home		; * move to track zero on selected drive
+  254 001B' C3 00A8'    	jp	seldsk		; * select disk drive
+  255 001E' C3 00BA'    	jp	settrk		; * set track number
+  256 0021' C3 00BF'    	jp	setsec		; * set sector number
+  257 0024' C3 00C4'    	jp	setdma		; * set DMA address
+  258 0027' C3 00CA'    	jp	read		; * read selected sector
+  259 002A' C3 0090'    	jp	write		;   write selected sector
+  260 002D' C3 0090'    	jp	listst		;   return list device status
+  261 0030' C3 0168'    	jp	sectrn		; * translate logical to physical sector number
+  262 0033' C3 0090'    	jp	conost		;   return console output status
+  263 0036' C3 0090'    	jp	auxist		;   return aux device input status
+  264 0039' C3 0090'    	jp	auxost		;   return aux device output status
+  265 003C' C3 0090'    	jp	devtbl		;   return address of character i/o table
+  266 003F' C3 0090'    	jp	devini		;   init character i/o devices
+  267 0042' C3 0090'    	jp	drvtbl		;   return address of disk drive table
+  268 0045' C3 0090'    	jp	multio		;   set number of consec. sec. to read/write
+  269 0048' C3 0090'    	jp	flush		;   flush user [de]blocking buffers
+  270 004B' C3 016E'    	jp	move		; * copy memory to memory
+  271 004E' C3 0090'    	jp	time		;   Signal Time and Date operation
+  272 0051' C3 0090'    	jp	selmem		;   select memory bank
+  273 0054' C3 0090'    	jp	setbnk		;   set bank for next DMA
+  274 0057' C3 0090'    	jp	xmove		;   set banks for next move
+  275 005A' C3 0000     	jp	0		;   reserved for future expansion
+  276 005D' C3 0000     	jp	0		;   reserved for future expansion
+  277 0060' C3 0000     	jp	0		;   reserved for future expansion
+  278                   
+  279 0063' D2 008A'    diffv:	jp	nc,nextb2	; received character was higher, ok
+  280 0066' 11 01A6'    wrongv:	ld	de,reqbeg	; wrong SIMH version, load error message
+  281 0069' CD 0091'    	call	msg		; display it
+  282 006C' 76          	halt			; do not proceed
+  283 006D' C3 008A'    	jp	nextb2
+  284 0070' 11 0187'    boot:	ld	de,ldrvrs	; display loader version
+  285 0073' CD 0091'    	call	msg
+  286 0076' 06 07       	ld	b,0ffh and (reqend-requir)	; number of characters to compare
+  287 0078' 21 01BF'    	ld	hl,requir	; pointer to minimal required version
+  288 007B' 3E 06       	ld	a,getVersionSIMHCmd	; issue SIMH interface version command
+  289 007D' D3 FE       	out	(simhport),a
+  290 007F' DB FE       nextb1:	in	a,(simhport)	; get version identifier
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   6
+LDRBIOS3Z80
+
+  291 0081' BE          	cp	(hl)		; compare with minimal requiremend
+  292 0082' 23          	inc	hl		; advance pointer to minimal requirement
+  293 0083' C2 0063'    	jp	nz,diffv	; difference deteced
+  294 0086' 05          	dec	b		; decrement counter of characters to check
+  295 0087' C2 007F'    	jp	nz,nextb1	; not yet done
+  296 008A' DB FE       nextb2:	in	a,(simhport)	; get character from SIMH
+  297 008C' B7          	or	a
+  298 008D' C2 008A'    	jp	nz,nextb2	; and repeat until 0 received
+  299 0090'             wboot:
+  300 0090'             const:
+  301 0090'             conin:
+  302 0090'             list:
+  303 0090'             auxout:
+  304 0090'             auxin:
+  305 0090'             write:
+  306 0090'             listst:
+  307 0090'             conost:
+  308 0090'             auxist:
+  309 0090'             auxost:
+  310 0090'             devtbl:
+  311 0090'             devini:
+  312 0090'             drvtbl:
+  313 0090'             multio:
+  314 0090'             flush:
+  315 0090'             time:
+  316 0090'             selmem:
+  317 0090'             setbnk:
+  318 0090' C9          xmove:	ret
+  319                   
+  320 0091' 1A          msg:	ld	a,(de)		; get next character
+  321 0092' FE 24       	cp	'$'		; '$' denotes end of string
+  322 0094' C8          	ret	z		; done if current character is '$'
+  323 0095' 4F          	ld	c,a		; conout expects character in <C>
+  324 0096' CD 009D'    	call	conout		; display character on console
+  325 0099' 13          	inc	de		; point to next character
+  326 009A' C3 0091'    	jp	msg		; and repeat
+  327                   
+  328 009D' DB 10       conout:	in	a,(constat)
+  329 009F' 1F          	rra
+  330 00A0' 1F          	rra
+  331 00A1' D2 009D'    	jp	nc,conout
+  332 00A4' 79          	ld	a,c
+  333 00A5' D3 11       	out	(condata),a
+  334 00A7' C9          	ret
+  335                   
+  336 00A8' 21 0000     seldsk:	ld	hl,0		; bad drive
+  337 00AB' 79          	ld	a,c		; drive request
+  338 00AC' B7          	or	a
+  339 00AD' C0          	ret	nz
+  340 00AE' 21 01DC'    	ld	hl,dph0
+  341 00B1' 3E 80       	ld	a,80h
+  342 00B3' D3 08       	out	(selout),a
+  343 00B5' C9          	ret
+  344                   
+  345 00B6' AF          home:	xor	a		; move to track 00
+  346 00B7' C3 00BB'    	jp	settr1
+  347                   
+  348 00BA' 79          settrk:	ld	a,c
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   7
+LDRBIOS3Z80
+
+  349 00BB' 32 0227'    settr1:	ld	(track),a
+  350 00BE' C9          	ret
+  351                   
+  352 00BF' 79          setsec:	ld	a,c		; set sector
+  353 00C0' 32 0228'    	ld	(sector),a
+  354 00C3' C9          	ret
+  355                   
+  356 00C4' 69          setdma:	ld	l,c
+  357 00C5' 60          	ld	h,b
+  358 00C6' 22 0229'    	ld	(dmaad),hl	; set dma address
+  359 00C9' C9          	ret
+  360                   
+  361                   ;
+  362                   ; altair disk read/write drivers
+  363                   ;
+  364 00CA' CD 0110'    read:	call	poshed		; select disk 'diskno' and position disk head to 'track' 
+  365                   ; Input:	'sector' contains desired sector number 
+  366                   ; Output:	head is positioned at desired sector
+  367 00CD' 3E 04       	ld	a,cload		; command to load head to drive surface
+  368 00CF' D3 09       	out	(dskcon),a	; do it
+  369 00D1' 3A 0228'    	ld	a,(sector)	; <A> := desired sector
+  370 00D4' 3D          	dec	a		; adjust to range 0..(spt-1)
+  371 00D5' 47          	ld	b,a		; <B> := adjusted, desired sector
+  372 00D6' FE 20       	cp	spt		; compare with sectors per track
+  373 00D8' DA 00DC'    	jp	c,seclp2	; desired sector is less than total sectors per track, ok
+  374 00DB' 76          	halt			; not much we can do
+  375 00DC' DB 09       seclp2:	in	a,(secpos)	; get sector position
+  376 00DE' 1F          	rra			; rotate T bit into carry
+  377 00DF' DA 00DC'    	jp	c,seclp2	; loop until sector is positioned to read or write
+  378 00E2' E6 1F       	and	sptmask		; <A> now contains the sector under the head
+  379 00E4' B8          	cp	b		; compare with desired sector
+  380 00E5' C2 00DC'    	jp	nz,seclp2	; repeat if not equal
+  381 00E8' 21 022B'    	ld	hl,altbuf	; address of sector buffer
+  382 00EB' 1E 89       	ld	e,asecsiz	; number of bytes to read
+  383 00ED' F3          	di
+  384 00EE' DB 08       blrd1:	in	a,(statin)	; get disk status
+  385 00F0' B7          	or	a		; set sign of byte
+  386 00F1' FA 00EE'    	jp	m,blrd1		; loop until disk has new byte to read
+  387 00F4' DB 0A       	in	a,(dskread)	; read byte of sector
+  388 00F6' 77          	ld	(hl),a		; store into buffer
+  389 00F7' 23          	inc	hl		; point to next position in buffer
+  390 00F8' 1D          	dec	e		; decrement size counter
+  391 00F9' C2 00EE'    	jp	nz,blrd1	; if not zero, we need to continue
+  392 00FC' 01 0080     	ld	bc,csecsiz	; sector size in preparation for call to 'ldir'
+  393 00FF' 3E 08       	ld	a,cuload	; unload head command
+  394 0101' D3 09       	out	(dskcon),a	; do it
+  395 0103' FB          	ei
+  396 0104' 11 022E'    	ld	de,altbuf+3	; address of sector just read
+  397 0107' 2A 0229'    	ld	hl,(dmaad)	; destination address
+  398 010A' EB          	ex	de,hl		; prepare for ldir
+  399 010B' CD 0174'    	call	ldir80
+  400 010E' AF          	xor	a		; <A> := 0 means no error
+  401 010F' C9          	ret
+  402                   
+  403                   ; Select disk 'diskno' and position disk head to 'track' 	
+  404 0110' 3A 0226'    poshed:	ld	a,(ontrk)
+  405 0113' 47          	ld	b,a
+  406 0114' AF          	xor	a		; <A> := 0 (disk 0)
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   8
+LDRBIOS3Z80
+
+  407 0115' D3 08       	out	(selout),a	; select disk
+  408 0117' DB 08       	in	a,(statin)	; get status of selected drive
+  409 0119' FE FF       	cp	mall		; ok?
+  410 011B' CA 015C'    	jp	z,selerr	; no!
+  411 011E' 78          	ld	a,b		; <B> := track of selected disk
+  412 011F' FE FF       	cp	track1		; compare with non-existing track
+  413 0121' C2 0136'    	jp	nz,alseek	; if a regular track, proceed to seek
+  414                   ; position disk on track zero, <A> == 0 at the end
+  415 0124' DB 08       dhome:	in	a,(statin)	; position disk to track 0
+  416 0126' E6 40       	and	mtzero		; mask for 'head is on track zero'
+  417 0128' CA 0135'    	jp	z,posh1		; track zero reached, done
+  418 012B' CD 0160'    	call	whmove		; loop until head movement is allowed
+  419 012E' 3E 02       	ld	a,cstepot	; command for 'step head out one track'
+  420 0130' D3 09       	out	(dskcon),a	; do it
+  421 0132' C3 0124'    	jp	dhome		; try again
+  422 0135' 47          posh1:	ld	b,a		; <B> := 0 (current track)
+  423                   ;Input:		location 'track' contains desired track
+  424                   ;		<B> contains current track
+  425                   ;Output:	desired track is reached and stored in track array
+  426 0136' 3A 0227'    alseek:	ld	a,(track)	; seek to 'track' (cur track in b)
+  427 0139' 5F          	ld	e,a		; <E> := desired track
+  428 013A' 78          	ld	a,b		; <A> := current track
+  429 013B' 93          	sub	e		; <A> := current track - desired track
+  430 013C' C8          	ret	z		; we are already at desired track
+  431 013D' 5F          	ld	e,a		; e is the number of "step in" or "step out"
+  432 013E' DA 0146'    	jp	c,stpin		; current track < desired track
+  433 0141' 0E 02       	ld	c,cstepot	; command for step head out one track
+  434 0143' C3 014B'    	jp	aseek		; perform steps
+  435 0146' 0E 01       stpin:	ld	c,cstepin	; command for step head in one track
+  436 0148' 2F          	cpl			; <A> := ~(current track - desired track)
+  437 0149' 3C          	inc	a		; <A> := desired track - current track (positive)
+  438 014A' 5F          	ld	e,a		; <E> is positive number of tracks to move
+  439 014B' CD 0160'    aseek:	call	whmove		; loop until head movement is allowed
+  440 014E' 79          	ld	a,c		; get command (step in or step out)
+  441 014F' D3 09       	out	(dskcon),a	; perform it
+  442 0151' 1D          	dec	e		; next iteration
+  443 0152' C2 014B'    	jp	nz,aseek	; loop if not done
+  444 0155' 3A 0227'    	ld	a,(track)	; this is the current track
+  445 0158' 32 0226'    	ld	(ontrk),a	; update 'ontrk'
+  446 015B' C9          	ret
+  447 015C' E1          selerr:	pop	hl		; discard return address
+  448 015D' 3E 01       	ld	a,bioserr	; <A> := 1 means error
+  449 015F' C9          	ret
+  450                   
+  451                   ; loop until head movement is allowed
+  452 0160' DB 08       whmove:	in	a,(statin)	; get status
+  453 0162' E6 02       	and	mhm		; mask for 'head movement allowed'
+  454 0164' C2 0160'    	jp	nz,whmove	; loop until movement allowed
+  455 0167' C9          	ret
+  456                   
+  457 0168' EB          sectrn:	ex	de,hl
+  458 0169' 09          	add	hl,bc
+  459 016A' 6E          	ld	l,(hl)
+  460 016B' 26 00       	ld	h,0
+  461 016D' C9          	ret
+  462                   
+  463 016E' EB          move:	ex	de,hl
+  464 016F' CD 0174'    	call	ldir80
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   9
+LDRBIOS3Z80
+
+  465 0172' EB          	ex	de,hl
+  466 0173' C9          	ret
+  467                   
+  468 0174' AF          ldir80:	xor	a		; <A> := 0
+  469 0175' 3D          	dec	a		; <A> := 1111'1111b
+  470 0176' EA 017C'    	jp	pe,ldir1	; on an 8080 this means parity is even
+  471 0179' ED B0       	ldir			; otherwise we have a Z80
+  472 017B' C9          	ret
+  473 017C' 7E          ldir1:	ld	a,(hl)
+  474 017D' 12          	ld	(de),a
+  475 017E' 23          	inc	hl
+  476 017F' 13          	inc	de
+  477 0180' 0B          	dec	bc
+  478 0181' 79          	ld	a,c
+  479 0182' B0          	or	b
+  480 0183' C2 017C'    	jp	nz,ldir1
+  481 0186' C9          	ret
+  482                   
+  483 0187' 0D 0A 4C 44 ldrvrs:	db	cr, lf, 'LDRBIOS3 v1.07 27-Jun-2010', cr, lf, '$'
+  484 01A6' 0D 0A 53 49 reqbeg:	db	cr, lf, 'SIMH interface version '
+  485 01BF' 53 49 4D 48 requir:	db	'SIMH003'
+  486         01C6'     reqend	equ	$
+  487 01C6' 20 6F 72 20 	db	' or above required.', cr, lf, '$'
+  488 01DC'             dph0:	dph	atrans,dpbX
+    2 01DC' 0206'       	dw atrans		; translate table address
+    3 01DE' 00 00 00 00 	db 0,0,0,0,0,0,0,0,0	; BDOS Scratch area
+    4 01E7' 00          	db 0			; media flag
+    5 01E8' 01F5'       	dw dpbX			; disk parameter block
+    9 01EA' FFFE        	dw 0FFFEh		; checksum vector allocated by
+   14 01EC' FFFE        	dw 0FFFEh		; alloc vector allocated by GENCPM
+   16 01EE' FFFE        	dw 0fffeh		; dirbcb allocated by GENCPM
+   17 01F0' FFFF        	dw 0ffffh		; dtabcb not used (record size 128))
+   18 01F2' FFFF        	dw 0ffffh		; no hashing
+   19 01F4' 00          	db 0			; hash bank
+  489 01F5'             dpbX:	dpb	128,spt,254,2048,256,6
+   50 01F5' 0020        	dw	??0003		; 128 byte records per track
+   51 01F7' 04 0F       	db	??0004,??0005	; block shift and mask
+   52 01F9' 00          	db	??0006		; extent mask
+   53 01FA' 01EF        	dw	??0007		; maximum block number
+   54 01FC' 00FF        	dw	??0008		; maximum directory entry number
+   55 01FE' F0 00       	db	??0009,??000A	; alloc vector for directory
+   56 0200' 0040        	dw	??000B		; checksum size
+   57 0202' 0006        	dw	6		; offset for system tracks
+   58 0204' 00 00       	db	??000C,??000D	; physical sector size shift
+  490 0206' 01 12 03 14 atrans:	db	01,18,03,20,05,22,07,24
+  491 020E' 09 1A 0B 1C 	db	09,26,11,28,13,30,15,32
+  492 0216' 11 02 13 04 	db	17,02,19,04,21,06,23,08
+  493 021E' 19 0A 1B 0C 	db	25,10,27,12,29,14,31,16
+  494                   
+  495                   ; Position of disk drive head
+  496 0226' FF          ontrk:	db	track1	; current track# drive 0 (logical 1)
+  497 0227' 00          track:	db	0
+  498 0228' 00          sector:	db	0
+  499 0229' 0000        dmaad:	dw	0
+  500 022B'   0089      altbuf:	ds	asecsiz
+  501                   
+  502                   	end
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page  10
+
+
+ 0 Error(s) Detected. 692 Program Bytes.
+ 101 Symbols Detected.
+

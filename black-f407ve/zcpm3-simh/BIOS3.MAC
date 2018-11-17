@@ -1,0 +1,1549 @@
+; BIOS for CP/M Plus (for ALTAIR 8800 with Z80 CPU as SIMH simulation)
+; written by Peter Schorn (January 2002)
+; based on work by Bill Smith (CPM3ON2)
+; and on Charles (Dutch) Owen's BIOS for CPM2.2
+; and on Digital Research's modular BIOS
+
+; Change history
+
+; 02-May-2009, P. Schorn, removed LD BC,(addr) and DJNZ, bug found by Michael Rychlik
+; 19-Aug-2008, P. Schorn, number of simulated hard drives is fully taken
+;			  into account and can be 0..8
+; 11-Jan-2007, H. Harte,  added support for DPB's retrieved
+;                         from controller, and 128/256/512-byte
+;                         physical sector sizes on a per-disk basis.
+; 16-Oct-2002, P. Schorn, added simulated hard drive
+; 15-Apr-2002, P. Schorn, simplifed disk read / write code
+; 21-Mar-2002, P. Schorn, added test for banked memory
+; 01-Mar-2002, P. Schorn, removed unused equ statements
+; 23-Feb-2002, P. Schorn, removed SIMH reset from time routine
+
+		.8080
+jpop		equ	jmp		; jp instruction
+
+		.Z80
+
+drives		equ	8		; number of drives supported
+true		equ	-1
+false		equ	not true
+
+sleepol		equ	true		; if true then sleep a bit while status polling
+					; Note: requires SIMH
+
+
+		maclib	DEFS.LIB	; file name must be upper case!
+					; defines, banked, nhdisks and expcom
+; defaults
+    ifndef	nhdisks
+nhdisks		equ	0
+    endif
+
+    ifndef	banked
+banked		equ	false
+    endif
+
+    if	nhdisks gt 0
+; constants for hard disk port
+hdskReset	equ	1		; command to reset controller
+hdskRead	equ	2		; read command
+hdskWrite	equ	3		; write command
+hdskParam	equ	4		; param command
+hdskport	equ	0fdh		; control port for simulated hard disk
+    endif
+
+tracks		equ	254
+track1		equ	tracks+1
+asecsiz		equ	137		; size of ALTAIR physical sector
+csecsiz		equ	0080h		; sector size CP/M
+restrk		equ	6		; reserved tracks
+spt		equ	32		; sectors per track
+sptmask		equ	spt-1		; mask corresponding to 'spt'
+cr		equ	13		; Carriage Return
+lf		equ	10		; Line Feed
+getch		equ	1		; BDOS function
+print		equ	9		; BDOS function
+open		equ	15		; BDOS function
+readseq		equ	20		; BDOS function
+dma		equ	26		; BDOS function
+multisec	equ	44		; BDOS function
+bioserr		equ	1		; 1 indicates BIOS error
+
+;	Address		Mode	Function
+;	-------		----	--------
+;	selout		Out	Selects and enables controller and drive
+;	statin		In	Indicates status of drive and controller
+;	dskcon		Out	Controls disk function
+;	secpos		In	Indicates current sector position of disk
+;	dskwrit		Out	Write data
+;	dskread		In	Read data
+
+selout	equ	8		; port to select and enable controller and drive (OUT)
+;	+---+---+---+---+---+---+---+---+
+;	| C | X | X | X |   Device      |
+;	+---+---+---+---+---+---+---+---+
+;
+;	C	= If this bit is 1, the disk controller selected by 'device' is
+;		  cleared. If the bit is zero, 'device' is selected as the
+;		  device being controlled by subsequent I/O operations.
+;	X	= not used
+;	Device	= value zero thru 15, selects drive to be controlled.
+
+statin	equ	8		; port indicating status of drive and controller (IN)
+;	+---+---+---+---+---+---+---+---+
+;	| R | Z | I | X | X | H | M | W |
+;	+---+---+---+---+---+---+---+---+
+;
+;	W - When 0, write circuit ready to write another byte.
+;	M - When 0, head movement is allowed
+;	H - When 0, indicates head is loaded for read/write
+;	X - not used (will be 0)
+;	I - When 0, indicates interrupts enabled (not used this simulator)
+;	Z - When 0, indicates head is on track 0
+;	R - When 0, indicates that read circuit has new byte to read
+
+dskcon	equ	9		; port to control disc function (OUT)
+;	+---+---+---+---+---+---+---+---+
+;	| W | C | D | E | U | H | O | I |
+;	+---+---+---+---+---+---+---+---+
+;
+;	I - When 1, steps head IN one track
+;	O - When 1, steps head OUT one track
+;	H - When 1, loads head to drive surface
+;	U - When 1, unloads head
+;	E - Enables interrupts (ignored by this simulator)
+;	D - Disables interrupts (ignored by this simulator)
+;	C - When 1 lowers head current (ignored by this simulator)
+;	W - When 1, starts Write Enable sequence:
+;	    W bit on device 'statin' (see above) will go 1 and data will be read from
+;	    port 'dskread' until 137 bytes have been read by the controller from
+;	    that port. The W bit will go off then, and the sector data will be written
+;	    to disk. Before you do this, you must have stepped the track to the desired
+;	    number, and waited until the right sector number is presented on
+;	    device 'secpos', then set this bit.
+
+secpos	equ	9		; port to indicate current sector position of disk (IN)
+;	As the sectors pass by the read head, they are counted and the
+;	number of the current one is available in this register.
+;
+;	+---+---+---+---+---+---+---+---+
+;	| X | X |  Sector Number    | T |
+;	+---+---+---+---+---+---+---+---+
+;
+;	X		= Not used
+;	Sector number	= binary of the sector number currently under the head, 0-31.
+;	T		= Sector True, is a 1 when the sector is positioned to read or write.
+
+dskwrit	equ	10		; port to write data (OUT)
+dskread	equ	10		; port to read data (IN)
+
+;	All I/O is via programmed I/O. Each device has a status port
+;	and a data port. A write to the status port can select
+;	some options for the device although the simulator only
+;	recognizes the reset command (0x03).
+;	A read of the status port gets the port status:
+;
+;	+---+---+---+---+---+---+---+---+
+;	| X | X | X | X | X | X | O | I |
+;	+---+---+---+---+---+---+---+---+
+;
+;	I - A 1 in this bit position means a character has been received
+;		on the data port and is ready to be read.
+;	O - A 1 in this bit means the port is ready to receive a character
+;		on the data port and transmit it out over the serial line.
+;
+;	A read to the data port gets the buffered character, a write
+;	to the data port writes the character to the device.
+constat	equ	16		; sio port 1 status port
+condata	equ	17		; sio port 1 data port
+punstat	equ	18		; sio port 2 status port
+pundata	equ	19		; sio port 2 data port
+
+; masks for disk controller (statin)
+mhm	equ	02h		; head movement mask
+mtzero	equ	40h		; head on track zero mask
+mall	equ	0ffh		; everything ok mask
+
+; commands for disk controller (dskcon)
+cstepin	equ	01h		; step in command
+cstepot	equ	02h		; step out command
+cload	equ	04h		; load head to drive surface command
+cuload	equ	08h		; unload head from drive surface command
+cwrseq	equ	80h		; 'start write enable sequence' command
+
+; masks for SIO controller (constat, punstat)
+mout	equ	02h		; output allowed mask
+
+; commands for SIO controller (constat, punstat)
+creset	equ	3		; reset command
+
+simhport	equ	0feh		; SIMH port
+coldboot	equ	0ff00h		; cold boot ROM starts here
+bootram		equ	0000h
+bdos		equ	0005h
+ccp		equ	0100h
+readclock	equ	9		; SIMH command to read clock
+writeclock	equ	10		; SIMH command to write clock
+simhsleep	equ	27		; SIMH sleep command
+
+	if	banked
+hasBankedMemory	equ	18		; SIMH command to check for banked memory
+setBankSelect	equ	12		; SIMH command to set memory bank
+getCommon	equ	13		; SIMH command to get common memory base
+	endif
+
+parblocksize	equ	5		; 5 byte in SCB for date/time data
+
+mb$input	equ	00000001b	; device may do input
+mb$output	equ	00000010b	; device may do output
+mb$in$out	equ	mb$input+mb$output
+baud$none	equ	0		; no baud rate associated
+
+ldbc	macro	addr
+	push	hl
+	ld	hl,(addr)
+	ld	b,h
+	ld	c,l
+	pop	hl
+	endm
+
+;	external references
+	extrn	@civec, @covec, @aovec, @aivec, @lovec, @bnkbf
+	extrn	@crdma, @crdsk,	@fx, @resel, @vinfo, @usrcd
+	extrn	@ermde, @date, @hour, @min, @sec, @mxtpa
+
+;--------------------------------------------------------
+;
+;	cp/m plus version 3.0 jump table
+;
+;--------------------------------------------------------
+	cseg
+
+	jp	boot		; arrive here from cold start load
+warmpt:	jp	wboot		; arrive here for warm start
+	jp	const		; return console input status
+	jp	conin		; read console character
+	jp	conout		; write console character
+	jp	list		; write list character
+	jp	auxout		; write aux character
+	jp	auxin		; read aux character
+	jp	home		; move to track zero on selected drive
+	jp	seldsk		; select disk drive
+	jp	settrk		; set track number
+	jp	setsec		; set sector number
+	jp	setdma		; set dma address
+	jp	read		; read selected sector
+	jp	write		; write selected sector
+	jp	listst		; return list device status
+	jp	sectrn		; translate logical to physical sector number
+	jp	conost		; return console output status
+	jp	auxist		; return aux device input status
+	jp	auxost		; return aux device output status
+	jp	devtbl		; return address of character i/o table
+	jp	devini		; init character i/o devices
+	jp	drvtbl		; return address of disk drive table
+	jp	multio		; set number of consec. sec. to read/write
+	jp	flush		; flush user [de]blocking buffers
+	jp	move		; copy memory to memory
+	jp	time		; signal time and date operation
+	jp	selmem		; select memory bank
+	jp	setbnk		; set bank for next dma
+	jp	xmove		; set banks for next move
+	jp	0		; reserved for future expansion
+	jp	0		; reserved for future expansion
+	jp	0		; reserved for future expansion
+
+	dseg			; this part can be banked
+
+boot:	ld	b,1		; indicate boot
+	ld	hl,8000h
+	ld	(@civec),hl	; CONSOLE:=CON for input
+	ld	(@covec),hl	; CONSOLE:=CON also for output
+	ld	hl,4000h
+	ld	(@aovec),hl	; AUXOUT:=PTP
+	ld	(@lovec),hl	; LST:=PTP
+	ld	hl,2000h
+	ld	(@aivec),hl	; AUXIN:=PTR
+	jp	wboot1
+
+	cseg			; following in resident memory
+
+ldir80:	xor	a		; <A> := 0
+	dec	a		; <A> := 1111'1111b
+	jp	pe,ldir1	; on an 8080 this means parity is even
+	ldir			; otherwise we have a Z80
+	ret
+ldir1:	ld	a,(hl)
+	ld	(de),a
+	inc	hl
+	inc	de
+	dec	bc
+	ld	a,c
+	or	b
+	jp	nz,ldir1
+	ret
+
+wboot:	ld	b,0		; indicate warm boot
+wboot1:	ld	sp,bstack
+
+;
+;	initialize low memory jumps
+;
+
+    if	banked
+	ld	a,1
+	call	selmem
+    endif
+
+	ld	hl,warmpt
+	ld	(bootram+1),hl
+	ld	hl,(@mxtpa)
+	ld	(bdos+1),hl
+	ld	a,jpop
+	ld	(bootram),a
+	ld	(bdos),a
+	ld	a,b
+	or	a
+	jp	z,ldccp		; no message on warm boot
+	ld	de,versio	; print version information
+	call	printf
+;
+;	load ccp.com into tpa
+;
+ldccp:
+
+    if	nhdisks gt 0
+	ld	b,32		; reset hard disk controller
+	ld	a,hdskReset	; by issuing the reset command 32 times
+rhdsk:	out	(hdskPort),a
+	dec	b
+	jp	nz,rhdsk	; post condition is <B> := 0
+    endif
+
+	ld	hl,ontrk0	; start address of table for current track positions
+	ld	b,drives	; number of disks
+resett:	ld	(hl),track1	; reset entry for disk
+	inc	hl		; point to next entry
+	dec	b		; decrement counter for disks to go
+	jp	nz,resett	; jump if not yet done
+	xor	a
+	ld	(ccpfcb+15),a	; zero extent
+	ld	hl,0
+	ld	(fcbnr),hl	; start at beginning of file
+	ld	de,ccpfcb
+	ld	c,open
+	call	bdos		; open file containing ccp
+	ld	de,opnmsg
+	inc	a
+	jp	z,prterr	; error if file not found
+	ld	de,ccp
+	ld	c,dma
+	call	bdos		; start of tpa
+	ld	de,128
+	ld	c,multisec
+	call	bdos		; allow up to 16k bytes
+	ld	de,ccpfcb
+	ld	c,readseq
+	call	bdos		; load the thing
+	ld	de,iomsg
+	inc	a
+	jp	nz,ccp
+prterr:	call	printf		; print the complaint
+	ld	c,getch
+	call	bdos		; wait for any key
+	jp	coldboot	; attempt cold boot
+printf:	ld	c,print
+	jp	bdos
+	ds	8
+bstack:
+devtbl:	ld	hl,ctbla
+devini:
+xmove:	ret
+drvtbl:	ld	hl,dtbla
+
+    if	banked
+	ret
+selmem:	ld	(cbank),a	; update current bank
+selme1:	push	af		; save
+selme5:	ld	a,hasBankedMemory
+	out	(simhport),a
+	in	a,(simhport)
+	or	a
+	jp	z,selme2	; = 0 indicates that we don't have banked memory
+	ld	a,getCommon
+	out	(simhport),a
+	in	a,(simhport)
+	cp	0ffh and expcom
+	in	a,(simhport)
+	jp	nz,selme2
+	cp	0ffh and (expcom shr 8)
+	jp	nz,selme2
+	ld	a,setbankselect	; prepare command
+	out	(simhport),a	; execute it
+	pop	af		; restore desired bank
+	out	(simhport),a	; inform mmu
+	ret			; done
+selme2:	ld	de,nobankedmemory	; print message for missing banked memory
+selme3:	ld	a,(de)		; get next character
+	cp	'$'		; '$' denotes end of string
+	jp	z,selme4	; done if current character is '$'
+	ld	c,a		; xconout expects character in <C>
+	call	xconout		; display character on console
+	inc	de		; point to next character
+	jp	selme3		; and repeat
+selme4:	halt			; halt and allow continuation if desired by user
+	jp	selme5
+    else
+selmem:	ret			; merge with drvtbl
+    endif
+
+time:	push	hl
+	push	de
+	ld	a,c
+	cp	0ffh
+	jp	z,setclock
+	ld	a,readclock
+	out	(simhport),a
+	ld	hl,@date
+	ld	b,parblocksize
+timag:	in	a,(simhport)
+	ld	(hl),a
+	inc	hl
+	dec	b
+	jp	nz,timag
+	jp	timdon
+setclock:
+	ld	a,writeclock
+	out	(simhport),a
+	ld	hl,@date
+	ld	a,l
+	out	(simhport),a
+	ld	a,h
+	out	(simhport),a
+timdon:	pop	de
+	pop	hl
+	ret
+
+move:	ex	de,hl
+	call	ldir80
+	ex	de,hl
+	ret
+
+	; conout
+	;	console output. send character in <C>
+	;			to all selected devices
+conout:	ld	hl,(@covec)	; fetch console output bit vector
+	jp	out$scan
+
+	; auxout
+	;	auxiliary output. send character in <C>
+	;			to all selected devices
+auxout:	ld	hl,(@aovec)	; fetch aux output bit vector
+	jp	out$scan
+
+	; list
+	;	list output. send character in <C>
+	;			to all selected devices
+list:	ld	hl,(@lovec)	; fetch list output vector
+out$scan:
+	ld	b,0		; start with device 0
+co$next:
+	add	hl,hl		; shift out next bit
+	jp	nc,not$out$device
+	push	hl		; save the vector
+	push	bc		; save the count and character
+	call	?co		; if device selected, print it
+	pop	bc		; recover count and character
+	pop	hl		; recover the rest of the vector
+not$out$device:
+	inc	b		; next device number
+	ld	a,h
+	or	l		; see if any devices left
+	jp	nz,co$next	; and go find them...
+	ret
+
+	; conost
+	;	console output status. return true if
+	;			all selected console output devices
+	;			are ready
+conost:	ld	hl,(@covec)	; get console output bit vector
+	jp	ost$scan
+
+	; auxost
+	;	auxiliary output status. return true if
+	;		all selected auxiliary output devices
+	;		are ready
+auxost:	ld	hl,(@aovec)	; get aux output bit vector
+	jp	ost$scan
+
+	; listst
+	;	list output status. return true if
+	;		all selected list output devices
+	;		are ready
+listst:	ld	hl,(@lovec)	; get list output bit vector
+ost$scan:
+	ld	b,0		; start with device 0
+cos$next:
+	add	hl,de		; check next bit
+	push	hl		; save the vector
+	push	bc		; save the count
+	ld	a,0ffh		; assume device ready
+	call	c,?cost		; check status for this device
+	pop	bc		; recover count
+	pop	hl		; recover bit vector
+	or	a		; see if device ready
+	ret	z		; if any not ready, return false
+	inc	b		; drop device number
+	ld	a,h
+	or	l		; see if any more selected devices
+	jp	nz,cos$next
+	or	0ffh		; all selected were ready, return true
+	ret
+
+cistl:	push	bc		; get input status with <BC> and <HL> saved
+	push	hl
+	call	?cist
+	pop	hl
+	pop	bc
+	or	a
+	ret
+
+costl:	push	bc		; get output status, saving <BC> & <HL>
+	push	hl
+	call	?cost
+	pop	hl
+	pop	bc
+	or	a
+	ret
+
+cil:	push	bc		; get input, saving <BC> & <HL>
+	push	hl
+	call	?ci
+	pop	hl
+	pop	bc
+	ret
+
+	; const
+	;	console input status. return true if
+	;		any selected console input device
+	;		has an available character
+const:	ld	hl,(@civec)	; get console input bit vector
+	jp	ist@scan
+
+	; auxist
+	;	auxiliary input status. return true if
+	;		any selected auxiliary input device
+	;		has an available character
+auxist:	ld	hl,(@aivec)	; get aux input bit vector
+ist@scan:
+	ld	b,0		; start with device 0
+cis$next:
+	add	hl,hl		; check next bit
+	ld	a,0		; assume device not ready
+	call	c,cistl		; check status for this device
+	or	a
+	ret	nz		; if any ready, return true
+	inc	b		; next device number
+	ld	a,h
+	or	l		; see if any more selected devices
+	jp	nz,cis$next
+flush:	xor	a		; all selected were not ready, return false
+	ret
+
+	; conin
+	;	console input. return character from first
+	;		ready console input device
+conin:	ld	hl,(@civec)
+	jp	in$scan
+
+	; auxin
+	;	auxiliary input. return character from first
+	;		ready auxiliary input device
+auxin:	ld	hl,(@aivec)
+in$scan:
+	push	hl		; save bit vector
+	ld	b,0
+ci$next:
+	add	hl,hl		; shift out next bit
+	ld	a,0		; insure zero a (nonexistant device not ready)
+	call	c,cistl		; see if the device has a character
+	or	a
+	jp	nz,ci$rdy	; this device has a character
+	inc	b		; else, next device
+	ld	a,h
+	or	l		; see if any more devices
+	jp	nz,ci$next	; go look at them
+	pop	hl		; recover bit vector
+	jp	in$scan		; loop til we find a character
+ci$rdy:	pop	hl		; discard extra stack
+; device number in b for ?ci, ?co, ?cist, ?cost
+
+?ci:	ld	hl,citab
+	jp	dotab
+?cist:	ld	hl,cisttab
+	jp	dotab
+?co:	ld	hl,cotab
+	jp	dotab
+?cost:	ld	hl,costtab
+dotab:	ld	e,b
+	ld	d,0
+	add	hl,de
+	add	hl,de
+	ld	a,(hl)
+	inc	hl
+	ld	h,(hl)
+	ld	l,a
+	jp	(hl)
+
+; crt, ptp, ptr
+citab:	dw	xconin		; CRT
+	dw	0		; PTP
+	dw	xauxin		; PTR
+
+cisttab:
+	dw	xconst		; CRT
+	dw	0		; PTP
+	dw	xauxist		; PTR
+
+cotab:	dw	xconout		; CRT
+	dw	xauxout		; PTP
+	dw	0		; PTR
+
+costtab:
+	dw	xconost		; CRT
+	dw	xauxost		; PTP
+	dw	0		; PTR
+
+; Serial device definitions
+; We support console, AUXIN (SIMH PTR device) and AUXOUT (SIMH PTP device).
+; The CP/M device name is AUX: for both input and output.
+; The list device is redirected to PTP.
+
+	if	sleepol
+
+xconst:	in	a,(constat)
+	rra
+	ld	a,0
+	jp	nc,nochr
+	dec	a
+	ret
+nochr:	ld	a,simhsleep	; otherwise sleep for SIMHSleep microseconds
+	out	(simhport),a	; execute command
+	xor	a
+	ret
+
+xconin:	in	a,(constat)	; get console status
+	rra			; I bit into carry
+	jp	c,getchr	; get character
+	ld	a,simhsleep	; otherwise sleep for SIMHSleep microseconds
+	out	(simhport),a	; execute command
+	jp	xconin		; try again
+getchr:	in	a,(condata)	; read character
+	ret
+
+	else
+
+xconst:	in	a,(constat)
+	rra
+	ld	a,0
+	ret	nc
+	dec	a
+	ret
+
+xconin:	in	a,(constat)
+	rra
+	jp	nc,xconin
+	in	a,(condata)
+	ret
+
+	endif
+
+xconout:
+	in	a,(constat)
+	rra
+	rra
+	jp	nc,xconout
+	ld	a,c
+	out	(condata),a
+	ret
+
+xconost:
+	in	a,(constat)
+	rra
+	rra
+	ld	a,0
+	ret	nc
+	dec	a
+	ret
+
+;
+; Reader/punch routines use sio port 2
+;
+xauxout:
+	in	a,(punstat)
+	rra
+	rra
+	jp	nc,xauxout
+	ld	a,c
+	out	(pundata),a
+	ret
+
+xauxost:
+	in	a,(punstat)
+	rra
+	rra
+	ld	a,0
+	ret	nc
+	dec	a
+	ret
+
+xauxin:	in	a,(punstat)
+	rra
+	jp	nc,xauxin
+	in	a,(pundata)
+	ret
+
+xauxist:
+	in	a,(punstat)
+	rra
+	ld	a,0
+	ret	nc
+	dec	a
+	ret
+
+	dseg
+
+seldsk:	ld	hl,0		; bad drive
+	ld	a,c		; drive request
+	ld	(diskno),a
+	cp	drives+nhdisks
+	ret	nc		; exit if no space alloc for drive
+	ld	l,c
+	ld	h,0
+	add	hl,hl		; create index from drive code
+	ld	bc,dtbla
+	add	hl,bc		; get pointer to dispatch table
+	ld	a,(hl)
+	inc	hl
+	ld	h,(hl)
+	ld	l,a		; point at disk descriptor
+
+    if	nhdisks gt 0
+	ld	a,(diskno)
+	cp	drives
+	jp	nc, hdsksel
+    endif
+
+	ld	a,80h
+	out	(selout),a
+	ret
+
+    if	nhdisks gt 0
+; entry: pointer to disk descriptor in HL.  This must be
+; preserved.
+hdsksel:
+	push	hl		; Preserve pointer to disk descriptor
+	ld	bc,12
+	add	hl,bc
+	ld	a,(hl)
+	inc	hl
+	ld	h,(hl)
+	ld	l,a		; point at disk dpb
+	ld	a,hdskParam
+	out	(hdskPort),a	; Send 'get parameters' command
+	ld	a,(diskno)
+	sub	drives
+	out	(hdskPort),a	; Send selected HDSK number
+	ld	b,17
+hdskpl:
+	in	a,(hdskPort)	; Read 17-bytes of DPB
+	ld	(hl), a
+	inc	hl
+	dec	b
+	jp	nz,hdskpl
+	in	a,(hdskPort)	; Read LSB of disk's physical sector size.
+	ld	(hsecsiz), a
+	in	a,(hdskPort)	; Read MSB of disk's physical sector size.
+	ld	(hsecsiz+1), a
+
+	pop	hl		; restore pointer to disk descriptor
+	ret
+    endif
+
+home:	ld	bc,0		; move to track 00
+settrk:	ld	l,c		; save track
+	ld	h,b
+	ld	(track),hl
+	ret
+
+setsec:	ld	a,c		; set sector
+	ld	(sector),a
+	ret
+
+setdma:	ld	l,c
+	ld	h,b
+	ld	(dmaad),hl	; set dma address
+	ret
+
+    if	banked
+	ret
+setbnk:	ld	(crwbank),a
+	ret
+    else
+setbnk:	ret			; also for setdma
+    endif
+
+;Translate Sector Number Given Translate Table
+;Entry Parameters:	BC=Logical Sector Number
+;			DE=Translate Table Address
+;Returned Values:	HL=Physical Sector Number
+;
+;SECTRN performs logical sequential sector address to physical sector
+;translation to improve the overall response of CP/M 3. Digital Research
+;ships standard CP/M disk with a skew factor of 6, where six physical
+;sectors are skipped between each logical read operation. This skew
+;factor allows enough time between sectors for most programs on a slow
+;system to process their buffers without missing the next sector. In
+;computer systems that use fast processors, memory, and disk subsystems,
+;you can change the skew factor to improve overall response. Typically,
+;most disk systems perform well with a skew of every other physical
+;sector. You should maintain support of single-density, IBM 3740
+;compatible disks using a skew factor of 6 in your CP/M 3 system to allow
+;information transfer to and from other CP/M users. SECTRN receives a
+;logical sector number in BC, and a translate table address in DE. The
+;logical sector number is relative to zero. The translate table address
+;is obtained from the Disk Parameter Block for the currently selected
+;disk. The sector number is used as an index into the translate table,
+;with the resulting physical sector number returned in HL. For standard,
+;single-density, eight- inch disk systems, the tables and indexing code
+;are provided in the sample BIOS and need not be changed. Certain drive
+;types either do not need skewing or perform the skewing externally from
+;the system software. In this case, the skew table address in the DPH
+;can be set to zero, and the SECTRN routine can check for the zero in DE
+;and return with the physical sector set to the logical sector.
+sectrn:
+    if	nhdisks gt 0
+	ld	l,c		; <HL> := BC, prepration for <DE> = 0
+	ld	h,b		; load upper byte
+	inc	hl		; rebase to one
+	ld	a,e		; get lower byte of translate table address
+	or	d		; or with upper byte
+	ret	z		; if equal to zero, no translation necessary
+    endif
+	ex	de,hl		; <HL> := translate table address
+	add	hl,bc
+	ld	l,(hl)
+	ld	h,0
+multio:	ret
+
+wldir:	ld	hl,(dmaad)	; source of sector is in 'dmaad'
+	ld	de,altbuf+3	; destination inside local buffer
+
+    if	banked
+	jp	ldirx
+    else
+	jp	ldir80
+    endif
+
+;
+; altair disk read/write drivers
+;
+read:
+    if	nhdisks gt 0
+	ld	a,(diskno)	; get disk number
+	cp	drives		; compare with number of Altair disks
+	jp	c,aread		; carry means we got an Altair disk
+	ld	a,hdskRead	; otherwise perform hard disk read
+	call	set2		; send hard disk parameters
+	ldbc	hsecsiz		; sector size can be variable for HDSK Controller
+	jp	rldir
+aread	equ	$
+    endif
+	call	poshed		; select disk 'diskno' and position disk head to 'track'
+	call	secget		; position head to desired sector
+	ld	hl,altbuf	; address of sector buffer
+	ld	e,asecsiz	; number of bytes to read
+	di
+blrd1:	in	a,(statin)	; get disk status
+	or	a		; set sign of byte
+	jp	m,blrd1		; loop until disk has new byte to read
+	in	a,(dskread)	; read byte of sector
+	ld	(hl),a		; store into buffer
+	inc	hl		; point to next position in buffer
+	dec	e		; decrement size counter
+	jp	nz,blrd1	; if not zero, we need to continue
+	ld	a,cuload	; unload head command
+	out	(dskcon),a	; do it
+	ei
+	xor	a		; <A> := 0 means no error
+	ld	bc,csecsiz	; sector size is 128
+rldir:	push	af
+	ld	hl,(dmaad)	; destination address
+	ld	de,altbuf+3	; address of sector just read
+	ex	de,hl		; prepare for ldir
+
+    if	banked
+	call	ldirx
+    else
+	call	ldir80
+    endif
+
+	pop	af
+	ret
+
+	cseg
+
+    if	banked
+ldirx:	ld	a,(crwbank)	; get desired bank
+	call	selme1		; select it without updating current bank
+	call	ldir80		; move memory for read or write
+	ld	a,(cbank)	; get previous bank
+	call	selmem		; select it
+	ret
+    endif
+
+	dseg
+
+write:
+    if	nhdisks gt 0
+	ld	a,(diskno)	; get disk number
+	cp	drives		; compare with number of Altair disks
+	jp	c,awrite	; carry means we got an Altair disk
+	ldbc	hsecsiz		; sector size can be variable for HDSK Controller
+	call	wldir
+	ld	a,hdskWrite	; otherwise perform hard disk write
+	ldbc	hsecsiz		; sector size can be variable for HDSK Controller
+set2:	out	(hdskPort),a	; send command
+	ld	a,(diskno)	; get disk number
+	sub	drives		; rebase
+	out	(hdskPort),a	; send rebased disk number
+	ld	a,(sector)	; get sector
+	dec	a		; rebase to 0
+	out	(hdskPort),a	; send rebased sector number
+	ld	a,(track)	; get lower byte of track
+	out	(hdskPort),a	; send lower byte of track
+	ld	a,(track+1)	; get upper byte of track
+	out	(hdskPort),a	; send upper byte of track
+	ld	a,(dma2)	; get lower byte DMA address
+	out	(hdskPort),a	; send lower byte of DMA address
+	ld	a,(dma2+1)	; get upper byte of DMA address
+	out	(hdskPort),a	; send upper byte of DMA address
+	in	a,(hdskPort)	; perform command and get result
+	ret
+dma2:	dw	altbuf+3
+awrite	equ	$
+    endif
+	call	poshed		; select desired disk and position to desired track
+	call	secget		; position head to desired sector
+	ld	bc,csecsiz	; sector size is 128
+	call	wldir
+	ld	a,cwrseq	; command for 'start write enable sequence'
+	out	(dskcon),a	; do it
+	di
+	ld	hl,altbuf	; point to first byte in local buffer
+	ld	b,asecsiz+1	; number of bytes to write (additional byte triggers 'real' write)
+wready:	in	a,(statin)	; get status
+	rra			; get bit for ready for write
+	jp	c,wready	; loop until ready for write
+	ld	a,(hl)		; byte to write
+	out	(dskwrit),a	; write byte
+	inc	hl		; point to next byte
+	dec	b		; decrement counter of bytes
+	jp	nz,wready	; jp if not done
+	ld	a,cuload	; unload head command
+	out	(dskcon),a	; do it
+	ei
+	xor	a		; <A> := 0 means no error
+	ret
+
+; Select disk 'diskno' and position disk head to 'track'
+poshed:	call	calcd		; position altair disk head
+	ld	a,d		; select disk <D>, cur track in <B>
+	out	(selout),a	; select disk
+	in	a,(statin)	; get status of selected drive
+	cp	mall		; ok?
+	jp	z,selerr	; no!
+	ld	a,b		; <B> := track of selected disk
+	cp	track1		; compare with non-existing track
+	jp	nz,alseek	; if a regular track, proceed to seek
+; position disk on track zero, <A> == 0 at the end
+dhome:	in	a,(statin)	; position disk to track 0
+	and	mtzero		; mask for 'head is on track zero'
+	jp	z,posh1		; track zero reached, done
+	call	whmove		; loop until head movement is allowed
+	ld	a,cstepot	; command for 'step head out one track'
+	out	(dskcon),a	; do it
+	jp	dhome		; try again
+posh1:	ld	b,a		; <B> := 0 (current track)
+;Input:		location 'track' contains desired track
+;		<B> contains current track
+;Output:	desired track is reached and stored in track array
+alseek:	ld	a,(track)	; seek to 'track' (cur track in b)
+	ld	e,a		; <E> := desired track
+	ld	a,b		; <A> := current track
+	sub	e		; <A> := current track - desired track
+	ret	z		; we are already at desired track
+	ld	e,a		; e is the number of "step in" or "step out"
+	jp	c,stpin		; current track < desired track
+	ld	c,cstepot	; command for step head out one track
+	jp	aseek		; perform steps
+stpin:	ld	c,cstepin	; command for step head in one track
+	cpl			; <A> := ~(current track - desired track)
+	inc	a		; <A> := desired track - current track (positive)
+	ld	e,a		; <E> is positive number of tracks to move
+aseek:	call	whmove		; loop until head movement is allowed
+	ld	a,c		; get command (step in or step out)
+	out	(dskcon),a	; perform it
+	dec	e		; next iteration
+	jp	nz,aseek	; loop if not done
+	call	calcd		; get pointer to 'track' of 'diskno'
+	ld	a,(track)	; this is the current track
+	ld	(hl),a		; update 'track' of 'diskno'
+	ret
+selerr:	pop	hl		; discard return address
+	ld	a,bioserr	; <A> := 1 means error
+	ret
+
+; loop until head movement is allowed
+whmove:	in	a,(statin)	; get status
+	and	mhm		; mask for 'head movement allowed'
+	jp	nz,whmove	; loop until movement allowed
+	ret
+
+; Input:	<none> - implicit input is location 'diskno'
+; Output:	<B> contains the current track of 'diskno'
+;		<A>, <D> and <E> contain 'diskno'
+;		<HL> points to 'track' of 'diskno'
+calcd:	ld	a,(diskno)	; get 'diskno'
+	ld	e,a		; <E> := 'diskno'
+	ld	hl,ontrk0
+	ld	d,0
+	add	hl,de		; <HL> points to 'track' of 'diskno'
+	ld	b,(hl)		; <B> := 'track' of 'diskno'
+	ld	d,e		; <E> := 'diskno'
+	ret
+
+; Input:	'sector' contains desired sector number
+; Output:	head is positioned at desired sector
+secget:	ld	a,cload		; command to load head to drive surface
+	out	(dskcon),a	; do it
+	ld	a,(sector)	; <A> := desired sector
+	dec	a		; adjust to range 0..(spt-1)
+	ld	b,a		; <B> := adjusted, desired sector
+	cp	spt		; compare with sectors per track
+	jp	c,seclp2	; desired sector is less than total sectors per track, ok
+	push	bc		; save sector
+	ld	de,secmsg	; prepare error message
+	call	printf		; print it
+	pop	bc		; restore sector
+	halt			; not much we can do
+seclp2:	in	a,(secpos)	; get sector position
+	rra			; rotate T bit into carry
+	jp	c,seclp2	; loop until sector is positioned to read or write
+	and	sptmask		; <A> now contains the sector under the head
+	cp	b		; compare with desired sector
+	jp	nz,seclp2	; repeat if not equal
+	ret
+
+;Drive Table
+;
+;The drive table consists of 16 words containing the addresses of the
+;Disk Parameter Headers for each logical drive name, A through P, and
+;takes the general form:
+;
+;	drivetable	dw	dpho
+;			dw	dphl
+;			dw	dph2
+;			.
+; 			.
+;			dw	dphf
+;
+;If a logical drive does not exist in your system, the corresponding
+;entry in the drive table must be zero.
+;
+;The GENCPM utility accesses the drive table to locate the various disk
+;parameter data structures, so that it can determine which system
+;configuration to use, and optionally allocate the various buffers
+;itself. You must supply a drive table if you want GENCPM to do this
+;allocation. If certain addresses in the Disk Parameter Headers
+;referenced by this drive table are set to 0FFFEH, GENCPM allocates the
+;appropriate data structures and updates the DPH. You can supply the
+;drive table even if you have performed your own memory allocation.
+;
+;
+;Disk Parameter Header
+;
+;In the following figure, which shows the format of the Disk Parameter
+;Header, B refers to bits.
+;
+;	+---+---+--+---+---+---+------+------+----+-----+
+;	|XLT|-0-|MF|DPB|CSV|ALV|DIRBCB|DTABCB|HASH|HBANK|
+;	+---+---+--+---+---+---+------+------+----+-----+
+;	|16B|72B|8B|16B|16B|16B|  16B |  16B | 16B|  8B |
+;	+---+---+--+---+---+---+------+------+----+-----+
+;
+;
+;Field		Comments
+;XLT	Set the XLT field to the address of the logical to
+;	physical sector translation table. If there is no sector
+;	translation and the logical and physical sector numbers are the
+;	same, set XLT to 0000H. Disk drives with identical sector skew
+;	factors can share the same translation table.
+;
+;	XLT is the value passed to SECTRN in registers DE. Usually the
+;	translation table consists of one byte per physical sector.
+;	Generally, it is advisable to keep the number of physical
+;	sectors per logical track to a reasonable value to prevent the
+;	translation table from becoming too large. In the case of disks
+;	with multiple heads, you can compute the head number from the
+;	track address rather than the sector address.
+;
+;-0-	These 72 bits (9 bytes) of zeroes are the scratch
+;	area the BDOS uses to maintain various parameters associated
+;	with the drive.
+;
+;MF	MF is the Media Flag. The BDOS resets MF to zero when
+;	the drive is logged in. The BIOS can set this flag and @MEDIA in
+;	the SCB to 0FFH if it detects that a drive door has been opened.
+;	If the flag is set to 0FFH, the BDOS checks for a media change
+;	prior to performing the next BDOS file operation on that drive.
+;	If the BDOS determines that the drive contains a new volume, the
+;	BDOS performs a login on that drive, and resets the MF flag to
+;	00H. Note that the BDOS checks this flag only when a system call
+;	is made, and not during an operation. Usually, this flag is used
+;	only by systems that support door-open interrupts.
+;
+;DPB	Set the DPB field to the address of a Disk Parameter Block
+;	that describes the characteristics of the disk drive. Several
+;	Disk Parameter Headers can address the same Disk Parameter Block
+;	if their drive characteristics are identical. The Disk Parameter
+;	Block is described below
+;
+;CSV	CSV is the address of a scratchpad area used to detect
+;	changed disks. This address must be different for each removable
+;	media Disk Parameter Header. There must be one byte for every 4
+;	directory entries (or 128 bytes of directory). In other words,
+;	length(CSV) = (DRM/4)+l. (See Table 3-3 for an explanation of
+;	the DRM field.) If the drive is permanently mounted, set the CKS
+;	variable in the DPB to 8000H and set CSV to 0000H. This way, no
+;	storage is reserved for a checksum vector. The checksum vector
+;	may be located in common memory or in Bank 0. Set CSV to 0FFFEH
+;	for GENCPM to set up the checksum vector.
+;
+;ALV	ALV is the address of the scratchpad area called the
+;	allocation vector, which the BDOS uses to keep disk storage
+;	allocation information. This area must be unique for each drive.
+;	The allocation vector usually requires 2 bits for each block on
+;	the drive. Thus, length(ALV) = (DSM/4) + 2. In the nonbanked
+;	version of CP/M 3, you can optionally specify that GENCPM
+;	reserve only one bit in the allocation vector per block on the
+;	drive. In this case, length(ALV) = (DSM/8) + The GENCPM option
+;	to use single-bit allocation vectors is provided in the
+;	nonbanked version of CP/M 3 because additional memory is
+;	required by the double-bit allocation vector. This option
+;	applies to all drives on the system. With double-bit allocation
+;	vectors, CP/M 3 automatically frees, at every system warm start,
+;	all file blocks that are not permanently recorded in the
+;	directory. Note that file space allocated to a file is not
+;	permanently recorded in a directory unless the file is closed.
+;	Therefore, the allocation vectors in memory can indicate that
+;	space is allocated although directory records indicate that
+;	space is free for allocation. With single-bit allocation
+;	vectors, CP/M 3 requires that a drive be reset before this space
+;	can be reclaimed. Because it increases performance, CP/M 3 does
+;	not reset disks at system warm start. Thus, with single-bit
+;	allocation vectors, if you do not reset the disk system, DIR and
+;	SHOW can report an inaccurate amount of free space. With
+;	single-bit allocation vectors, the user must type a CTRL-C at
+;	the system prompt to (continued) reset the disk system to ensure
+;	accurate reporting of free space. Set ALV to 0FFFEH for GENCPM
+;	to automatically assign space for the allocation vector, single-
+;	or double-bit, during system generation. In the nonbanked
+;	system, GENCPM prompts for the type of allocation vector. In the
+;	banked system, the allocation vector is always double-bit and
+;	can reside in common memory or Bank 0. When GENCPM automatically
+;	assigns space for the allocation vector (ALV = OFFFEH) , it
+;	places the allocation vector in Bank 0.
+;
+;DIRBCB	Set DIRBCB to the address of a single directory Buffer
+;	Control Block (BCB) in an unbanked system. Set DIRBCB to the
+;	address of a BCB list head in a banked system. Set DIRBCB to
+;	OFFFEH for GENCPM to set up the DIRBCB field. The BDOS uses
+;	directory buffers for all accesses of the disk directory.
+;	Several DPHs can refer to the same directory BCB or BCB list
+;	head; or, each DPH can reference an independent BCB or BCB list
+;	head.
+;
+;DTABCB	Set DTABCB to the address of a single data BCB in an unbanked system.
+;	Set DTABCB to the address of a data BCB list head in a banked
+;	system. Set DTABCB to OFFFEH for GENCPM to set up the DTABCB
+;	field. The BDOS uses data buffers to hold physical sectors so
+;	that it can block and deblock logical 128-byte records. If the
+;	physical record size of the media associated with a DPH is 128
+;	bytes, you can set the DTABCB field of the DPH to 0FFFFH,
+;	because in this case, the BDOS does not use a data buffer.
+;
+;HASH	HASH contains the address of the optional directory hashing table
+;	associated with a DPH. Set HASH to 0FFFFH to disable directory
+;	hashing. Set RASH to OFFFEH to make directory hashing on the
+;	drive a (continued) GENCPM option. Each DPH using hashing must
+;	reference a unique hash table. If a hash table is supplied, it
+;	must be 4*(DRM+l) bytes long, where DRM is one less than the
+;	length of the directory. In other words, the hash table must
+;	contain four bytes for each directory entry of the disk.
+;
+;HBANK	Set HBANK to the bank number of the hash table. HBANK is
+;	not used in unbanked systems and should be set to zero. The hash
+;	tables can be contained in the system bank, common memory, or
+;	any alternate bank except Bank 1, because hash tables cannot be
+;	located in the Transient Program Area. GENCPM automatically sets
+;	HBANK when HASH is set to 0FFFEH.
+;
+;
+;Disk Parameter Block
+;
+;The following figure shows the format of the Disk Parameter Block, where
+;B refers to bits.
+;
+;		+---+---+---+---+---+---+---+---+---+---+---+---+
+;		|SPT|BSH|BLM|EXM|DSM|DRM|AL0|AL1|CKS|OFF|PSH|PHM|
+;		+---+---+---+---+---+---+---+---+---+---+---+---+
+;		|16B| 8B| 8B| 8B|16B|16B| 8B| 8B|16B|16B| 8B| 8B|
+;		+---+---+---+---+---+---+---+---+---+---+---+---+
+;
+;Field		Comments
+;SPT		Set SPT to the total number of 128-byte logical
+;		records per track.
+;
+;BSH		Data allocation block shift factor. The value of BSH
+;		is determined by the data block allocation size.
+;
+;BLM		Block mask. The value of BLM is determined by the
+;		data block allocation size.
+;
+;EXM		Extent mask determined by the data block allocation
+;		size and the number of disk blocks.
+;
+;DSM		Determines the total storage capacity of the disk
+;		drive. DSM is one less than the total number of blocks
+;		on the drive.
+;
+;DRM		Total number of directory entries minus one that can
+;		be stored on this drive. The directory requires 32 bytes
+;		per entry.
+;
+;ALO, AL1	Determine reserved directory blocks. See Figure 3-4 for
+;		more information.
+;
+;CKS		The size of the directory check vector, (DRM/4)+1.
+;		Set bit 15 of CKS to 1 if the drive is permanently
+;		mounted. Set CKS to 8000H to indicate that the drive is
+;		permanently mounted and directory checksumming is not
+;		required. Note: full directory checksumming is required
+;		on removable media to support the automatic login
+;		feature of CP/M 3.
+;
+;OFF		The number of reserved tracks at the beginning of the
+;		logical disk. 0FF is the track on which the directory
+;		starts.
+;
+;PSH		Specifies the physical record shift factor.
+;
+;PHM		Specifies the physical record mask.
+;
+;CP/M allocates disk space in a unit called a block. Blocks are also
+;called allocation units, or clusters. BLS is the number of bytes in a
+;block. The block size can be 1024, 2048, 4096, 8192, or 16384 (decimal)
+;bytes.
+;
+;A large block size decreases the size of the allocation vectors but can
+;result in wasted disk space. A smaller block size increases the size of
+;the allocation vectors because there are more blocks on the same size
+;disk.
+;
+;There is a restriction on the block size. If the block size is 1024,
+;there cannot be more than 255 blocks present on a logical drive. In
+;other words, if the disk is larger than 256K, it is necessary to use at
+;least 2048 byte blocks.
+;
+;The value of BLS is not a field in the Disk Parameter Block; rather, it
+;is derived from the values of BSH and BLM as given in the following
+;table.
+;
+;	BLS	BSH	BLM
+;	1,024	3	7
+;	2,048	4	15
+;	4,096	5	31
+;	8,192	6	63
+;	16,384	7	127
+;
+;The block mask, BLM, equals one less than the number of 128- byte
+;records in an allocation unit, (BLS/128 - 1), or (2**BSH)-l.
+;
+;The value of the Block Shift Factor, BSH, is determined by the data
+;block allocation size. The Block Shift Factor (BSH) equals the logarithm
+;base two of the block size in 128-byte records, or LOG2 (BLS/128) ,
+;where LOG2 represents the binary logarithm function.
+;
+;The value of EXM depends upon both the BLS and whether the DSM value is
+;less than 256 or greater than 255, as shown in the following table.
+;
+;	BLS	EXM values
+;		DSM<256		DSM>255
+;	1,024	0		N/A
+;	2,048	1		0
+;	4,096	3		1
+;	8,192	7		3
+;	16,384	15		7
+;
+;The value of EXM is one less than the maximum number of 16K extents per
+;FCB. Set EXM to zero if you want media compatibility with an extended
+;CP/M 1.4 system. This only applies to double-density CP/M 1.4 systems,
+;with disk sizes greater than 256K bytes. It is preferable to copy
+;double-density 1.4 disks to single-density, then reformat them and
+;recreate them with the CP/M 3 system, because CP/M 3 uses directory
+;entries more effectively than CP/M 1.4.
+;
+;DSM is one less than the total number of blocks on the drive. DSM must
+;be less than or equal to 7FFFH. If the disk uses 1024 byte blocks
+;(BSH=3, BLM=7), DSM must be less than or equal to OOFFH. The product
+;BLS*(DSM+l) is the total number of bytes the drive holds and must be
+;within the capacity of the physical disk. It does not include the
+;reserved operating system tracks.
+;
+;The DRM entry is one less than the total number of 32-byte directory
+;entries, and is a 16-bit value. DRM must be less than or equal to
+;(BLS/32 * 16) - 1. DRM determines the values of AL0 and ALI. The two
+;fields AL0 and ALI can together be considered a string of 16 bits, as
+;shown in the following figure.
+;
+;	+-----------------------+-----------------------+
+;	|	AL0		|	AL1		|
+;	+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+;	|00|01|02|03|04|05|06|07|08|09|10|11|12|13|14|15|
+;	+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+;
+;Position 00 corresponds to the high-order bit of the byte labeled AL0,
+;and position 15 corresponds to the low-order bit of the byte labeled
+;ALI. Each bit position reserves a data block for a number of directory
+;entries, thus allowing a maximum of 16 data blocks to be assigned for
+;directory entries. Bits are assigned starting at 00 and filled to the
+;right until position 15. AL0 and ALI overlay the first two bytes of the
+;allocation vector for the associated drive.
+;
+;The following table shows DRM maximums for the various block sizes.
+;
+;	BLS	Directory Entries	Maximum DRM
+;	1,024	 32 * reserved blocks	511
+;	2,048	 64 * reserved blocks	1,023
+;	4,096	128 * reserved blocks	2,047
+;	8,192	256 * reserved blocks	4,095
+;	16,384	512 * reserved blocks	8,191
+;
+;If DRM = 127 (128 directory entries) , and BLS = 1024, there are 32
+;directory entries per block, requiring 4 reserved blocks. In this case,
+;the 4 high-order bits of AL0 are set, resulting in the values AL0 = OF0H
+;and AL1 = 00H. The maximum directory allocation is 16 blocks where the
+;block size is determined by BSH and BLM.
+;
+;The OFF field determines the number of tracks that are skipped at the
+;beginning of the physical disk. It can be used as a mechanism for
+;skipping reserved operating system tracks, which on system disks contain
+;the Cold Boot Loader, CPMLDR, and possibly the CCP. It is also used to
+;partition a large disk into smaller segmented sections.
+;
+;PSH and PHM determine the physical sector size of the disk. All disk I/O
+;is in terms of the physical sector size. Set PSH and PSM to zero if the
+;BIOS is blocking and deblocking instead of the BDOS.
+;
+;PSH specifies the physical record shift factor, ranging from 0 to 5,
+;corresponding to physical record sizes of 128, 256, 512, 1K, 2K, or 4K
+;bytes. It is equal to the logarithm base two of the physical record size
+;divided by 128, or LOG2(sector-size/128). See the table below for PSH
+;values.
+;
+;PHM specifies the physical record mask, ranging from 0 to 31,
+;corresponding to physical record sizes of 128, 256, 512, 1K, 2K, or 4K
+;bytes. It is equal to one less than the sector size divided by 128, or,
+;(sector-size/128)-l. See the following table for PHM values.
+;
+;	Sector size	PSH	PHM
+;	128		0	0
+;	256		1	1
+;	512		2	3
+;	1,024		3	7
+;	2,048		4	15
+;	4,096		5	31
+;
+
+	cseg
+
+gencpm	equ	0fffeh
+
+dpb	macro	?spt,?bsh,?blm,?exm,?dsm,?drm1,?al0,?cks,?rstk,?psh,?phm
+	dw	?spt	; SPT
+	db	?bsh	; BSH
+	db	?blm	; BLM
+	db	?exm	; EXM
+	dw	?dsm	; DSM
+	dw	?drm1-1	; DRM
+	db	?al0	; AL0
+	db	0	; AL1
+	dw	?cks	; CKS
+	dw	?rstk	; OFF
+	db	?psh ;0	; PSH
+	db	?phm ;0	; PHM
+	endm
+
+dph	macro	?xlt,?dpb,?csv
+	dw	?xlt			; XLT
+	db	0,0,0,0,0,0,0,0,0	; -0-
+	db	0			; MF
+	dw	?dpb			; DPB
+	dw	?csv			; CSV
+	dw	gencpm			; ALV
+	dw	gencpm			; DIRBCB
+	dw	gencpm			; DTABCB
+	dw	0ffffh			; HASH
+	db	0			; HBANK
+	endm
+
+dtblh	macro	prefix,val
+	dw	prefix&val
+	endm
+
+dtbl	macro	base,n,prefix
+cnt	defl	base
+	rept	n
+	dtblh	prefix,%cnt
+cnt	defl	cnt + 1
+	endm
+	endm
+
+maklab	macro	prefix,val
+prefix&val:
+	endm
+
+dtbla:	dtbl	0,8,dph			; 8 floppy headers
+	dtbl	8,nhdisks,dph		; nhdisks hard disk headers
+	rept	8-nhdisks		; rest (8-nhdisks) is 0
+	dw	0
+	endm
+
+dpbX:	dpb	32,4,15,0,01efh, 256, 0f0h,40h,6,0,0
+dpbN:	dpb	32,3, 7,0,00e3h, 256, 0ffh,40h,6,0,0
+
+;dpb0:	dpb	32,5,31,1,2047-6,1024,0ffh,8000h,6,2,3	; AltairZ80 HDSK Image
+;dpb1:	dpb	32,3, 7,0,127,63,0C0h,0h,0,2,3		; 128K FLASH Disk Image
+;dpb2:	dpb	72,4, 15,0,711,255,0F0h,0h,2,2,3	; P112
+;dpb3:	dpb	36,4, 15,0,354,127,0C0h,0020h,2,2,3	; Super-I/O 720K
+
+cnt	defl	0
+	rept	nhdisks
+	maklab	dpb,%cnt
+cnt	defl	cnt+1
+	dpb	32,5,31,1,2047-6,1024,0ffh,0100h,6,2,3	; AltairZ80 HDSK Image
+	endm
+
+    if	banked
+crwbank:
+	db	0	; bank desired by READ or WRITE
+cbank:	db	0	; current bank
+    endif
+
+altbuf:	ds	asecsiz+1+384
+;		   12345678123
+ccpFCB:	db	1,'CCP     COM',0,0,0,0
+	db	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+fcbNr:	db	0,0,0
+opnmsg:	db	cr, lf, 'BIOS can''t open CCP.COM $'
+iomsg:	db	cr, lf, 'BIOS I/O error reading CCP.COM $'
+secmsg:	db	cr, lf, 'Cannot find sector in register <B>', cr, lf, '$'
+    if	banked
+dbhex	macro	?val
+    if	?val gt 9
+	db	'A'+?val-10
+    else
+	db	'0'+?val
+    endif
+	endm
+
+nobankedmemory:
+	db	cr, lf, 'No banked memory detected with common base 0'
+	dbhex	%(0fh and (expcom shr 12))
+	dbhex	%(0fh and (expcom shr 8))
+	dbhex	%(0fh and (expcom shr 4))
+	dbhex	%(0fh and expcom)
+	db	'h.', cr, lf, '$'
+    endif
+versio:	db	cr, lf, 'BIOS3'
+
+    if	banked
+	db	' Banked'
+    endif
+
+	db	' for SIMH Altair V-1.27, '
+
+    if	nhdisks gt 0
+	db	'0' + nhdisks
+	db	' HD, '
+    endif
+
+	db  '02-May-2009', cr, lf, cr, lf, '$'
+
+ctbla:	db 'CRT   '	; device 0
+	db mb$in$out
+	db baud$none
+	db 'PTP   '	; device 1
+	db mb$output
+	db baud$none
+	db 'PTR   '	; device 2
+	db mb$input
+	db baud$none
+	db 0		; table terminator
+
+	dseg
+
+dph0:	dph	atrans,dpbX,gencpm
+dph1:	dph	atrans,dpbX,gencpm
+dph2:	dph	atrans,dpbX,gencpm
+dph3:	dph	atrans,dpbX,gencpm
+dph4:	dph	atrans,dpbX,gencpm
+dph5:	dph	atrans,dpbX,gencpm
+dph6:	dph	atrans,dpbX,gencpm
+dph7:	dph	atrans,dpbN,gencpm
+
+dpbx	macro	prefix,val
+	dph	0,prefix&val,gencpm
+	endm
+
+cnt1	defl	0
+cnt2	defl	8
+	rept	nhdisks
+	maklab	dph,%cnt2
+	dpbx	dpb,%cnt1
+cnt1	defl	cnt1+1
+cnt2	defl	cnt2+1
+	endm
+
+; speedball (copylib) skewtable
+atrans:	db	01,18,03,20,05,22,07,24
+	db	09,26,11,28,13,30,15,32
+	db	17,02,19,04,21,06,23,08
+	db	25,10,27,12,29,14,31,16
+
+; Position of disk drive head
+ontrk0:	db	track1	; current track# drive 0 (logical 1)
+	db	track1	; current track# drive 1 (logical 2)
+	db	track1	; current track# drive 2 (logical 3)
+	db	track1	; current track# drive 3 (logical 4)
+	db	track1	; current track# drive 4 (logical 5)
+	db	track1	; current track# drive 5 (logical 6)
+	db	track1	; current track# drive 6 (logical 7)
+	db	track1	; current track# drive 7 (logical 8)
+diskno:	db	0
+track:	dw	0
+sector:	db	0
+dmaad:	dw	0
+hsecsiz: dw	0080h
+
+	end

@@ -1,0 +1,29 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+BOOT    Z80
+
+    1                   ; Cold bootstrap for z80 emulator
+    2                   ;
+    3                   ; generate the header file with this command:
+    4                   ;   z80asm -o - boot.z80 | xxd -i >src/boot.h
+    5                   
+    6         E800      LDR     equ 0E800h
+    7                   
+    8         0000              org 0
+    9                   
+   10 0000  11 0014     boot:	ld de,greet
+   11 0003  DB 03               in a,(3)                ; display greeting
+   12                   
+   13 0005  3E 00               ld a,0
+   14 0007  06 33               ld b,51                 ; read system tracks into memory
+   15 0009  11 0001             ld de,1                 ; skip first sector on first track
+   16 000C  21 E800             ld hl,LDR               ; start address
+   17 000F  DB 04       	in a,(4)                ; disk read request
+   18                   
+   19 0011  C3 E800             jp LDR                  ; jump to bios cold start
+   20                   
+   21 0014  0D 0A 5B 52 greet:  db 13,10,'[RetroLab Z80] ',0
+   22                   
+   23                           end
+ 0 Error(s) Detected.
+ 256 Absolute Bytes. 3 Symbols Detected.
+

@@ -1,0 +1,23 @@
+; Cold bootstrap for z80 emulator
+;
+; generate the header file with this command:
+;   z80asm -o - boot.z80 | xxd -i >src/boot.h
+
+LDR     equ 0E800h
+
+        org 0
+
+boot:	ld de,greet
+        in a,(3)                ; display greeting
+
+        ld a,0
+        ld b,51                 ; read system tracks into memory
+        ld de,1                 ; skip first sector on first track
+        ld hl,LDR               ; start address
+	in a,(4)                ; disk read request
+
+        jp LDR                  ; jump to bios cold start
+
+greet:  db 13,10,'[RetroLab Z80] ',0
+
+        end

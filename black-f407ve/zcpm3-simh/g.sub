@@ -1,0 +1,14 @@
+; Generate system
+;
+r ldrbios.z80
+r cpmldr.z80
+;
+z80asm ldrbios/fm
+z80asm cpmldr/fm
+;link ldr=cpmldr,ldrbios
+l80 cpmldr,ldrbios,ldr/n/e
+;
+w cpmldr.lst t
+w ldrbios.lst t
+w ldr.com b
+w ldr.sym t

@@ -1,0 +1,40 @@
+d tracks[0-7] 254
+;
+; CP/M disk A:
+attach dsk0 cpm3.dsk
+;
+; CP/M disk B:
+; jrt.dsk contains hello.pas
+;attach dsk1 jrt.dsk
+;
+; prepare CP/M disk I:
+attach hdsk0 i.dsk
+;
+; prepare CP/M disk J:
+;attach hdsk1 appleiicpm.dsk
+;set hdsk1 format=apple-do
+;
+; prepare CP/M disk K:
+;attach hdsk2 JRTPAS30.IMD
+; important to set format with skew
+;set hdsk2 format=SSSD8S
+;
+; to run JRT Pascal ver 3.0 do the following
+; Note: JRT Pascal wants to be on B: and K: is read-only anyway
+; pip b:=k:*.*
+; b:
+; jrtpas3 hello
+; exec hello
+;
+; prepare CP/M disk L:
+;attach hdsk3 128sssd8.imd
+;set hdsk3 format=sssd8
+;
+d common c000
+set cpu 64k
+set cpu banked
+set cpu itrap
+set cpu z80
+set cpu altairrom
+set sio nosleep
+boot dsk

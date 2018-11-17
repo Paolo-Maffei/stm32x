@@ -1,0 +1,21 @@
+; Assemble all source files
+;
+r bios.z80
+r boot.z80
+r defs.lib
+r scb.z80
+;
+z80asm boot/f
+;
+z80asm bios/fm
+z80asm scb/m
+link bios3[os]=bios,scb
+;
+gencpm auto display
+;
+w bios.lst t
+w bios.sym t
+w bios3.spr b
+w boot.com b
+w boot.lst t
+w cpm3.sys b

@@ -1,0 +1,1694 @@
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page   1
+CPMLDR  Z80
+
+    1                   	.Z80
+    2                   
+    4                   ;	Copyright (C) 1982
+    5                   ;	Digital Research
+    6                   ;	Box 579, Pacific Grove
+    7                   ;	California, 93950
+    8                   ;  Revised:
+    9                   ;    01 Nov 82  by Bruce Skidmore
+   10                   ;    18 Jan 02  by Peter Schorn
+   11                   
+   12                   	aseg
+   13         0100      	org	0100h
+   14                   
+   15         0100      base	equ	$
+   16         0000      abase	equ	base-0100h
+   17         000D      cr	equ	0dh
+   18         000A      lf	equ	0ah
+   19         005C      fcb	equ	abase+005ch	; default FCB address
+   20         0080      buff	equ	abase+0080h	; default buffer address
+   21                   
+   22                   ;	System Equates
+   23                   
+   24         000D      resetsys	equ	13	; reset disk system
+   25         0009      printbuf	equ	09	; print string
+   26         000F      open$func	equ	15	; open function
+   27         0014      read$func	equ	20	; read sequential
+   28         001A      setdma$func	equ	26	; set dma address
+   29                   
+   30                   ;	Loader Equates
+   31                   
+   32         0080      comtop	equ	abase+80h
+   33         0081      comlen	equ	abase+81h
+   34         0082      bnktop	equ	abase+82h
+   35         0083      bnklen	equ	abase+83h
+   36         0084      osentry	equ	abase+84h
+   37                   
+   38 0100  31 02E5     	ld	sp,stackbot
+   39 0103  CD 0B00     	call	bootf		; first call is to Cold Boot
+   40 0106  0E 0D       	ld	c,resetsys	; Initialize the System
+   41 0108  CD 02F1     	call	bdos
+   42 010B  0E 09       	ld	c,printbuf	; print the sign on message
+   43 010D  11 028E     	ld	de,signon
+   44 0110  CD 02F1     	call	bdos
+   45 0113  0E 0F       	ld	c,open$func	; open the CPM3.SYS file
+   46 0115  11 01AB     	ld	de,cpmfcb
+   47 0118  CD 02F1     	call	bdos
+   48 011B  FE FF       	cp	0ffh
+   49 011D  11 01CF     	ld	de,openerr
+   50 0120  CA 01A2     	jp	z,error
+   51 0123  11 0080     	ld	de,buff
+   52 0126  CD 018F     	call	setdma$proc
+   53 0129  CD 0195     	call	read$proc	; read the load record
+   54 012C  21 0080     	ld	hl,buff
+   55 012F  11 02E5     	ld	de,mem$top
+   56 0132  0E 06       	ld	c,6
+   57 0134  7E          cloop:	ld	a,(hl)
+   58 0135  12          	ld	(de),a
+   59 0136  13          	inc	de
+'CP/M V3.0 Loader'      				    Z80ASM 1.32 Page   2
+CPMLDR  Z80
+
+   60 0137  23          	inc	hl
+   61 0138  0D          	dec	c
+   62 0139  C2 0134     	jp	nz,cloop
+   63                   
+   64 013C  CD 0195     	call	read$proc	; read display info
+   65 013F  0E 09       	ld	c,printbuf	; print the info
+   66 0141  11 0080     	ld	de,buff
+   67 0144  CD 02F1     	call	bdos
+   68                   
+   69                   
+   70                   ;	Main System Load
+   71                   
+   72                   
+   73                   ;	Load Common Portion of System
+   74                   
+   75 0147  3A 02E6     	ld	a,(res$len)
+   76 014A  67          	ld	h,a
+   77 014B  3A 02E5     	ld	a,(mem$top)
+   78 014E  CD 0173     	call	load
+   79                   
+   80                   ;	Load Banked Portion of System
+   81                   
+   82 0151  3A 02E8     	ld	a,(bank$len)
+   83 0154  B7          	or	a
+   84 0155  CA 015F     	jp	z,execute
+   85 0158  67          	ld	h,a
+   86 0159  3A 02E7     	ld	a,(bank$top)
+   87 015C  CD 0173     	call	load
+   88                   
+   89                   ;	Execute System
+   90                   
+   91 015F              execute:
+   92 015F  21 005D     	ld	hl,fcb+1
+   93 0162  7E          	ld	a,(hl)
+   94 0163  FE 24       	cp	'$'
+   95 0165  C2 016F     	jp	nz,execute$sys
+   96 0168  23          	inc	hl
+   97 0169  7E          	ld	a,(hl)
+   98 016A  FE 42       	cp	'B'
+   99 016C  CC 01A9     	call	z,break
+  100 016F              execute$sys:
+  101 016F  31 02E9     	ld	sp,osentry$adr
+  102 0172  C9          	ret
+  103                   
+  104                   ;	Load Routine
+  105                   
+  106                   ;	Input:   A = Page Address of load top
+  107                   ;		 H = Length in pages of module to read
+  108                   
+  109 0173  B7          load:	or	a		; clear carry
+  110 0174  57          	ld	d,a
+  111 0175  1E 00       	ld	e,0
+  112 0177  7C          	ld	a,h
+  113 0178  17          	rla
+  114 0179  67          	ld	h,a		; h = length in records of module
+  115 017A  EB          loop:	ex	de,hl
+  116 017B  01 FF80     	ld	bc,-128
+  117 017E  09          	add	hl,bc		; decrement dma address by 128
+'CP/M V3.0 Loader'      				    Z80ASM 1.32 Page   3
+CPMLDR  Z80
+
+  118 017F  EB          	ex	de,hl
+  119 0180  D5          	push	de
+  120 0181  E5          	push	hl
+  121 0182  CD 018F     	call	setdma$proc
+  122 0185  CD 0195     	call	read$proc
+  123 0188  E1          	pop	hl
+  124 0189  D1          	pop	de
+  125 018A  25          	dec	h
+  126 018B  C2 017A     	jp	nz,loop
+  127 018E  C9          	ret
+  128                   
+  129                   ;	Set DMA Routine
+  130                   
+  131 018F              setdma$proc:
+  132 018F  0E 1A       	ld	c,setdma$func
+  133 0191  CD 02F1     	call	bdos
+  134 0194  C9          	ret
+  135                   
+  136                   ;	Read Routine
+  137                   
+  138 0195              read$proc:
+  139 0195  0E 14       	ld	c,read$func	; Read the load record
+  140 0197  11 01AB     	ld	de,cpmfcb	; into address 80h
+  141 019A  CD 02F1     	call	bdos
+  142 019D  B7          	or	a
+  143 019E  11 0239     	ld	de,readerr
+  144 01A1  C8          	ret	z
+  145                   
+  146                   ;	Error Routine
+  147                   
+  148 01A2  0E 09       error:	ld	c,printbuf	; print error message
+  149 01A4  CD 02F1     	call	bdos
+  150 01A7  F3          	di
+  151 01A8  76          	halt
+  152 01A9  FF          break:	db	0ffh
+  153 01AA  C9          	ret
+  154 01AB  00 43 50 4D cpmfcb:	db	0,'CPM3    SYS',0,0,0,0,0,0
+  155 01BD  0000  0000  	dw	0,0,0,0,0,0,0,0,0
+  156 01CF              openerr:
+  157 01CF  0D 0A       	db	cr,lf
+  158 01D1  43 50 4D 4C 	db	'CPMLDR error: failed to open CPM3.SYS',cr,lf
+  159 01F8  28 70 6F 73 	db	'(possible reasons: CPM3.SYS missing or banked memory required)'
+  160 0236  0D 0A 24    	db	cr,lf,'$'
+  161 0239              readerr:
+  162 0239  0D 0A       	db	cr,lf
+  163 023B  43 50 4D 4C 	db	'CPMLDR error: failed to read CPM3.SYS',cr,lf
+  164 0262  28 70 6F 73 	db	'(possible reason: banked memory required)'
+  165 028B  0D 0A 24    	db	cr,lf,'$'
+  166 028E  0D 0A       signon:	db	cr, lf
+  167 0290  43 50 2F 4D 	db	'CP/M V3.0 Loader V1.00 18-Jan-2002',cr,lf
+  168 02B4  43 6F 70 79 	db	'Copyright (C) 1982, Digital Research'
+  169 02D8  0D 0A 24    	db	cr,lf,'$'
+  170 02DB  30 32 31 31 	db	'021182',0,0,0,0
+  171 02E5              stackbot:
+  172 02E5              mem$top:
+  173 02E5    0001      	ds	1
+  174 02E6              res$len:
+  175 02E6    0001      	ds	1
+'CP/M V3.0 Loader'      				    Z80ASM 1.32 Page   4
+CPMLDR  Z80
+
+  176 02E7              bank$top:
+  177 02E7    0001      	ds	1
+  178 02E8              bank$len:
+  179 02E8    0001      	ds	1
+  180 02E9              osentry$adr:
+  181 02E9    0002      	ds	2
+  183                   ;*****************************************************************
+  184                   ;*****************************************************************
+  185                   ;**                                                             **
+  186                   ;**   B a s i c    D i s k   O p e r a t i n g   S y s t e m    **
+  187                   ;**								**
+  188                   ;**            I n t e r f a c e   M o d u l e                  **
+  189                   ;**                                                             **
+  190                   ;*****************************************************************
+  191                   ;*****************************************************************
+  192                   
+  193                   ;	Copyright (c) 1978, 1979, 1980, 1981, 1982
+  194                   ;	Digital Research
+  195                   ;	Box 579, Pacific Grove
+  196                   ;	California
+  197                   
+  198                   ;       Nov 1982
+  199                   
+  200                   
+  201                   ;	equates for non graphic characters
+  202                   
+  203         007F      rubout	equ	7fh		; char delete
+  204         0009      tab	equ	09h		; tab char
+  205         000D      cr	equ	0dh		; carriage return
+  206         000A      lf	equ	0ah		; line feed
+  207         0008      ctlh	equ	08h		; backspace
+  208                   
+  209 02EB  00 00 00 00 serial:	db	0,0,0,0,0,0
+  210                   
+  211                   ;	Enter here from the user's program with function number in c,
+  212                   ;	and information address in d,e
+  213                   
+  214 02F1              bdos:
+  215 02F1  EB          bdose:	ex	de,hl		; Arrive here from user programs
+  216 02F2  22 0A43     	ld	(info),hl
+  217 02F5  EB          	ex	de,hl		; info=de, de=info
+  218 02F6  79          	ld	a,c
+  219 02F7  FE 0E       	cp	14
+  220 02F9  DA 0309     	jp	c,bdose2
+  221 02FC  32 0A46     	ld	(fx),a		; Save disk function #
+  222 02FF  AF          	xor	a
+  223 0300  32 0A1B     	ld	(dir$cnt),a
+  224 0303  3A 0A42     	ld	a,(seldsk)
+  225 0306  32 0A22     	ld	(olddsk),a	; Save seldsk
+  226 0309  7B          bdose2:	ld	a,e
+  227 030A  32 0A1E     	ld	(linfo),a	; linfo = low(info) - don't equ
+  228 030D  21 0000     	ld	hl,0
+  229 0310  22 046D     	ld	(aret),hl	; Return value defaults to 0000
+  230 0313  22 0A45     	ld	(resel),hl	; resel = 0
+  231 0316  39          	add	hl,sp		; Save user's stack pointer, set to local stack
+  232 0317  22 03A4     	ld	(entsp),hl	; entsp = stackptr
+  233 031A  31 03F6     	ld	sp,lstack	; local stack setup
+  234 031D  21 09B2     	ld	hl,goback	; Return here after all functions
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 Nov, 1982'         Z80ASM 1.32 Page   5
+CPMLDR  Z80
+
+  235 0320  E5          	push	hl		; jmp goback equivalent to ret
+  236 0321  79          	ld	a,c
+  237 0322  FE 32       	cp	nfuncs
+  238 0324  D2 032E     	jp	nc,high$fxs	; Skip if invalid #
+  239 0327  4B          	ld	c,e		; possible output character to c
+  240 0328  21 0340     	ld	hl,functab
+  241 032B  C3 0333     	jp	bdos$jmp	; look for functions 100 ->
+  242 032E              high$fxs:
+  243 032E  DE 64       	sbc	a,100
+  244 0330  DA 07FF     	jp	c,lret$eq$ff	; Skip if function < 100
+  245 0333              bdos$jmp:
+  246 0333  5F          	ld	e,a
+  247 0334  16 00       	ld	d,0		; de=func, hl=.ciotab
+  248 0336  19          	add	hl,de
+  249 0337  19          	add	hl,de
+  250 0338  5E          	ld	e,(hl)
+  251 0339  23          	inc	hl
+  252 033A  56          	ld	d,(hl)		; de=functab(func)
+  253 033B  2A 0A43     	ld	hl,(info)	; info in de for later xchg
+  254 033E  EB          	ex	de,hl
+  255 033F  E9          	jp	(hl)		; dispatched
+  256                   ;	dispatch table for functions
+  257 0340              functab:
+  258 0340  044C  044C  	dw	func$ret, func1, func2, func3
+  259 0348  044C  044C  	dw	func$ret, func$ret, func6, func$ret
+  260 0350  044C  0443  	dw	func$ret, func9, func10, func11
+  261         000C      diskf	equ	($-functab)/2	; disk funcs
+  262 0358  044C  0964  	dw	func12,func13,func14,func15
+  263 0360  044C  044C  	dw	func16,func17,func18,func19
+  264 0368  099F  044C  	dw	func20,func21,func22,func23
+  265 0370  044C  09A5  	dw	func24,func25,func26,func27
+  266 0378  044C  044C  	dw	func28,func29,func30,func31
+  267 0380  044C  044C  	dw	func32,func33,func34,func35
+  268 0388  044C  044C  	dw	func36,func37,func38,func39
+  269 0390  044C  044C  	dw	func40,func42,func43
+  270 0396  044C  044C  	dw	func44,func45,func46,func47
+  271 039E  044C  044C  	dw	func48,func49,func50
+  272         0032      nfuncs	equ	($-functab)/2
+  273 03A4    0002      entsp:	ds	2		; entry stack pointer
+  274                   				; 40 level stack
+  275 03A6  C7C7  C7C7  	dw	0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h
+  276 03B6  C7C7  C7C7  	dw	0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h
+  277 03C6  C7C7  C7C7  	dw	0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h
+  278 03D6  C7C7  C7C7  	dw	0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h
+  279 03E6  C7C7  C7C7  	dw	0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h,0c7c7h
+  280 03F6              lstack:
+  281 03F6              page:
+  283                   ;*****************************************************************
+  284                   ;*****************************************************************
+  285                   ;**                                                             **
+  286                   ;**   B a s i c    D i s k   O p e r a t i n g   S y s t e m    **
+  287                   ;**								**
+  288                   ;**               C o n s o l e   P o r t i o n                 **
+  289                   ;**                                                             **
+  290                   ;*****************************************************************
+  291                   ;*****************************************************************
+  292                   ;       July, 1982
+  293                   
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page   6
+CPMLDR  Z80
+
+  294                   ;	console handlers
+  295 03F6  3A 0452     conout:	ld	a,(compcol)	; compute character position/write console char from C
+  296 03F9  B7          	or	a		; compcol = true if computing column position
+  297 03FA  C2 0402     	jp	nz,compout	; write the character, then compute the column
+  298                   				; write console character from C
+  299 03FD  C5          	push	bc		; recall/save character
+  300 03FE  CD 0B0C     	call	conoutf		; externally, to console
+  301 0401  C1          	pop	bc		; recall the character
+  302 0402              compout:
+  303 0402  79          	ld	a,c		; recall the character
+  304                   				; and compute column position
+  305 0403  21 0A3E     	ld	hl,column	; A = char, HL = .column
+  306 0406  FE 7F       	cp	rubout
+  307 0408  C8          	ret	z		; no column change if nulls
+  308 0409  34          	inc	(hl)		; column = column + 1
+  309 040A  FE 20       	cp	' '
+  310 040C  D0          	ret	nc		; return if graphic
+  311                   				; not graphic, reset column position
+  312 040D  35          	dec	(hl)		; column = column - 1
+  313 040E  7E          	ld	a,(hl)
+  314 040F  B7          	or	a
+  315 0410  C8          	ret	z		; return if at zero
+  316                   				; not at zero, may be backspace or eol
+  317 0411  79          	ld	a,c		; character back to A
+  318 0412  FE 08       	cp	ctlh
+  319 0414  C2 0419     	jp	nz,notbacksp	; backspace character
+  320 0417  35          	dec	(hl)		; column = column - 1
+  321 0418  C9          	ret
+  322 0419              notbacksp:			; not a backspace character, eol?
+  323 0419  FE 0A       	cp	lf
+  324 041B  C0          	ret	nz		; return if not
+  325                   				; end of line, column = 0
+  326 041C  36 00       	ld	(hl),0		; column = 0
+  327 041E  C9          	ret
+  328                   
+  329                   
+  330 041F  79          tabout:	ld	a,c		; expand tabs to console
+  331 0420  FE 09       	cp	tab
+  332 0422  C2 03F6     	jp	nz,conout	; direct to conout if not
+  333                   				; tab encountered, move to next tab pos
+  334 0425  0E 20       tab0:	ld	c,' '
+  335 0427  CD 03F6     	call	conout		; another blank
+  336 042A  3A 0A3E     	ld	a,(column)
+  337 042D  E6 07       	and	111b		; column mod 8 = 0 ?
+  338 042F  C2 0425     	jp	nz,tab0		; back for another if not
+  339 0432  C9          	ret
+  340                   
+  341 0433  21 0A3F     print:	ld	hl,outdelim	; print message until M(BC) = '$'
+  342 0436  0A          	ld	a,(bc)
+  343 0437  BE          	cp	(hl)
+  344 0438  C8          	ret	z		; stop on $
+  345                   				; more to print
+  346 0439  03          	inc	bc
+  347 043A  C5          	push	bc
+  348 043B  4F          	ld	c,a		; char to C
+  349 043C  CD 041F     	call	tabout		; another character printed
+  350 043F  C1          	pop	bc
+  351 0440  C3 0433     	jp	print
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page   7
+CPMLDR  Z80
+
+  352                   
+  353                   
+  354         041F      func2	equ	tabout		; write console character with tab expansion
+  355                   
+  356 0443  EB          func9:	ex	de,hl		; write line until $ encountered
+  357 0444  4D          	ld	c,l		; was lhld info
+  358 0445  44          	ld	b,h		; BC=string address
+  359 0446  C3 0433     	jp	print		; out to console
+  360                   
+  361 0449              sta$ret:			; store the A register to aret
+  362 0449  32 046D     	ld	(aret),a
+  363 044C              func$ret:
+  364 044C  C9          	ret			; jmp goback (pop stack for non cp/m functions)
+  365                   
+  366 044D              set$lret1:			; set lret = 1
+  367 044D  3E 01       	ld	a,1
+  368 044F  C3 0449     	jp	sta$ret
+  369                   
+  370         044C      func1	equ	func$ret
+  371                   
+  372         044C      func3	equ	func$ret
+  373                   
+  374         044C      func6	equ	func$ret
+  375                   
+  376         044C      func10	equ	func$ret
+  377         044C      func11	equ	func$ret
+  378                   
+  379                   ;	data areas
+  380                   
+  381 0452  00          compcol:	db	0	; true if computing column position
+  382                   ;	end of BDOS Console module
+  383                   ;**********************************************************************
+  384                   ;*****************************************************************
+  385                   
+  386                   ;	Error Messages
+  387         0024      md	equ	24h
+  388 0453  0D 0A 42 44 err$msg:	db	cr,lf,'BDOS ERR: ',md
+  389 0460  53 65 6C 65 err$select:	db	'Select',md
+  390 0467  50 65 72 6D err$phys:	db	'Perm.',md
+  391                   ;*****************************************************************
+  392                   ;*****************************************************************
+  393                   
+  394                   ;	common values shared between bdosi and bdos
+  395 046D    0002      aret:	ds	2		; address value to return
+  396         046D      lret	equ	aret		; low(aret)
+  397                   ;*****************************************************************
+  398                   ;*****************************************************************
+  399                   ;**                                                             **
+  400                   ;**   b a s i c    d i s k   o p e r a t i n g   s y s t e m    **
+  401                   ;**                                                             **
+  402                   ;*****************************************************************
+  403                   ;*****************************************************************
+  404                   ;	literal constants
+  405         00FF      true	equ	0ffh		; constant true
+  406         0000      false	equ	000h		; constant false
+  407         FFFF      enddir	equ	0ffffh		; end of directory
+  408         0001      byte	equ	1		; number of bytes for "byte" type
+  409         0002      word	equ	2		; number of bytes for "word" type
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page   8
+CPMLDR  Z80
+
+  410                   ;	fixed addresses in low memory
+  411         0080      tbuff	equ	0080h		; default buffer location
+  412                   ;	error message handlers
+  413 046F              sel$error:			; report select error
+  414 046F  01 0453     	ld	bc,err$msg
+  415 0472  CD 0433     	call	print
+  416 0475  01 0460     	ld	bc,err$select
+  417 0478  C3 0484     	jp	goerr1
+  418 047B  01 0453     goerr:	ld	bc,err$msg
+  419 047E  CD 0433     	call	print
+  420 0481  01 0467     	ld	bc,err$phys
+  421 0484  CD 0433     goerr1:	call	print
+  422 0487  F3          	di
+  423 0488  76          	halt
+  424 0489              bde$e$bde$m$hl:
+  425 0489  7B          	ld	a,e
+  426 048A  95          	sub	l
+  427 048B  5F          	ld	e,a
+  428 048C  7A          	ld	a,d
+  429 048D  9C          	sbc	a,h
+  430 048E  57          	ld	d,a
+  431 048F  D0          	ret	nc
+  432 0490  05          	dec	b
+  433 0491  C9          	ret
+  434 0492              bde$e$bde$p$hl:
+  435 0492  7B          	ld	a,e
+  436 0493  85          	add	a,l
+  437 0494  5F          	ld	e,a
+  438 0495  7A          	ld	a,d
+  439 0496  8C          	adc	a,h
+  440 0497  57          	ld	d,a
+  441 0498  D0          	ret	nc
+  442 0499  04          	inc	b
+  443 049A  C9          	ret
+  444 049B  0C          shl3bv:	inc	c
+  445 049C              shl3bv1:
+  446 049C  0D          	dec	c
+  447 049D  C8          	ret	z
+  448 049E  29          	add	hl,hl
+  449 049F  8F          	adc	a,a
+  450 04A0  C3 049C     	jp	shl3bv1
+  451 04A3              compare:
+  452 04A3  1A          	ld	a,(de)
+  453 04A4  BE          	cp	(hl)
+  454 04A5  C0          	ret	nz
+  455 04A6  23          	inc	hl
+  456 04A7  13          	inc	de
+  457 04A8  0D          	dec	c
+  458 04A9  C8          	ret	z
+  459 04AA  C3 04A3     	jp	compare
+  460                   
+  461                   ;	local subroutines for bios interface
+  462                   
+  463 04AD  0C          move:	inc	c		; Move data length of length c from source de to
+  464                   				; destination given by hl
+  465                   				; in case it is zero
+  466 04AE  0D          move0:	dec	c
+  467 04AF  C8          	ret	z		; more to move
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page   9
+CPMLDR  Z80
+
+  468 04B0  1A          	ld	a,(de)
+  469 04B1  77          	ld	(hl),a		; one byte moved
+  470 04B2  13          	inc	de
+  471 04B3  23          	inc	hl		; to next byte
+  472 04B4  C3 04AE     	jp	move0
+  473 04B7              selectdisk:			; Select the disk drive given by register D, and fill
+  474                   				; the base addresses curtrka - alloca, then fill
+  475                   				; the values of the disk parameter block
+  476 04B7  4A          	ld	c,d		; current disk# to c
+  477                   				; lsb of e = 0 if not yet logged - in
+  478 04B8  CD 0B1B     	call	seldskf		; hl filled by call
+  479                   				; hl = 0000 if error, otherwise disk headers
+  480 04BB  7C          	ld	a,h
+  481 04BC  B5          	or	l
+  482 04BD  C8          	ret	z		; Return with C flag reset if select error
+  483                   				; Disk header block address in hl
+  484 04BE  5E          	ld	e,(hl)
+  485 04BF  23          	inc	hl
+  486 04C0  56          	ld	d,(hl)
+  487 04C1  23          	inc	hl		; de=.tran
+  488 04C2  23          	inc	hl
+  489 04C3  23          	inc	hl
+  490 04C4  22 09F4     	ld	(curtrka),hl
+  491 04C7  23          	inc	hl
+  492 04C8  23          	inc	hl		; hl=.currec
+  493 04C9  22 09F6     	ld	(curreca),hl
+  494 04CC  23          	inc	hl
+  495 04CD  23          	inc	hl		; hl=.buffa
+  496 04CE  23          	inc	hl
+  497 04CF  23          	inc	hl
+  498 04D0  23          	inc	hl
+  499 04D1  23          	inc	hl		; de still contains .tran
+  500 04D2  EB          	ex	de,hl
+  501 04D3  22 0A1C     	ld	(tranv),hl	; .tran vector
+  502 04D6  21 09FC     	ld	hl,dpbaddr	; de= source for move, hl=dest
+  503 04D9  0E 0D       	ld	c,addlist
+  504 04DB  CD 04AD     	call	move		; addlist filled
+  505                   				; Now fill the disk parameter block
+  506 04DE  2A 09FC     	ld	hl,(dpbaddr)
+  507 04E1  EB          	ex	de,hl		; de is source
+  508 04E2  21 0A09     	ld	hl,sectpt	; hl is destination
+  509 04E5  0E 11       	ld	c,dpblist
+  510 04E7  CD 04AD     	call	move		; data filled
+  511                   				; Now set single/double map mode
+  512 04EA  2A 0A0E     	ld	hl,(maxall)	; largest allocation number
+  513 04ED  7C          	ld	a,h		; 00 indicates < 255
+  514 04EE  21 0A21     	ld	hl,single
+  515 04F1  36 FF       	ld	(hl),true	; Assume a=00
+  516 04F3  B7          	or	a
+  517 04F4  CA 04F9     	jp	z,retselect
+  518                   				; high order of maxall not zero, use double dm
+  519 04F7  36 00       	ld	(hl),false
+  520 04F9              retselect:			; C flag set indicates successful select
+  521 04F9  37          	scf
+  522 04FA  C9          	ret
+  523 04FB  CD 0B18     home:	call	homef		; Move to home position, then offset to start of dir
+  524 04FE  AF          	xor	a		; constant zero to accumulator
+  525 04FF  2A 09F4     	ld	hl,(curtrka)
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  10
+CPMLDR  Z80
+
+  526 0502  77          	ld	(hl),a
+  527 0503  23          	inc	hl
+  528 0504  77          	ld	(hl),a		; curtrk=0000
+  529 0505  2A 09F6     	ld	hl,(curreca)
+  530 0508  77          	ld	(hl),a
+  531 0509  23          	inc	hl
+  532 050A  77          	ld	(hl),a		; currec=0000
+  533 050B  23          	inc	hl
+  534 050C  77          	ld	(hl),a		; currec high byte=00
+  535 050D  C9          	ret
+  536 050E              pass$arecord:
+  537 050E  21 0A27     	ld	hl,arecord
+  538 0511  5E          	ld	e,(hl)
+  539 0512  23          	inc	hl
+  540 0513  56          	ld	d,(hl)
+  541 0514  23          	inc	hl
+  542 0515  46          	ld	b,(hl)
+  543 0516  C9          	ret
+  544 0517              rdbuff:	; Read buffer and check condition
+  545 0517  CD 050E     	call	pass$arecord
+  546 051A  CD 0B27     	call	readf		; current drive, track, sector, dma
+  547 051D              diocomp:			; Check for disk errors
+  548 051D  B7          	or	a
+  549 051E  C8          	ret	z
+  550 051F  4F          	ld	c,a
+  551 0520  FE 03       	cp	3
+  552 0522  DA 047B     	jp	c,goerr
+  553 0525  0E 01       	ld	c,1
+  554 0527  C3 047B     	jp	goerr
+  555 052A              seek$dir:			; Seek the record containing the current dir entry
+  556 052A  2A 0A47     	ld	hl,(dcnt)	; directory counter to hl
+  557 052D  0E 02       	ld	c,dskshf
+  558 052F  CD 068A     	call	hlrotr		; value to hl
+  559 0532  06 00       	ld	b,0
+  560 0534  EB          	ex	de,hl
+  561 0535  21 0A27     	ld	hl,arecord
+  562 0538  73          	ld	(hl),e
+  563 0539  23          	inc	hl
+  564 053A  72          	ld	(hl),d
+  565 053B  23          	inc	hl
+  566 053C  70          	ld	(hl),b
+  567 053D  C9          	ret
+  568 053E  2A 09F4     seek:	ld	hl,(curtrka)	; Seek the track given by arecord (actual record)
+  569 0541  4E          	ld	c,(hl)
+  570 0542  23          	inc	hl
+  571 0543  46          	ld	b,(hl)		; bc = curtrk
+  572 0544  C5          	push	bc		; s0 = curtrk
+  573 0545  2A 09F6     	ld	hl,(curreca)
+  574 0548  5E          	ld	e,(hl)
+  575 0549  23          	inc	hl
+  576 054A  56          	ld	d,(hl)
+  577 054B  23          	inc	hl
+  578 054C  46          	ld	b,(hl)		; bde = currec
+  579 054D  2A 0A27     	ld	hl,(arecord)
+  580 0550  3A 0A29     	ld	a,(arecord+2)
+  581 0553  4F          	ld	c,a		; chl = arecord
+  582 0554  7D          seek0:	ld	a,l
+  583 0555  93          	sub	e
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  11
+CPMLDR  Z80
+
+  584 0556  7C          	ld	a,h
+  585 0557  9A          	sbc	a,d
+  586 0558  79          	ld	a,c
+  587 0559  98          	sbc	a,b
+  588 055A  E5          	push	hl		; Save low(arecord)
+  589 055B  D2 056B     	jp	nc,seek1	; if arecord >= currec then go to seek1
+  590 055E  2A 0A09     	ld	hl,(sectpt)
+  591 0561  CD 0489     	call	bde$e$bde$m$hl	; currec = currec - sectpt
+  592 0564  E1          	pop	hl
+  593 0565  E3          	ex	(sp),hl
+  594 0566  2B          	dec	hl
+  595 0567  E3          	ex	(sp),hl		; curtrk = curtrk - 1
+  596 0568  C3 0554     	jp	seek0
+  597 056B  2A 0A09     seek1:	ld	hl,(sectpt)
+  598 056E  CD 0492     	call	bde$e$bde$p$hl	; currec = currec + sectpt
+  599 0571  E1          	pop	hl		; Restore low(arecord)
+  600 0572  7D          	ld	a,l
+  601 0573  93          	sub	e
+  602 0574  7C          	ld	a,h
+  603 0575  9A          	sbc	a,d
+  604 0576  79          	ld	a,c
+  605 0577  98          	sbc	a,b
+  606 0578  DA 0582     	jp	c,seek2		; if arecord < currec then go to seek2
+  607 057B  E3          	ex	(sp),hl
+  608 057C  23          	inc	hl
+  609 057D  E3          	ex	(sp),hl		; curtrk = curtrk + 1
+  610 057E  E5          	push	hl		; save low (arecord)
+  611 057F  C3 056B     	jp	seek1
+  612 0582  E3          seek2:	ex	(sp),hl
+  613 0583  E5          	push	hl		; hl,s0 = curtrk, s1 = low(arecord)
+  614 0584  2A 0A09     	ld	hl,(sectpt)
+  615 0587  CD 0489     	call	bde$e$bde$m$hl	; currec = currec - sectpt
+  616 058A  E1          	pop	hl
+  617 058B  D5          	push	de
+  618 058C  C5          	push	bc
+  619 058D  E5          	push	hl		; hl,s0 = curtrk,
+  620                   				; s1 = high(arecord,currec), s2 = low(currec),
+  621                   				; s3 = low(arecord)
+  622 058E  EB          	ex	de,hl
+  623 058F  2A 0A16     	ld	hl,(offset)
+  624 0592  19          	add	hl,de
+  625 0593  44          	ld	b,h
+  626 0594  4D          	ld	c,l
+  627 0595  22 0A32     	ld	(track),hl
+  628 0598  CD 0B1E     	call	settrkf		; call bios settrk routine
+  629                   				; Store curtrk
+  630 059B  D1          	pop	de
+  631 059C  2A 09F4     	ld	hl,(curtrka)
+  632 059F  73          	ld	(hl),e
+  633 05A0  23          	inc	hl
+  634 05A1  72          	ld	(hl),d		; Store currec
+  635 05A2  C1          	pop	bc
+  636 05A3  D1          	pop	de
+  637 05A4  2A 09F6     	ld	hl,(curreca)
+  638 05A7  73          	ld	(hl),e
+  639 05A8  23          	inc	hl
+  640 05A9  72          	ld	(hl),d
+  641 05AA  23          	inc	hl
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  12
+CPMLDR  Z80
+
+  642 05AB  70          	ld	(hl),b		; currec = bde
+  643 05AC  C1          	pop	bc		; bc = low(arecord), de = low(currec)
+  644 05AD  79          	ld	a,c
+  645 05AE  93          	sub	e
+  646 05AF  6F          	ld	l,a		; hl = bc - de
+  647 05B0  78          	ld	a,b
+  648 05B1  9A          	sbc	a,d
+  649 05B2  67          	ld	h,a
+  650 05B3  CD 05CF     	call	shr$physhf
+  651 05B6  44          	ld	b,h
+  652 05B7  4D          	ld	c,l
+  653 05B8  2A 0A1C     	ld	hl,(tranv)
+  654 05BB  EB          	ex	de,hl		; bc=sector#, de=.tran
+  655 05BC  CD 0B30     	call	sectran		; hl = tran(sector)
+  656 05BF  4D          	ld	c,l
+  657 05C0  44          	ld	b,h		; bc = tran(sector)
+  658 05C1  22 0A34     	ld	(sector),hl
+  659 05C4  CD 0B21     	call	setsecf		; sector selected
+  660 05C7  2A 09EE     	ld	hl,(curdma)
+  661 05CA  4D          	ld	c,l
+  662 05CB  44          	ld	b,h
+  663 05CC  C3 0B24     	jp	setdmaf
+  664 05CF              shr$physhf:
+  665 05CF  3A 0A18     	ld	a,(physhf)
+  666 05D2  4F          	ld	c,a
+  667 05D3  C3 068A     	jp	hlrotr
+  668                   ;	file control block (fcb) constants
+  669         00E5      empty	equ	0e5h		; empty directory entry
+  670         0080      recsiz	equ	128		; record size
+  671         0020      fcblen	equ	32		; file control block size
+  672         0004      dirrec	equ	recsiz/fcblen	; directory fcbs / record
+  673         0002      dskshf	equ	2		; log2(dirrec)
+  674         0003      dskmsk	equ	dirrec-1
+  675         0005      fcbshf	equ	5		; log2(fcblen)
+  676         000C      extnum	equ	12		; extent number field
+  677         001F      maxext	equ	31		; largest extent number
+  678         000D      ubytes	equ	13		; unfilled bytes field
+  679         000F      namlen	equ	15		; name length
+  680         000F      reccnt	equ	15		; record count field
+  681         0010      dskmap	equ	16		; disk map field
+  682         0020      nxtrec	equ	fcblen
+  683                   ;	utility functions for file access
+  684 05D6              dm$position:			; Compute disk map position for vrecord to hl
+  685 05D6  21 0A0B     	ld	hl,blkshf
+  686 05D9  4E          	ld	c,(hl)		; shift count to c
+  687 05DA  3A 0A25     	ld	a,(vrecord)	; current virtual record to a
+  688 05DD  B7          dmpos0:	or	a
+  689 05DE  1F          	rra
+  690 05DF  0D          	dec	c
+  691 05E0  C2 05DD     	jp	nz,dmpos0	; a = shr(vrecord,blkshf) = vrecord/2**(sect/block)
+  692 05E3  47          	ld	b,a		; Save it for later addition
+  693 05E4  3E 08       	ld	a,8
+  694 05E6  96          	sub	(hl)		; 8-blkshf to accumulator
+  695 05E7  4F          	ld	c,a		; extent shift count in register c
+  696 05E8  3A 0A24     	ld	a,(extval)	; extent value ani extmsk
+  697 05EB  0D          dmpos1:	dec	c		; blkshf = 3,4,5,6,7, c=5,4,3,2,1
+  698 05EC  CA 05F4     	jp	z,dmpos2	; shift is 4,3,2,1,0
+  699 05EF  B7          	or	a
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  13
+CPMLDR  Z80
+
+  700 05F0  17          	rla
+  701 05F1  C3 05EB     	jp	dmpos1
+  702 05F4              dmpos2:				; Arrive here with a = shl(ext and extmsk,7-blkshf)
+  703 05F4  80          	add	a,b		; Add the previous shr(vrecord,blkshf) value
+  704                   				; a is one of the following values, depending upon alloc
+  705                   				; bks blkshf
+  706                   				; 1k   3     v/8 + extval * 16
+  707                   				; 2k   4     v/16+ extval * 8
+  708                   				; 4k   5     v/32+ extval * 4
+  709                   				; 8k   6     v/64+ extval * 2
+  710                   				; 16k  7     v/128+extval * 1
+  711 05F5  C9          	ret			; with dm$position in a
+  712 05F6  2A 0A43     getdma:	ld	hl,(info)
+  713 05F9  11 0010     	ld	de,dskmap
+  714 05FC  19          	add	hl,de
+  715 05FD  C9          	ret
+  716 05FE  CD 05F6     getdm:	call	getdma		; Return disk map value from position given by bc
+  717 0601  09          	add	hl,bc		; Index by a single byte value
+  718 0602  3A 0A21     	ld	a,(single)	; single byte/map entry?
+  719 0605  B7          	or	a
+  720 0606  CA 060C     	jp	z,getdmd	; Get disk map single byte
+  721 0609  6E          	ld	l,(hl)
+  722 060A  60          	ld	h,b
+  723 060B  C9          	ret			; with hl=00bb
+  724 060C  09          getdmd:	add	hl,bc		; hl=.fcb(dm+i*2)
+  725                   				; double precision value returned
+  726 060D  7E          	ld	a,(hl)
+  727 060E  23          	inc	hl
+  728 060F  66          	ld	h,(hl)
+  729 0610  6F          	ld	l,a
+  730 0611  C9          	ret
+  731 0612              index:				; Compute disk block number from current fcb
+  732 0612  CD 05D6     	call	dm$position	; 0...15 in register a
+  733 0615  32 0A1F     	ld	(dminx),a
+  734 0618  4F          	ld	c,a
+  735 0619  06 00       	ld	b,0
+  736 061B  CD 05FE     	call	getdm		; value to hl
+  737 061E  22 0A27     	ld	(arecord),hl
+  738 0621  7D          	ld	a,l
+  739 0622  B4          	or	h
+  740 0623  C9          	ret
+  741 0624              atran:				; Compute actual record address, assuming index called
+  742                   				; arecord = shl(arecord,blkshf)
+  743 0624  3A 0A0B     	ld	a,(blkshf)
+  744 0627  4F          	ld	c,a
+  745 0628  2A 0A27     	ld	hl,(arecord)
+  746 062B  AF          	xor	a
+  747 062C  CD 049B     	call	shl3bv
+  748 062F  22 0A27     	ld	(arecord),hl
+  749 0632  32 0A29     	ld	(arecord+2),a
+  750 0635  22 0A2A     	ld	(arecord1),hl	; Save low(arecord)
+  751                   				; arecord = arecord or (vrecord and blkmsk)
+  752 0638  3A 0A0C     	ld	a,(blkmsk)
+  753 063B  4F          	ld	c,a
+  754 063C  3A 0A25     	ld	a,(vrecord)
+  755 063F  A1          	and	c
+  756 0640  47          	ld	b,a		; Save vrecord & blkmsk in reg b & blk$off
+  757 0641  32 0A1A     	ld	(blk$off),a
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  14
+CPMLDR  Z80
+
+  758 0644  21 0A27     	ld	hl,arecord
+  759 0647  B6          	or	(hl)
+  760 0648  77          	ld	(hl),a
+  761 0649  C9          	ret
+  762 064A              getexta:			; Get current extent field address to hl
+  763 064A  2A 0A43     	ld	hl,(info)
+  764 064D  11 000C     	ld	de,extnum
+  765 0650  19          	add	hl,de		; hl=.fcb(extnum)
+  766 0651  C9          	ret
+  767 0652              getrcnta:			; Get reccnt address to hl
+  768 0652  2A 0A43     	ld	hl,(info)
+  769 0655  11 000F     	ld	de,reccnt
+  770 0658  19          	add	hl,de
+  771 0659  C9          	ret
+  772 065A              getfcba:			; Compute reccnt and nxtrec addresses for get/setfcb
+  773 065A  CD 0652     	call	getrcnta
+  774 065D  EB          	ex	de,hl		; de=.fcb(reccnt)
+  775 065E  21 0011     	ld	hl,nxtrec-reccnt
+  776 0661  19          	add	hl,de		; hl=.fcb(nxtrec)
+  777 0662  C9          	ret
+  778 0663              getfcb:				; Set variables from currently addressed fcb
+  779 0663  CD 065A     	call	getfcba		; addresses in de, hl
+  780 0666  7E          	ld	a,(hl)
+  781 0667  32 0A25     	ld	(vrecord),a	; vrecord=fcb(nxtrec)
+  782 066A  EB          	ex	de,hl
+  783 066B  7E          	ld	a,(hl)
+  784 066C  32 0A23     	ld	(rcount),a	; rcount=fcb(reccnt)
+  785 066F  CD 064A     	call	getexta		; hl=.fcb(extnum)
+  786 0672  3A 0A0D     	ld	a,(extmsk)	; extent mask to a
+  787 0675  A6          	and	(hl)		; fcb(extnum) and extmsk
+  788 0676  32 0A24     	ld	(extval),a
+  789 0679  C9          	ret
+  790 067A              setfcb:				; Place values back into current fcb
+  791 067A  CD 065A     	call	getfcba		; addresses to de, hl
+  792 067D  0E 01       	ld	c,1
+  793 067F  3A 0A25     	ld	a,(vrecord)
+  794 0682  81          	add	a,c
+  795 0683  77          	ld	(hl),a		; fcb(nxtrec)=vrecord+seqio
+  796 0684  EB          	ex	de,hl
+  797 0685  3A 0A23     	ld	a,(rcount)
+  798 0688  77          	ld	(hl),a		; fcb(reccnt)=rcount
+  799 0689  C9          	ret
+  800 068A              hlrotr:				; hl rotate right by amount c
+  801 068A  0C          	inc	c		; in case zero
+  802 068B              hlrotr0:
+  803 068B  0D          	dec	c
+  804 068C  C8          	ret	z		; return when zero
+  805 068D  7C          	ld	a,h
+  806 068E  B7          	or	a
+  807 068F  1F          	rra
+  808 0690  67          	ld	h,a		; high byte
+  809 0691  7D          	ld	a,l
+  810 0692  1F          	rra
+  811 0693  6F          	ld	l,a		; low byte
+  812 0694  C3 068B     	jp	hlrotr0
+  813 0697              hlrotl:				; Rotate the mask in hl by amount in c
+  814 0697  0C          	inc	c		; may be zero
+  815 0698              hlrotl0:
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  15
+CPMLDR  Z80
+
+  816 0698  0D          	dec	c
+  817 0699  C8          	ret	z		; return if zero
+  818 069A  29          	add	hl,hl
+  819 069B  C3 0698     	jp	hlrotl0
+  820 069E              set$cdisk:			; Set a "1" value in curdsk position of bc
+  821 069E  3A 0A42     	ld	a,(seldsk)
+  822 06A1  C5          	push	bc		; Save input parameter
+  823 06A2  4F          	ld	c,a		; Ready parameter for shift
+  824 06A3  21 0001     	ld	hl,1		; number to shift
+  825 06A6  CD 0697     	call	hlrotl		; hl = mask to integrate
+  826 06A9  C1          	pop	bc		; original mask
+  827 06AA  79          	ld	a,c
+  828 06AB  B5          	or	l
+  829 06AC  6F          	ld	l,a
+  830 06AD  78          	ld	a,b
+  831 06AE  B4          	or	h
+  832 06AF  67          	ld	h,a		; hl = mask or rol(1,curdsk)
+  833 06B0  C9          	ret
+  834 06B1              test$vector:
+  835 06B1  3A 0A42     	ld	a,(seldsk)
+  836 06B4  4F          	ld	c,a
+  837 06B5  CD 068A     	call	hlrotr
+  838 06B8  7D          	ld	a,l
+  839 06B9  E6 01       	and	1b
+  840 06BB  C9          	ret			; non zero if curdsk bit on
+  841 06BC              getdptra:			; Compute the address of a directory element at
+  842                   				; positon dptr in the buffer
+  843 06BC  2A 09F0     	ld	hl,(buffa)
+  844 06BF  3A 0A2D     	ld	a,(dptr)	; hl = hl + a
+  845 06C2  85          	add	a,l
+  846 06C3  6F          	ld	l,a
+  847 06C4  D0          	ret	nc		; overflow to h
+  848 06C5  24          	inc	h
+  849 06C6  C9          	ret
+  850 06C7              clr$ext:			; fcb ext = fcb ext & 1fh
+  851 06C7  CD 064A     	call	getexta
+  852 06CA  7E          	ld	a,(hl)
+  853 06CB  E6 1F       	and	00011111b
+  854 06CD  77          	ld	(hl),a
+  855 06CE  C9          	ret
+  856 06CF  7B          subdh:	ld	a,e		; Compute hl = de - hl
+  857 06D0  95          	sub	l
+  858 06D1  6F          	ld	l,a
+  859 06D2  7A          	ld	a,d
+  860 06D3  9C          	sbc	a,h
+  861 06D4  67          	ld	h,a
+  862 06D5  C9          	ret
+  863 06D6              get$buffa:
+  864 06D6  D5          	push	de
+  865 06D7  11 000A     	ld	de,10
+  866 06DA  19          	add	hl,de
+  867 06DB  5E          	ld	e,(hl)
+  868 06DC  23          	inc	hl
+  869 06DD  56          	ld	d,(hl)
+  870 06DE  EB          	ex	de,hl
+  871 06DF  D1          	pop	de
+  872 06E0  C9          	ret
+  873 06E1  CD 052A     rd$dir:	call	seek$dir	; Read a directory entry into the directory buffer
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  16
+CPMLDR  Z80
+
+  874 06E4  3A 0A19     	ld	a,(phymsk)
+  875 06E7  B7          	or	a
+  876 06E8  CA 06F3     	jp	z,rddir1
+  877 06EB  3E 03       	ld	a,3
+  878 06ED  CD 0A4C     	call	deblock$dir
+  879 06F0  C3 06FF     	jp	setdata
+  880 06F3  CD 0705     rddir1:	call	setdir		; directory dma
+  881 06F6  22 09F0     	ld	(buffa),hl
+  882 06F9  CD 053E     	call	seek
+  883 06FC  CD 0517     	call	rdbuff		; directory record loaded
+  884 06FF              setdata:			; Set data dma address
+  885 06FF  2A 0A40     	ld	hl,(dmaad)
+  886 0702  C3 070B     	jp	setdma		; to complete the call
+  887 0705  2A 0A02     setdir:	ld	hl,(dirbcba)	; Set directory dma address
+  888 0708  CD 06D6     	call	get$buffa
+  889 070B  22 09EE     setdma:	ld	(curdma),hl	; hl=.dma address to set (i.e., buffa or dmaad)
+  890 070E  C9          	ret
+  891 070F              end$of$dir:			; Return zero flag if at end of directory, non zero
+  892                   				; if not at end (end of dir if dcnt = 0ffffh)
+  893 070F  21 0A47     	ld	hl,dcnt
+  894 0712  7E          	ld	a,(hl)		; may be 0ffh
+  895 0713  23          	inc	hl
+  896 0714  BE          	cp	(hl)		; low(dcnt) = high(dcnt)?
+  897 0715  C0          	ret	nz		; non zero returned if different
+  898                   				; high and low the same, = 0ffh?
+  899 0716  3C          	inc	a		; 0ffh becomes 00 if so
+  900 0717  C9          	ret
+  901 0718              set$end$dir:			; Set dcnt to the end of the directory
+  902 0718  21 FFFF     	ld	hl,enddir
+  903 071B  22 0A47     	ld	(dcnt),hl
+  904 071E  C9          	ret
+  905 071F              read$dir:			; Read next directory entry, with c=true if initializing
+  906 071F  2A 0A10     	ld	hl,(dirmax)
+  907 0722  EB          	ex	de,hl		; in preparation for subtract
+  908 0723  2A 0A47     	ld	hl,(dcnt)
+  909 0726  23          	inc	hl
+  910 0727  22 0A47     	ld	(dcnt),hl	; dcnt=dcnt+1
+  911                   				; while(dirmax >= dcnt)
+  912 072A  CD 06CF     	call	subdh		; de-hl
+  913 072D  DA 0718     	jp	c,set$end$dir	; not at end of directory, seek next element
+  914                   				; initialization flag is in c
+  915 0730  3A 0A47     	ld	a,(dcnt)
+  916 0733  E6 03       	and	dskmsk		; low(dcnt) and dskmsk
+  917 0735  06 05       	ld	b,fcbshf	; to multiply by fcb size
+  918 0737              read$dir1:
+  919 0737  87          	add	a,a
+  920 0738  05          	dec	b
+  921 0739  C2 0737     	jp	nz,read$dir1	; a = (low(dcnt) and dskmsk) shl fcbshf
+  922 073C  32 0A2D     	ld	(dptr),a	; ready for next dir operation
+  923 073F  B7          	or	a
+  924 0740  C0          	ret	nz		; Return if not a new record
+  925 0741  C5          	push	bc		; Save initialization flag c
+  926 0742  CD 06E1     	call	rd$dir		; Read the directory record
+  927 0745  C1          	pop	bc		; Recall initialization flag
+  928 0746  C9          	ret
+  929 0747              compext:			; Compare extent# in a with that in c, return nonzero
+  930                   				; if they do not match
+  931 0747  C5          	push	bc		; Save c's original value
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  17
+CPMLDR  Z80
+
+  932 0748  F5          	push	af
+  933 0749  3A 0A0D     	ld	a,(extmsk)
+  934 074C  2F          	cpl
+  935 074D  47          	ld	b,a		; b has negated form of extent mask
+  936 074E  79          	ld	a,c
+  937 074F  A0          	and	b
+  938 0750  4F          	ld	c,a		; low bits removed from c
+  939 0751  F1          	pop	af
+  940 0752  A0          	and	b		; low bits removed from a
+  941 0753  91          	sub	c
+  942 0754  E6 1F       	and	maxext		; Set flags
+  943 0756  C1          	pop	bc		; Restore original values
+  944 0757  C9          	ret
+  945 0758              get$dir$ext:			; Compute directory extent from fcb
+  946                   				; Scan fcb disk map backwards
+  947 0758  CD 065A     	call	getfcba		; hl = .fcb(vrecord)
+  948 075B  0E 10       	ld	c,16
+  949 075D  41          	ld	b,c
+  950 075E  0C          	inc	c
+  951 075F  C5          	push	bc		; b=dskmap pos (rel to 0)
+  952 0760              get$de0:
+  953 0760  C1          	pop	bc
+  954 0761  0D          	dec	c
+  955 0762  AF          	xor	a		; Compare to zero
+  956 0763              get$de1:
+  957 0763  2B          	dec	hl
+  958 0764  05          	dec	b		; Decr dskmap position
+  959 0765  BE          	cp	(hl)
+  960 0766  C2 076D     	jp	nz,get$de2	; fcb(dskmap(b)) ~= 0
+  961 0769  0D          	dec	c
+  962 076A  C2 0763     	jp	nz,get$de1	; c = 0 -> all blocks = 0 in fcb disk map
+  963 076D              get$de2:
+  964 076D  79          	ld	a,c
+  965 076E  32 0A1F     	ld	(dminx),a
+  966 0771  3A 0A21     	ld	a,(single)
+  967 0774  B7          	or	a
+  968 0775  78          	ld	a,b
+  969 0776  C2 077A     	jp	nz,get$de3
+  970 0779  1F          	rra			; not single, divide blk idx by 2
+  971 077A              get$de3:
+  972 077A  C5          	push	bc
+  973 077B  E5          	push	hl		; Save dskmap position & count
+  974 077C  6F          	ld	l,a
+  975 077D  26 00       	ld	h,0		; hl = non-zero blk idx
+  976                   				; Compute ext offset from last non-zero
+  977                   				; block index by shifting blk idx right
+  978                   				; 7 - blkshf
+  979 077F  3A 0A0B     	ld	a,(blkshf)
+  980 0782  57          	ld	d,a
+  981 0783  3E 07       	ld	a,7
+  982 0785  92          	sub	d
+  983 0786  4F          	ld	c,a
+  984 0787  CD 068A     	call	hlrotr
+  985 078A  45          	ld	b,l		; b = ext offset
+  986 078B  3A 0A0D     	ld	a,(extmsk)
+  987 078E  B8          	cp	b
+  988 078F  E1          	pop	hl
+  989 0790  DA 0760     	jp	c,get$de0	; Verify computed extent offset <= extmsk
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  18
+CPMLDR  Z80
+
+  990 0793  CD 064A     	call	getexta
+  991 0796  4E          	ld	c,(hl)
+  992 0797  2F          	cpl
+  993 0798  E6 1F       	and	maxext
+  994 079A  A1          	and	c
+  995 079B  B0          	or	b		; dir ext = (fcb ext & (~ extmsk) & maxext) | ext offset
+  996 079C  C1          	pop	bc		; Restore stack
+  997 079D  C9          	ret			; a = directory extent
+  998 079E  2A 0A43     search:	ld	hl,(info)	; Search for directory element of length c at info
+  999 07A1  22 0A49     	ld	(searcha),hl	; searcha = info
+ 1000 07A4  79          	ld	a,c
+ 1001 07A5  32 0A4B     	ld	(searchl),a	; searchl = c
+ 1002 07A8  CD 0718     	call	set$end$dir	; dcnt = enddir
+ 1003 07AB  CD 04FB     	call	home		; to start at the beginning
+ 1004 07AE              searchn:			; Search for the next directory element, assuming
+ 1005                   				; a previous call on search which sets searcha and
+ 1006                   				; searchl
+ 1007 07AE  0E 00       	ld	c,false
+ 1008 07B0  CD 071F     	call	read$dir	; Read next dir element
+ 1009 07B3  CD 070F     	call	end$of$dir
+ 1010 07B6  CA 07FF     	jp	z,lret$eq$ff	; not end of directory, scan for match
+ 1011 07B9  2A 0A49     	ld	hl,(searcha)
+ 1012 07BC  EB          	ex	de,hl		; de=beginning of user fcb
+ 1013 07BD  CD 06BC     	call	getdptra	; hl = buffa+dptr
+ 1014 07C0  3A 0A4B     	ld	a,(searchl)
+ 1015 07C3  4F          	ld	c,a		; length of search to c
+ 1016 07C4  06 00       	ld	b,0		; b counts up, c counts down
+ 1017 07C6  7E          	ld	a,(hl)
+ 1018 07C7  FE E5       	cp	empty
+ 1019 07C9  CA 07AE     	jp	z,searchn
+ 1020 07CC              searchloop:
+ 1021 07CC  79          	ld	a,c
+ 1022 07CD  B7          	or	a
+ 1023 07CE  CA 07F8     	jp	z,endsearch	; Scan next character if not ubytes
+ 1024 07D1  78          	ld	a,b
+ 1025 07D2  FE 0D       	cp	ubytes
+ 1026 07D4  CA 07F1     	jp	z,searchok	; not the ubytes field, extent field?
+ 1027 07D7  FE 0C       	cp	extnum		; may be extent field
+ 1028 07D9  CA 07E6     	jp	z,searchext	; Skip to search extent
+ 1029 07DC  1A          	ld	a,(de)
+ 1030 07DD  96          	sub	(hl)
+ 1031 07DE  E6 7F       	and	7fh		; Mask-out flags/extent modulus
+ 1032 07E0  C2 07AE     	jp	nz,searchn	; Skip if not matched
+ 1033 07E3  C3 07F1     	jp	searchok	; matched character
+ 1034 07E6              searchext:
+ 1035 07E6  1A          	ld	a,(de)		; Attempt an extent # match
+ 1036 07E7  C5          	push	bc		; Save counters
+ 1037 07E8  4E          	ld	c,(hl)		; directory character to c
+ 1038 07E9  CD 0747     	call	compext		; Compare user/dir char
+ 1039 07EC  C1          	pop	bc		; Recall counters
+ 1040 07ED  B7          	or	a		; Set flag
+ 1041 07EE  C2 07AE     	jp	nz,searchn	; Skip if no match
+ 1042 07F1              searchok:			; current character matches
+ 1043 07F1  13          	inc	de
+ 1044 07F2  23          	inc	hl
+ 1045 07F3  04          	inc	b
+ 1046 07F4  0D          	dec	c
+ 1047 07F5  C3 07CC     	jp	searchloop
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  19
+CPMLDR  Z80
+
+ 1048 07F8              endsearch:			; entire name matches, return dir position
+ 1049 07F8  AF          	xor	a
+ 1050 07F9  32 046D     	ld	(lret),a	; lret = 0
+ 1051                   				; successful search -
+ 1052                   				; return with zero flag reset
+ 1053 07FC  47          	ld	b,a
+ 1054 07FD  04          	inc	b
+ 1055 07FE  C9          	ret
+ 1056 07FF              lret$eq$ff:			; unsuccessful search -
+ 1057                   				; return with zero flag set
+ 1058                   				; lret,low(aret) = 0ffh
+ 1059 07FF  3E FF       	ld	a,255
+ 1060 0801  47          	ld	b,a
+ 1061 0802  04          	inc	b
+ 1062 0803  C3 0449     	jp	sta$ret
+ 1063 0806  0E 0F       open:	ld	c,namlen	; Search for the directory entry, copy to fcb
+ 1064 0808  CD 079E     	call	search
+ 1065 080B  C8          	ret	z		; Return with lret=255 if end
+ 1066                   				; not end of directory, copy fcb information
+ 1067 080C              open$copy:
+ 1068 080C  CD 064A     	call	getexta
+ 1069 080F  7E          	ld	a,(hl)
+ 1070 0810  F5          	push	af		; save extent to check for extent
+ 1071                   				; folding - move moves entire dir FCB
+ 1072 0811  CD 06BC     	call	getdptra
+ 1073 0814  EB          	ex	de,hl		; hl = .buff(dptr)
+ 1074 0815  2A 0A43     	ld	hl,(info)	; hl=.fcb(0)
+ 1075 0818  0E 20       	ld	c,nxtrec	; length of move operation
+ 1076 081A  CD 04AD     	call	move		; from .buff(dptr) to .fcb(0)
+ 1077                   				; Note that entire fcb is copied, including indicators
+ 1078 081D  CD 0758     	call	get$dir$ext
+ 1079 0820  4F          	ld	c,a
+ 1080 0821  F1          	pop	af
+ 1081 0822  77          	ld	(hl),a		; restore extent
+ 1082                   				; hl = .user extent#, c = dir extent#
+ 1083                   				; above move set fcb(reccnt) to dir(reccnt)
+ 1084                   				; if fcb ext < dir ext then fcb(reccnt) = fcb(reccnt) | 128
+ 1085                   				; if fcb ext = dir ext then fcb(reccnt) = fcb(reccnt)
+ 1086                   				; if fcb ext > dir ext then fcb(reccnt) = 0
+ 1087 0823              set$rc:				; hl=.fcb(ext), c=dirext
+ 1088 0823  06 00       	ld	b,0
+ 1089 0825  EB          	ex	de,hl
+ 1090 0826  21 0003     	ld	hl,reccnt-extnum
+ 1091 0829  19          	add	hl,de
+ 1092 082A  1A          	ld	a,(de)
+ 1093 082B  91          	sub	c
+ 1094 082C  CA 083C     	jp	z,set$rc2
+ 1095 082F  78          	ld	a,b
+ 1096 0830  D2 0836     	jp	nc,set$rc1
+ 1097 0833  3E 80       	ld	a,128
+ 1098 0835  46          	ld	b,(hl)
+ 1099 0836              set$rc1:
+ 1100 0836  77          	ld	(hl),a
+ 1101 0837  78          	ld	a,b
+ 1102 0838  32 0A20     	ld	(actual$rc),a
+ 1103 083B  C9          	ret
+ 1104 083C              set$rc2:
+ 1105 083C  32 0A20     	ld	(actual$rc),a
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  20
+CPMLDR  Z80
+
+ 1106 083F  7E          	ld	a,(hl)
+ 1107 0840  B7          	or	a
+ 1108 0841  C0          	ret	nz		; ret if rc ~= 0
+ 1109 0842  3A 0A1F     	ld	a,(dminx)
+ 1110 0845  B7          	or	a
+ 1111 0846  C8          	ret	z		; ret if no blks in fcb
+ 1112 0847  3A 0A46     	ld	a,(fx)
+ 1113 084A  FE 0F       	cp	15
+ 1114 084C  C8          	ret	z		; ret if fx = 15
+ 1115 084D  36 80       	ld	(hl),128	; rc = 128
+ 1116 084F  C9          	ret
+ 1117 0850              restore$rc:			; hl = .fcb(extnum)
+ 1118                   				; if actual$rc ~= 0 then rcount = actual$rc
+ 1119 0850  E5          	push	hl
+ 1120 0851  3A 0A20     	ld	a,(actual$rc)
+ 1121 0854  B7          	or	a
+ 1122 0855  CA 0861     	jp	z,restore$rc1
+ 1123 0858  11 0003     	ld	de,reccnt-extnum
+ 1124 085B  19          	add	hl,de
+ 1125 085C  77          	ld	(hl),a
+ 1126 085D  AF          	xor	a
+ 1127 085E  32 0A20     	ld	(actual$rc),a
+ 1128 0861              restore$rc1:
+ 1129 0861  E1          	pop	hl
+ 1130 0862  C9          	ret
+ 1131 0863              open$reel:			; Close the current extent, and open the next one
+ 1132                   				; if possible.
+ 1133 0863  CD 064A     	call	getexta
+ 1134 0866  7E          	ld	a,(hl)
+ 1135 0867  4F          	ld	c,a
+ 1136 0868  0C          	inc	c
+ 1137 0869  CD 0747     	call	compext
+ 1138 086C  CA 0885     	jp	z,open$reel3
+ 1139 086F  3E 1F       	ld	a,maxext
+ 1140 0871  A1          	and	c
+ 1141 0872  77          	ld	(hl),a		; Incr extent field
+ 1142 0873  0E 0F       	ld	c,namlen
+ 1143 0875  CD 079E     	call	search		; Next extent found?
+ 1144                   				; not end of file, open
+ 1145 0878  CD 080C     	call	open$copy
+ 1146 087B              open$reel2:
+ 1147 087B  CD 0663     	call	getfcb		; Set parameters
+ 1148 087E  AF          	xor	a
+ 1149 087F  32 0A25     	ld	(vrecord),a
+ 1150 0882  C3 0449     	jp	sta$ret		; lret = 0
+ 1151 0885              open$reel3:
+ 1152 0885  34          	inc	(hl)		; fcb(ex) = fcb(ex) + 1
+ 1153 0886  CD 0758     	call	get$dir$ext
+ 1154 0889  4F          	ld	c,a		; Is new extent beyond dir$ext?
+ 1155 088A  BE          	cp	(hl)
+ 1156 088B  D2 0892     	jp	nc,open$reel4	; no
+ 1157 088E  35          	dec	(hl)		; fcb(ex) = fcb(ex) - 1
+ 1158 088F  C3 044D     	jp	set$lret1
+ 1159 0892              open$reel4:
+ 1160 0892  CD 0850     	call	restore$rc
+ 1161 0895  CD 0823     	call	set$rc
+ 1162 0898  C3 087B     	jp	open$reel2
+ 1163 089B              seqdiskread:			; Sequential disk read operation
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  21
+CPMLDR  Z80
+
+ 1164                   				; Read the next record from the current fcb
+ 1165 089B  CD 0663     	call	getfcb		; sets parameters for the read
+ 1166 089E  3A 0A25     	ld	a,(vrecord)
+ 1167 08A1  21 0A23     	ld	hl,rcount
+ 1168 08A4  BE          	cp	(hl)		; vrecord-rcount
+ 1169                   				; Skip if rcount > vrecord
+ 1170 08A5  DA 08B7     	jp	c,recordok
+ 1171                   				; not enough records in the extent
+ 1172                   				; record count must be 128 to continue
+ 1173 08A8  FE 80       	cp	128		; vrecord = 128?
+ 1174 08AA  C2 044D     	jp	nz,set$lret1	; Skip if vrecord<>128
+ 1175 08AD  CD 0863     	call	open$reel	; Go to next extent if so
+ 1176                   				; Check for open ok
+ 1177 08B0  3A 046D     	ld	a,(lret)
+ 1178 08B3  B7          	or	a
+ 1179 08B4  C2 044D     	jp	nz,set$lret1	; Stop at eof
+ 1180 08B7              recordok:			; Arrive with fcb addressing a record to read
+ 1181 08B7  CD 0612     	call	index		; Z flag set if arecord = 0
+ 1182 08BA  CA 044D     	jp	z,set$lret1	; Reading unwritten data
+ 1183                   				; Record has been allocated
+ 1184 08BD  CD 0624     	call	atran		; arecord now a disk address
+ 1185 08C0  3A 0A19     	ld	a,(phymsk)
+ 1186 08C3  B7          	or	a		; if not 128 byte sectors
+ 1187 08C4  C2 0A36     	jp	nz,read$deblock	; go to deblock
+ 1188 08C7  CD 06FF     	call	setdata		; Set curdma = dmaad
+ 1189 08CA  CD 053E     	call	seek		; Set up for read
+ 1190 08CD  CD 0517     	call	rdbuff		; Read into (curdma)
+ 1191 08D0  C3 067A     	jp	setfcb		; Update FCB
+ 1192 08D3              curselect:
+ 1193 08D3  3A 0A42     	ld	a,(seldsk)
+ 1194 08D6  3C          	inc	a
+ 1195 08D7  CA 046F     	jp	z,sel$error
+ 1196 08DA  3D          	dec	a
+ 1197 08DB  21 0A26     	ld	hl,curdsk
+ 1198 08DE  BE          	cp	(hl)
+ 1199 08DF  C8          	ret	z		; Skip if seldsk = curdsk, fall into select
+ 1200 08E0              select:				; Select disk info for subsequent input or output ops
+ 1201 08E0  77          	ld	(hl),a		; curdsk = seldsk
+ 1202 08E1  57          	ld	d,a		; Save seldsk in register D for selectdisk call
+ 1203 08E2  2A 09EC     	ld	hl,(dlog)
+ 1204 08E5  CD 06B1     	call	test$vector	; test$vector does not modify DE
+ 1205 08E8  5F          	ld	e,a
+ 1206 08E9  D5          	push	de		; Send to seldsk, save for test below
+ 1207 08EA  CD 04B7     	call	selectdisk
+ 1208 08ED  E1          	pop	hl		; Recall dlog vector
+ 1209 08EE  D2 046F     	jp	nc,sel$error	; returns with C flag set if select ok
+ 1210                   				; Is the disk logged in?
+ 1211 08F1  2D          	dec	l		; reg l = 1 if so
+ 1212 08F2  C8          	ret	z		; yes - drive previously logged in
+ 1213 08F3  2A 09EC     	ld	hl,(dlog)
+ 1214 08F6  4D          	ld	c,l
+ 1215 08F7  44          	ld	b,h		; call ready
+ 1216 08F8  CD 069E     	call	set$cdisk
+ 1217 08FB  22 09EC     	ld	(dlog),hl	; dlog=set$cdisk(dlog)
+ 1218 08FE  C9          	ret
+ 1219 08FF              set$seldsk:
+ 1220 08FF  3A 0A1E     	ld	a,(linfo)
+ 1221 0902  32 0A42     	ld	(seldsk),a
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  22
+CPMLDR  Z80
+
+ 1222 0905  C9          	ret
+ 1223 0906              reselectx:
+ 1224 0906  AF          	xor	a
+ 1225 0907  32 0A2C     	ld	(high$ext),a
+ 1226 090A  C3 0936     	jp	reselect1
+ 1227 090D              reselect:			; Check current fcb to see if reselection necessary
+ 1228 090D  3E 80       	ld	a,80h
+ 1229 090F  47          	ld	b,a
+ 1230 0910  3D          	dec	a
+ 1231 0911  4F          	ld	c,a		; b = 80h, c = 7fh
+ 1232 0912  2A 0A43     	ld	hl,(info)
+ 1233 0915  11 0007     	ld	de,7
+ 1234 0918  EB          	ex	de,hl
+ 1235 0919  19          	add	hl,de
+ 1236 091A  7E          	ld	a,(hl)
+ 1237 091B  A0          	and	b		; fcb(7) = fcb(7) & 7fh
+ 1238 091C  7E          	ld	a,(hl)
+ 1239 091D  A1          	and	c
+ 1240 091E  77          	ld	(hl),a		; high$ext = 80h & fcb(8)
+ 1241 091F  23          	inc	hl
+ 1242 0920  7E          	ld	a,(hl)
+ 1243 0921  A0          	and	b
+ 1244 0922  32 0A2C     	ld	(high$ext),a	; fcb(8) = fcb(8) & 7fh
+ 1245 0925  7E          	ld	a,(hl)
+ 1246 0926  A1          	and	c
+ 1247 0927  77          	ld	(hl),a		; fcb(ext) = fcb(ext) & 1fh
+ 1248 0928  CD 06C7     	call	clr$ext		; if fcb(rc) & 80h
+ 1249                   				;    then fcb(rc) = 80h, actual$rc = fcb(rc) & 7fh
+ 1250                   				;    else actual$rc = 0
+ 1251 092B  CD 0652     	call	getrcnta
+ 1252 092E  7E          	ld	a,(hl)
+ 1253 092F  A0          	and	b
+ 1254 0930  CA 0936     	jp	z,reselect1
+ 1255 0933  7E          	ld	a,(hl)
+ 1256 0934  A1          	and	c
+ 1257 0935  70          	ld	(hl),b
+ 1258 0936              reselect1:
+ 1259 0936  32 0A20     	ld	(actual$rc),a
+ 1260 0939  21 0000     	ld	hl,0
+ 1261 093C  22 0A2E     	ld	(fcbdsk),hl	; fcbdsk = 0
+ 1262 093F  3E FF       	ld	a,true
+ 1263 0941  32 0A45     	ld	(resel),a	; Mark possible reselect
+ 1264 0944  2A 0A43     	ld	hl,(info)
+ 1265 0947  7E          	ld	a,(hl)		; drive select code
+ 1266 0948  E6 1F       	and	11111b		; non zero is auto drive select
+ 1267 094A  3D          	dec	a		; Drive code normalized to 0..30, or 255
+ 1268 094B  32 0A1E     	ld	(linfo),a	; Save drive code
+ 1269 094E  FE FF       	cp	0ffh
+ 1270 0950  CA 095A     	jp	z,noselect	; auto select function, seldsk saved above
+ 1271 0953  7E          	ld	a,(hl)
+ 1272 0954  32 0A2E     	ld	(fcbdsk),a	; Save drive code
+ 1273 0957  CD 08FF     	call	set$seldsk
+ 1274 095A              noselect:
+ 1275 095A  CD 08D3     	call	curselect
+ 1276 095D  3E 00       	ld	a,0
+ 1277 095F  2A 0A43     	ld	hl,(info)
+ 1278 0962  77          	ld	(hl),a
+ 1279 0963  C9          	ret
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  23
+CPMLDR  Z80
+
+ 1280                   
+ 1281                   ;	individual function handlers
+ 1282                   
+ 1283         044C      func12	equ	func$ret
+ 1284 0964  21 0000     func13:	ld	hl,0		; Reset disk system - initialize to disk 0
+ 1285 0967  22 09EC     	ld	(dlog),hl
+ 1286 096A  AF          	xor	a
+ 1287 096B  32 0A42     	ld	(seldsk),a
+ 1288 096E  3D          	dec	a
+ 1289 096F  32 0A26     	ld	(curdsk),a
+ 1290 0972  21 0080     	ld	hl,tbuff
+ 1291 0975  22 0A40     	ld	(dmaad),hl	; dmaad = tbuff
+ 1292 0978  C3 06FF     	jp	setdata		; to data dma address
+ 1293 097B              func14:				; Select disk info
+ 1294 097B  CD 08FF     	call	set$seldsk	; seldsk = linfo
+ 1295 097E  C3 08D3     	jp	curselect
+ 1296 0981  CD 0906     func15:	call	reselectx	; Open file
+ 1297 0984  CD 0806     	call	open
+ 1298 0987  CD 098B     	call	openx		; returns if unsuccessful, a = 0
+ 1299 098A  C9          	ret
+ 1300 098B  CD 070F     openx:	call	end$of$dir
+ 1301 098E  C8          	ret	z
+ 1302 098F  CD 065A     	call	getfcba
+ 1303 0992  7E          	ld	a,(hl)
+ 1304 0993  3C          	inc	a
+ 1305 0994  C2 099B     	jp	nz,openxa
+ 1306 0997  1B          	dec	de
+ 1307 0998  1B          	dec	de
+ 1308 0999  1A          	ld	a,(de)
+ 1309 099A  77          	ld	(hl),a
+ 1310 099B              openxa:				; open successful
+ 1311 099B  E1          	pop	hl		; Discard return address
+ 1312 099C  0E 40       	ld	c,01000000b
+ 1313 099E  C9          	ret
+ 1314         044C      func16	equ	func$ret
+ 1315         044C      func17	equ	func$ret
+ 1316         044C      func18	equ	func$ret
+ 1317         044C      func19	equ	func$ret
+ 1318 099F  CD 090D     func20:	call	reselect	; Read a file
+ 1319 09A2  C3 089B     	jp	seqdiskread
+ 1320         044C      func21	equ	func$ret
+ 1321         044C      func22	equ	func$ret
+ 1322         044C      func23	equ	func$ret
+ 1323         044C      func24	equ	func$ret
+ 1324 09A5  3A 0A42     func25:	ld	a,(seldsk)
+ 1325 09A8  C3 0449     	jp	sta$ret
+ 1326 09AB  EB          func26:	ex	de,hl
+ 1327 09AC  22 0A40     	ld	(dmaad),hl
+ 1328 09AF  C3 06FF     	jp	setdata
+ 1329         044C      func27	equ	func$ret
+ 1330         044C      func28	equ	func$ret
+ 1331         044C      func29	equ	func$ret
+ 1332         044C      func30	equ	func$ret
+ 1333         044C      func31	equ	func$ret
+ 1334         044C      func32	equ	func$ret
+ 1335         044C      func33	equ	func$ret
+ 1336         044C      func34	equ	func$ret
+ 1337         044C      func35	equ	func$ret
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  24
+CPMLDR  Z80
+
+ 1338         044C      func36	equ	func$ret
+ 1339         044C      func37	equ	func$ret
+ 1340         044C      func38	equ	func$ret
+ 1341         044C      func39	equ	func$ret
+ 1342         044C      func40	equ	func$ret
+ 1343         044C      func42	equ	func$ret
+ 1344         044C      func43	equ	func$ret
+ 1345         044C      func44	equ	func$ret
+ 1346         044C      func45	equ	func$ret
+ 1347         044C      func46	equ	func$ret
+ 1348         044C      func47	equ	func$ret
+ 1349         044C      func48	equ	func$ret
+ 1350         044C      func49	equ	func$ret
+ 1351         044C      func50	equ	func$ret
+ 1352         044C      func100	equ	func$ret
+ 1353         044C      func101	equ	func$ret
+ 1354         044C      func102	equ	func$ret
+ 1355         044C      func103	equ	func$ret
+ 1356         044C      func104	equ	func$ret
+ 1357         044C      func105	equ	func$ret
+ 1358         044C      func106	equ	func$ret
+ 1359         044C      func107	equ	func$ret
+ 1360         044C      func108	equ	func$ret
+ 1361         044C      func109	equ	func$ret
+ 1362 09B2  3A 0A46     goback:	ld	a,(fx)		; Arrive here at end of processing to return to user
+ 1363 09B5  FE 0F       	cp	15
+ 1364 09B7  DA 09E2     	jp	c,retmon
+ 1365 09BA  3A 0A22     	ld	a,(olddsk)
+ 1366 09BD  32 0A42     	ld	(seldsk),a	; Restore seldsk
+ 1367 09C0  3A 0A45     	ld	a,(resel)
+ 1368 09C3  B7          	or	a
+ 1369 09C4  CA 09E2     	jp	z,retmon
+ 1370 09C7  2A 0A43     	ld	hl,(info)
+ 1371 09CA  36 00       	ld	(hl),0		; fcb(0)=0
+ 1372 09CC  3A 0A2E     	ld	a,(fcbdsk)
+ 1373 09CF  B7          	or	a
+ 1374 09D0  CA 09D4     	jp	z,goback1	; Restore fcb(0)
+ 1375 09D3  77          	ld	(hl),a		; fcb(0)=fcbdsk
+ 1376 09D4              goback1:			; fcb(8) = fcb(8) | high$ext
+ 1377 09D4  23          	inc	hl
+ 1378 09D5  3A 0A2C     	ld	a,(high$ext)
+ 1379 09D8  B6          	or	(hl)
+ 1380 09D9  77          	ld	(hl),a		; fcb(rc) = fcb(rc) | actual$rc
+ 1381 09DA  CD 0652     	call	getrcnta
+ 1382 09DD  3A 0A20     	ld	a,(actual$rc)
+ 1383 09E0  B6          	or	(hl)
+ 1384 09E1  77          	ld	(hl),a		; return from the disk monitor
+ 1385 09E2  2A 03A4     retmon:	ld	hl,(entsp)
+ 1386 09E5  F9          	ld	sp,hl
+ 1387 09E6  2A 046D     	ld	hl,(aret)
+ 1388 09E9  7D          	ld	a,l
+ 1389 09EA  44          	ld	b,h
+ 1390 09EB  C9          	ret
+ 1391                   
+ 1392                   ;	data areas
+ 1393                   
+ 1394 09EC  0000        dlog:	dw	0		; logged-in disks
+ 1395 09EE    0002      curdma:	ds	word		; current dma address
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  25
+CPMLDR  Z80
+
+ 1396 09F0    0002      buffa:	ds	word		; pointer to directory dma address
+ 1397                   
+ 1398                   ;	curtrka - alloca are set upon disk select
+ 1399                   ;	(data must be adjacent, do not insert variables)
+ 1400                   ;	(address of translate vector, not used)
+ 1401 09F2    0002      cdrmaxa:	ds	word	; pointer to cur dir max value (2 bytes)
+ 1402 09F4    0002      curtrka:	ds	word	; current track address (2)
+ 1403 09F6    0002      curreca:	ds	word	; current record address (3)
+ 1404 09F8    0002      drvlbla:	ds	word	; current drive label byte address (1)
+ 1405 09FA    0002      lsn$add:	ds	word	; login sequence # address (1)
+ 1406                   				; +1 -> bios media change flag (1)
+ 1407 09FC    0002      dpbaddr:	ds	word	; current disk parameter block address
+ 1408 09FE    0002      checka:	ds	word		; current checksum vector address
+ 1409 0A00    0002      alloca:	ds	word		; current allocation vector address
+ 1410 0A02    0002      dirbcba:	ds	word	; dir bcb list head
+ 1411 0A04    0002      dtabcba:	ds	word	; data bcb list head
+ 1412 0A06              hash$tbla:
+ 1413 0A06    0002      	ds	word
+ 1414 0A08    0001      	ds	byte
+ 1415         000D      addlist	equ	$-dpbaddr; address list size
+ 1416                   
+ 1417                   ; 	       buffer control block format
+ 1418                   
+ 1419                   ; bcb format : drv(1) || rec(3) || pend(1) || sequence(1) ||
+ 1420                   ;	       0         1         4          5
+ 1421                   
+ 1422                   ;	       track(2) || sector(2) || buffer$add(2) ||
+ 1423                   ;	       6           8            10
+ 1424                   
+ 1425                   ;	       link(2)
+ 1426                   ;	       12
+ 1427                   
+ 1428                   ;	sectpt - offset obtained from disk parm block at dpbaddr
+ 1429                   ;	(data must be adjacent, do not insert variables)
+ 1430 0A09    0002      sectpt:	ds	word		; sectors per track
+ 1431 0A0B    0001      blkshf:	ds	byte		; block shift factor
+ 1432 0A0C    0001      blkmsk:	ds	byte		; block mask
+ 1433 0A0D    0001      extmsk:	ds	byte		; extent mask
+ 1434 0A0E    0002      maxall:	ds	word		; maximum allocation number
+ 1435 0A10    0002      dirmax:	ds	word		; largest directory number
+ 1436 0A12    0002      dirblk:	ds	word		; reserved allocation bits for directory
+ 1437 0A14    0002      chksiz:	ds	word		; size of checksum vector
+ 1438 0A16    0002      offset:	ds	word		; offset tracks at beginning
+ 1439 0A18    0001      physhf:	ds	byte		; physical record shift
+ 1440 0A19    0001      phymsk:	ds	byte		; physical record mask
+ 1441         0011      dpblist	equ	$-sectpt; size of area
+ 1442                   
+ 1443                   ;	local variables
+ 1444                   
+ 1445 0A1A    0001      blk$off:	ds	byte	; record offset within block
+ 1446 0A1B    0001      dir$cnt:	ds	byte	; direct i/o count
+ 1447 0A1C    0002      tranv:	ds	word		; address of translate vector
+ 1448 0A1E    0001      linfo:	ds	byte		; low(info)
+ 1449 0A1F    0001      dminx:	ds	byte		; local for diskwrite
+ 1450 0A20              actual$rc:
+ 1451 0A20    0001      	ds	byte		; directory ext record count
+ 1452 0A21    0001      single:	ds	byte		; set true if single byte allocation map
+ 1453 0A22    0001      olddsk:	ds	byte		; disk on entry to bdos
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  26
+CPMLDR  Z80
+
+ 1454 0A23    0001      rcount:	ds	byte		; record count in current fcb
+ 1455 0A24    0001      extval:	ds	byte		; extent number and extmsk
+ 1456 0A25    0001      vrecord:	ds	byte	; current virtual record
+ 1457 0A26              curdsk:
+ 1458 0A26  FF          adrive:	db	0ffh		; current disk
+ 1459 0A27    0002      arecord:	ds	word	; current actual record
+ 1460 0A29    0001      	ds	byte
+ 1461 0A2A    0002      arecord1:	ds	word	; current actual block# * blkmsk
+ 1462                   ;******** following variable order critical *****************
+ 1463 0A2C    0001      high$ext:	ds	byte	; fcb high ext bits
+ 1464                   ;xfcb$read$only:	ds	byte
+ 1465                   ;	local variables for directory access
+ 1466 0A2D    0001      dptr:	ds	byte		; directory pointer 0,1,2,3
+ 1467                   
+ 1468                   ;	local variables initialized by bdos at entry
+ 1469                   
+ 1470 0A2E    0001      fcbdsk:	ds	byte		; disk named in fcb
+ 1471 0A2F    0001      phy$off:	ds	byte
+ 1472 0A30    0002      curbcba:	ds	word
+ 1473 0A32    0002      track:	ds	word
+ 1474 0A34    0002      sector:	ds	word
+ 1475 0A36              read$deblock:
+ 1476 0A36  3E 01       	ld	a,1
+ 1477 0A38  CD 0A52     	call	deblock$dta
+ 1478 0A3B  C3 067A     	jp	setfcb
+ 1479 0A3E  00          column:	db	0
+ 1480 0A3F  24          outdelim:	db	'$'
+ 1481 0A40  0080        dmaad:	dw	0080h
+ 1482 0A42  00          seldsk:	db	0
+ 1483 0A43  0000        info:	dw	0
+ 1484 0A45  00          resel:	db	0
+ 1485 0A46  00          fx:	db	0
+ 1486 0A47  0000        dcnt:	dw	0
+ 1487 0A49  0000        searcha:	dw	0
+ 1488 0A4B  00          searchl:	db	0
+ 1489                   ; 	**************************
+ 1490                   ; 	Blocking/Deblocking Module
+ 1491                   ;	**************************
+ 1492 0A4C              deblock$dir:
+ 1493 0A4C  2A 0A02     	ld	hl,(dirbcba)
+ 1494 0A4F  C3 0A55     	jp	deblock
+ 1495 0A52              deblock$dta:
+ 1496 0A52  2A 0A04     	ld	hl,(dtabcba)
+ 1497 0A55              deblock:			; BDOS Blocking/Deblocking routine
+ 1498                   				; a = 1 -> read command
+ 1499                   				; a = 2 -> write command
+ 1500                   				; a = 3 -> locate command
+ 1501                   				; a = 4 -> flush command
+ 1502                   				; a = 5 -> directory update
+ 1503 0A55  F5          	push	af		; Save z flag and deblock fx
+ 1504                   				; phy$off = low(arecord) & phymsk
+ 1505                   				; low(arecord) = low(arecord) & ~phymsk
+ 1506 0A56  CD 0AB8     	call	deblock8
+ 1507 0A59  3A 0A27     	ld	a,(arecord)
+ 1508 0A5C  5F          	ld	e,a
+ 1509 0A5D  A0          	and	b
+ 1510 0A5E  32 0A2F     	ld	(phy$off),a
+ 1511 0A61  7B          	ld	a,e
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  27
+CPMLDR  Z80
+
+ 1512 0A62  A1          	and	c
+ 1513 0A63  32 0A27     	ld	(arecord),a
+ 1514 0A66  22 0A30     	ld	(curbcba),hl
+ 1515 0A69  CD 06D6     	call	get$buffa
+ 1516 0A6C  22 09EE     	ld	(curdma),hl
+ 1517 0A6F  CD 0ABF     	call	deblock9	; Is command flush?
+ 1518 0A72  F1          	pop	af
+ 1519 0A73  F5          	push	af
+ 1520 0A74  FE 04       	cp	4
+ 1521 0A76  D2 0A80     	jp	nc,deblock1	; yes
+ 1522                   				; Is referenced physical record
+ 1523                   				;already in buffer?
+ 1524 0A79  CD 04A3     	call	compare
+ 1525 0A7C  CA 0A90     	jp	z,deblock45	; yes
+ 1526 0A7F  AF          	xor	a
+ 1527 0A80              deblock1:
+ 1528 0A80  CD 0AC8     	call	deblock10	; Read physical record buffer
+ 1529 0A83  3E 02       	ld	a,2
+ 1530 0A85  CD 0AD0     	call	deblock$io
+ 1531 0A88  CD 0ABF     	call	deblock9	; phypfx = adrive || arecord
+ 1532 0A8B  CD 04AD     	call	move
+ 1533 0A8E  36 00       	ld	(hl),0		; zero pending flag
+ 1534 0A90              deblock45:			; recadd = phybuffa + phy$off*80h
+ 1535 0A90  3A 0A2F     	ld	a,(phy$off)
+ 1536 0A93  3C          	inc	a
+ 1537 0A94  11 0080     	ld	de,80h
+ 1538 0A97  21 FF80     	ld	hl,0ff80h
+ 1539 0A9A              deblock5:
+ 1540 0A9A  19          	add	hl,de
+ 1541 0A9B  3D          	dec	a
+ 1542 0A9C  C2 0A9A     	jp	nz,deblock5
+ 1543 0A9F  EB          	ex	de,hl
+ 1544 0AA0  2A 09EE     	ld	hl,(curdma)
+ 1545 0AA3  19          	add	hl,de		; If deblock command = locate
+ 1546                   				; then buffa = recadd; return
+ 1547 0AA4  F1          	pop	af
+ 1548 0AA5  FE 03       	cp	3
+ 1549 0AA7  C2 0AAE     	jp	nz,deblock6
+ 1550 0AAA  22 09F0     	ld	(buffa),hl
+ 1551 0AAD  C9          	ret
+ 1552 0AAE              deblock6:
+ 1553 0AAE  EB          	ex	de,hl
+ 1554 0AAF  2A 0A40     	ld	hl,(dmaad)
+ 1555 0AB2  01 0080     	ld	bc,80h		; If deblock command = read
+ 1556 0AB5  C3 0B4B     	jp	move$tpa	; then move to dma
+ 1557 0AB8              deblock8:
+ 1558 0AB8  3A 0A19     	ld	a,(phymsk)
+ 1559 0ABB  47          	ld	b,a
+ 1560 0ABC  2F          	cpl
+ 1561 0ABD  4F          	ld	c,a
+ 1562 0ABE  C9          	ret
+ 1563 0ABF              deblock9:
+ 1564 0ABF  2A 0A30     	ld	hl,(curbcba)
+ 1565 0AC2  11 0A26     	ld	de,adrive
+ 1566 0AC5  0E 04       	ld	c,4
+ 1567 0AC7  C9          	ret
+ 1568 0AC8              deblock10:
+ 1569 0AC8  11 0004     	ld	de,4
+'CP/M 3.0 LDRBDOS Interface, Version 3.1 July, 1982'        Z80ASM 1.32 Page  28
+CPMLDR  Z80
+
+ 1570 0ACB              deblock11:
+ 1571 0ACB  2A 0A30     	ld	hl,(curbcba)
+ 1572 0ACE  19          	add	hl,de
+ 1573 0ACF  C9          	ret
+ 1574 0AD0              deblock$io:			; a = 0 -> seek only
+ 1575                   				; a = 1 -> write
+ 1576                   				; a = 2 -> read
+ 1577 0AD0  F5          	push	af
+ 1578 0AD1  CD 053E     	call	seek
+ 1579 0AD4  F1          	pop	af
+ 1580 0AD5  3D          	dec	a
+ 1581 0AD6  F4 0517     	call	p,rdbuff	; Move track & sector to bcb
+ 1582 0AD9  CD 0AC8     	call	deblock10
+ 1583 0ADC  23          	inc	hl
+ 1584 0ADD  23          	inc	hl
+ 1585 0ADE  11 0A32     	ld	de,track
+ 1586 0AE1  0E 04       	ld	c,4
+ 1587 0AE3  C3 04AD     	jp	move
+ 1588                   
+ 1589         0AFF      	org	base+((($-base)+255) and 0ff00h)-1
+ 1590 0AFF  00          	db	0
+ 1591                   
+ 1592                   ; Bios equates
+ 1593                   
+ 1594         0B00      bios$pg		equ	$
+ 1595                   
+ 1596         0B00      bootf		equ	bios$pg+00	; 00. cold boot
+ 1597         0B0C      conoutf		equ	bios$pg+12	; 04. console output function
+ 1598         0B18      homef		equ	bios$pg+24	; 08. disk home function
+ 1599         0B1B      seldskf		equ	bios$pg+27	; 09. select disk function
+ 1600         0B1E      settrkf		equ	bios$pg+30	; 10. set track function
+ 1601         0B21      setsecf		equ	bios$pg+33	; 11. set sector function
+ 1602         0B24      setdmaf		equ	bios$pg+36	; 12. set dma function
+ 1603         0B30      sectran		equ	bios$pg+48	; 16. sector translate
+ 1604         0B4B      movef		equ	bios$pg+75	; 25. memory move function
+ 1605         0B27      readf		equ	bios$pg+39	; 13. read disk function
+ 1606         0B4B      move$out	equ	movef
+ 1607         0B4B      move$tpa	equ	movef
+ 1608                   
+ 1609                   	end
+ 0 Error(s) Detected.
+ 2560 Absolute Bytes. 319 Symbols Detected.
+319 Symbols Detected.
+
