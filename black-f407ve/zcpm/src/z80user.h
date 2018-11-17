@@ -89,7 +89,7 @@ extern "C" {
  * "traps" to simulate system calls. 
  */
 
-#include "zextest.h"
+#include "context.h"
 
 #define Z80_READ_BYTE(address, x)                                       \
 {                                                                       \

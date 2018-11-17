@@ -9,17 +9,17 @@
 #include "spi-wear.h"
 
 extern "C" {
-#include "zextest.h"
+#include "context.h"
 #include "z80emu.h"
 #include "macros.h"
 }
 
-const uint8_t sys [] = {
-#include "sys.h"
+const uint8_t rom [] = {
+#include "rom.h"
 };
 
-const uint8_t hexsave [] = {
-#include "hexsave.h"
+const uint8_t ram [] = {
+#include "ram.h"
 };
 
 ILI9341<0x60080000> lcd;
@@ -250,8 +250,8 @@ int main() {
 
     if (!key1) { // set up system tracks on disk 1
         printf("[updating system tracks] ");
-        for (uint32_t i = 0; i < sizeof sys; i += 128)
-            spiWear.write128(i / 128, sys + i);
+        for (uint32_t i = 0; i < sizeof rom; i += 128)
+            spiWear.write128(i / 128, rom + i);
     }
 
     if (!key0) { // set up empty directory blocks on disk 1
@@ -270,7 +270,7 @@ int main() {
     // emulate a boot loader which loads the first block of "disk" A: at 0x0000
     spiWear.read128(0, zex.memory);
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
-    memcpy(zex.memory + 0x0100, hexsave, sizeof hexsave);
+    memcpy(zex.memory + 0x0100, ram, sizeof ram);
 
     Z80Reset(&zex.state);
 
