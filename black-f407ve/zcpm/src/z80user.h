@@ -88,18 +88,23 @@ extern "C" {
 
 #include "context.h"
 
-#define Z80_READ_BYTE(a,x) { (x) = *mapMem(a); }
-#define Z80_READ_WORD(a,x) { (x) = *mapMem(a) | (*mapMem(a+1) << 8); }
+#define Z80_READ_BYTE(a,x) \
+    { (x) = *mapMem(context, a); }
+#define Z80_READ_WORD(a,x) \
+    { (x) = *mapMem(context, a) | (*mapMem(context, a+1) << 8); }
 
-#define Z80_WRITE_BYTE(a,x) { *mapMem(a) = (x); }
-#define Z80_WRITE_WORD(a,x) { *mapMem(a) = (x); *mapMem(a+1) = (x) >> 8; }
+#define Z80_WRITE_BYTE(a,x) \
+    { *mapMem(context, a) = (x); }
+#define Z80_WRITE_WORD(a,x) \
+    { *mapMem(context, a) = (x); *mapMem(context, a+1) = (x) >> 8; }
 
 #define Z80_FETCH_BYTE(a,x)           Z80_READ_BYTE((a), (x))
 #define Z80_FETCH_WORD(a,x)           Z80_READ_WORD((a), (x))
 #define Z80_READ_WORD_INTERRUPT(a,x)  Z80_READ_WORD((a), (x))
 #define Z80_WRITE_WORD_INTERRUPT(a,x) Z80_WRITE_WORD((a), (x))
 
-#define Z80_INPUT_BYTE(port,x) { SystemCall((Context*) context, port); }
+#define Z80_INPUT_BYTE(port,x) \
+    { SystemCall((Context*) context, port); }
 
 #define Z80_OUTPUT_BYTE(port,x) \
     { ((Context*) context)->done = !0; number_cycles = 0; }

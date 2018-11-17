@@ -56,7 +56,7 @@ DiskMap* currDisk;
 
 RTC rtc;
 
-Context zex;
+Context context;
 
 static void initFsmcLcd () {
     MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FSMC [1] p.245
@@ -108,8 +108,8 @@ void SystemCall (Context* z, int req) {
             putcBoth(C);
             break;
         case 3: // constr
-            for (uint16_t i = DE; *mapMem(i) != 0; i++)
-                putcBoth(*mapMem(i));
+            for (uint16_t i = DE; *mapMem(&context, i) != 0; i++)
+                putcBoth(*mapMem(&context, i));
             break;
         case 4: { // read/write
             //  ld a,(sekdrv)
@@ -129,7 +129,7 @@ void SystemCall (Context* z, int req) {
             A = 0;
             for (int i = 0; i < cnt; ++i) {
                 // TODO careful with wrapping in paged memory!!!
-                void* mem = mapMem(HL + 128 * i);
+                void* mem = mapMem(&context, HL + 128 * i);
                 if (dsk > 0) {
                     void* ptr = reBlock128(disks + dsk - 1, blk + i, out);
                     if (out)
@@ -152,7 +152,7 @@ void SystemCall (Context* z, int req) {
                 printf("%d %02d/%02d/%02d %02d:%02d:%02d\n", ticks,
                         dt.yr, dt.mo, dt.dy, dt.hh, dt.mm, dt.ss);
                 HL = DE;
-                uint8_t* ptr = mapMem(HL);
+                uint8_t* ptr = mapMem(&context, HL);
                 ptr[0] = 1; // TODO garbage, for now
                 ptr[1] = 2;
                 ptr[2] = dt.hh + 6*(dt.hh/10); // hours, to BCD
@@ -160,7 +160,7 @@ void SystemCall (Context* z, int req) {
                 ptr[4] = dt.ss + 6*(dt.ss/10); // seconcds, to BCD
             } else {
                 RTC::DateTime dt;
-                uint8_t* ptr = mapMem(HL);
+                uint8_t* ptr = mapMem(&context, HL);
                 // TODO set clock date & time
                 dt.hh = ptr[2] - 6*(ptr[2]>>4); // hours, from BCD
                 dt.mm = ptr[3] - 6*(ptr[3]>>4); // minutes, from BCD
@@ -268,16 +268,16 @@ int main() {
     while (!key0 || !key1)
         wait_ms(100); // debounce
 
-    // emulate a boot loader which loads the first block of "disk" A: at 0x0000
-    spiWear.read128(0, mapMem(0));
+    // emulate a boot loader which loads the first block of A: at 0x0000
+    spiWear.read128(0, mapMem(&context, 0));
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
-    memcpy(mapMem(0x0100), ram, sizeof ram);
+    memcpy(mapMem(&context, 0x0100), ram, sizeof ram);
 
-    Z80Reset(&zex.state);
+    Z80Reset(&context.state);
 
     do {
-        Z80Emulate(&zex.state, 4000000, &zex);
-        if (*mapMem(zex.state.pc-1) == 0x76)
+        Z80Emulate(&context.state, 4000000, &context);
+        if (*mapMem(&context, context.state.pc-1) == 0x76)
             break; // HALT instruction
 
         static uint32_t last;
@@ -285,9 +285,9 @@ int main() {
             last = ticks/3000; // approx every 3s ...
             reBlock128();      // ... flush pending changes to SD card
         }
-    } while (!zex.done);
+    } while (!context.done);
 
-    printf("\nhalted at %04x\n", zex.state.pc-1);
+    printf("\nhalted at %04xh\n", context.state.pc-1);
 
     while (1) {}
 }
