@@ -57,6 +57,7 @@ DiskMap* currDisk;
 RTC rtc;
 
 Context context;
+uint8_t bankedMem [0x18000]; // 96 KB for additional memory banks on F407
 
 static void initFsmcLcd () {
     MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FSMC [1] p.245

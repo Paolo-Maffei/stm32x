@@ -7,12 +7,11 @@
 #define MAINMEM ((uint8_t*) 0x10000000) // CCM: special 64K area in F407
 
 typedef struct {
-	Z80_STATE	state;
-	uint8_t		done;
-        uint8_t         bank;
-        uint8_t*        split;
-        uint32_t        offset [16];
-	uint8_t 	mem [0x18000]; // 96 KB extra for banked mem
+    Z80_STATE	state;
+    uint8_t	done;
+    int         bank;
+    uint8_t*    split;
+    uint32_t    offset [16];
 } Context;
 
 extern void SystemCall (Context *ctx, int request);
