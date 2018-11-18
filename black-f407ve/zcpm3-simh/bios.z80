@@ -71,6 +71,8 @@ wboote: jp wboot    ;  1 Warm boot
 
 drvtab: dw dph0,dph1,dph2,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
+        dseg
+
 dph0:	dw 0,0,0,0,0,0,dpb,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
         db 0
 
@@ -79,6 +81,8 @@ dph1:	dw 0,0,0,0,0,0,dpb,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
 
 dph2:	dw 0,0,0,0,0,0,dpb,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
         db 0
+
+        cseg
 
 dpb:	dw 26      ; SPT - sectors per track
 	db 3       ; BSH - block shift factor
@@ -100,6 +104,7 @@ boot:	ld b,1
 
 wboot:	ld b,0
 wboot1: di
+	ld sp,bstack
 
     if	banked
         ld a,0C0h
@@ -107,8 +112,6 @@ wboot1: di
 	ld a,1
 	call selmem
     endif
-
-	ld sp,bstack
 
 	ld hl,tpabuf            ; Address of BIOS DMA buffer
 	ld (dmaadr),hl
@@ -126,7 +129,7 @@ wboot1: di
 	jp	z,ldccp		; no message on warm boot
 	ld	de,greet	; print version information
 	in a,(3)
-;
+
 ;	load ccp.com into tpa
 ;
 ldccp:

@@ -58,18 +58,15 @@ RTC rtc;
 
 Context context;
 
-#if NBANKS > 1
-uint8_t bankedMem [96*1024]; // additional memory banks on F407
-#endif
-
 static void setBankSplit (uint8_t page) {
     context.split = MAINMEM + (page << 8);
     memset(context.offset, 0, sizeof context.offset);
 #if NBANKS > 1
+    static uint8_t bankedMem [96*1024]; // additional memory banks on F407
     uint8_t* base = bankedMem;
     for (int i = 1; i < NBANKS; ++i) {
         uint8_t* limit = base + (page << 8);
-        if (limit >= bankedMem + sizeof bankedMem)
+        if (limit > bankedMem + sizeof bankedMem)
             break; // no more complete banks left
         context.offset[i] = base - MAINMEM;
         base = limit;
