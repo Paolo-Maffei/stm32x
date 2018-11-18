@@ -12,12 +12,12 @@ BIOS    Z80
     9                   
    10                   ; BDOS calls -------------------------------------------------------------------
    11                   
-   12         0001      getch		equ	1		; BDOS function
-   13         0009      print		equ	9		; BDOS function
-   14         000F      open		equ	15		; BDOS function
-   15         0014      readseq		equ	20		; BDOS function
-   16         001A      dma		equ	26		; BDOS function
-   17         002C      multisec	equ	44		; BDOS function
+   12         0001      getch	 equ	1	; BDOS function
+   13         0009      print	 equ	9	; BDOS function
+   14         000F      open	 equ	15	; BDOS function
+   15         0014      readseq	 equ	20	; BDOS function
+   16         001A      dma	 equ	26	; BDOS function
+   17         002C      multisec equ	44	; BDOS function
    18                   
    19                   ; low memory -------------------------------------------------------------------
    20                   
@@ -38,40 +38,40 @@ BIOS    Z80
    35                   
    36 0000' C3 0074'    	jp boot     ;  0 Initialize
    37 0003' C3 0078'    wboote: jp wboot    ;  1 Warm boot
-   38 0006' C3 00F8'    	jp conist   ;  2 Console status
-   39 0009' C3 00FB'    	jp conin    ;  3 Console input
-   40 000C' C3 00FE'    	jp conout   ;  4 Console OUTput
-   41 000F' C3 0163'    	jp list     ;  5 List OUTput
-   42 0012' C3 0163'    	jp punch    ;  6 punch OUTput
-   43 0015' C3 0101'    	jp reader   ;  7 Reader input
-   44 0018' C3 011B'    	jp home     ;  8 Home disk
-   45 001B' C3 0104'    	jp seldsk   ;  9 Select disk
-   46 001E' C3 011D'    	jp settrk   ; 10 Select track
-   47 0021' C3 0122'    	jp setsec   ; 11 Select sector
-   48 0024' C3 0127'    	jp setdma   ; 12 Set DMA ADDress
-   49 0027' C3 012F'    	jp read     ; 13 Read 128 bytes
-   50 002A' C3 0133'    	jp write    ; 14 Write 128 bytes
-   51 002D' C3 0163'    	jp listst   ; 15 List status
-   52 0030' C3 012C'    	jp sectrn   ; 16 Sector translate
-   53 0033' C3 0164'    	jp conost	; return console output status
-   54 0036' C3 0164'    	jp auxist	; return aux device input status
-   55 0039' C3 0164'    	jp auxost	; return aux device output status
-   56 003C' C3 0163'    	jp devtbl	; return address of character i/o table
-   57 003F' C3 0163'    	jp devini	; init character i/o devices
-   58 0042' C3 0155'    	jp drvtbl	; return address of disk drive table
+   38 0006' C3 00F1'    	jp conist   ;  2 Console status
+   39 0009' C3 00F4'    	jp conin    ;  3 Console input
+   40 000C' C3 00F7'    	jp conout   ;  4 Console OUTput
+   41 000F' C3 015C'    	jp list     ;  5 List OUTput
+   42 0012' C3 015C'    	jp punch    ;  6 punch OUTput
+   43 0015' C3 00FA'    	jp reader   ;  7 Reader input
+   44 0018' C3 0114'    	jp home     ;  8 Home disk
+   45 001B' C3 00FD'    	jp seldsk   ;  9 Select disk
+   46 001E' C3 0116'    	jp settrk   ; 10 Select track
+   47 0021' C3 011B'    	jp setsec   ; 11 Select sector
+   48 0024' C3 0120'    	jp setdma   ; 12 Set DMA ADDress
+   49 0027' C3 0128'    	jp read     ; 13 Read 128 bytes
+   50 002A' C3 012C'    	jp write    ; 14 Write 128 bytes
+   51 002D' C3 015C'    	jp listst   ; 15 List status
+   52 0030' C3 0125'    	jp sectrn   ; 16 Sector translate
+   53 0033' C3 015D'    	jp conost   ; 17 return console output status
+   54 0036' C3 015D'    	jp auxist   ; 18 return aux device input status
+   55 0039' C3 015D'    	jp auxost   ; 19 return aux device output status
+   56 003C' C3 015C'    	jp devtbl   ; 20 return address of character i/o table
+   57 003F' C3 015C'    	jp devini   ; 21 init character i/o devices
+   58 0042' C3 014E'    	jp drvtbl   ; 22 return address of disk drive table
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 BIOS    Z80
 
-   59 0045' C3 0163'    	jp multio	; set number of consec. sec. to read/write
-   60 0048' C3 0163'    	jp flush	; flush user [de]blocking buffers
-   61 004B' C3 0150'    	jp move		; copy memory to memory
-   62 004E' C3 0163'    	jp time		; signal time and date operation
-   63 0051' C3 0159'    	jp selmem	; select memory bank
-   64 0054' C3 015F'    	jp setbnk	; set bank for next dma
-   65 0057' C3 0163'    	jp xmove	; set banks for next move
-   66 005A' C3 0000     	jp 0		; reserved for future expansion
-   67 005D' C3 0000     	jp 0		; reserved for future expansion
-   68 0060' C3 0000     	jp 0		; reserved for future expansion
+   59 0045' C3 015C'    	jp multio   ; 23 set number of consec. sec. to read/write
+   60 0048' C3 015C'    	jp flush    ; 24 flush user [de]blocking buffers
+   61 004B' C3 0149'    	jp move	    ; 25 copy memory to memory
+   62 004E' C3 015C'    	jp time	    ; 26 signal time and date operation
+   63 0051' C3 0152'    	jp selmem   ; 27 select memory bank
+   64 0054' C3 0158'    	jp setbnk   ; 28 set bank for next dma
+   65 0057' C3 015C'    	jp xmove    ; 29 set banks for next move
+   66 005A' C3 0000     	jp 0	    ; 30 reserved for future expansion
+   67 005D' C3 0000     	jp 0	    ; 31 reserved for future expansion
+   68 0060' C3 0000     	jp 0	    ; 32 reserved for future expansion
    69                   
    70                   ; Disk Parameter Headers -------------------------------------------------------
    71                   
@@ -110,20 +110,20 @@ BIOS    Z80
   104                   
   105 0078' 06 00       wboot:	ld b,0
   106 007A' F3          wboot1: di
-  107 007B' 31 01F0'    	ld sp,bstack
+  107 007B' 31 01E9'    	ld sp,bstack
   108                   
   109         FFFF          if	banked
   110 007E' 3E C0               ld a,0C0h
   111 0080' DB 06               in a,(6) ; set memory split at 0C000h
   112 0082' 3E 01       	ld a,1
-  113 0084' CD 0159'    	call selmem
+  113 0084' CD 0152'    	call selmem
   114                       endif
   115                   
-  116 0087' 21 0080     	ld hl,tpabuf            ; Address of BIOS DMA buffer
+  116 0087' 21 0080     	ld hl,tpabuf    ; Address of BIOS DMA buffer
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
 BIOS    Z80
 
-  117 008A' 22 01E4'    	ld (dmaadr),hl
+  117 008A' 22 01DD'    	ld (dmaadr),hl
   118                   
   119 008D' 3E C3       	ld a,0C3h
   120 008F' 21 0003'    	ld hl,wboote
@@ -133,10 +133,10 @@ BIOS    Z80
   124 009B' 32 0005     	ld (0005h),a
   125 009E' 22 0006     	ld (0006h),hl
   126                           
-  127 00A1' 78          	ld	a,b
-  128 00A2' B7          	or	a
-  129 00A3' CA 00AB'    	jp	z,ldccp		; no message on warm boot
-  130 00A6' 11 0166'    	ld	de,greet	; print version information
+  127 00A1' 78          	ld a,b
+  128 00A2' B7          	or a
+  129 00A3' CA 00AB'    	jp z,ldccp	; no message on warm boot
+  130 00A6' 11 015F'    	ld de,greet	; print version information
   131 00A9' DB 03       	in a,(3)
   132                   
   133                   ;	load ccp.com into tpa
@@ -144,178 +144,180 @@ BIOS    Z80
   135 00AB'             ldccp:
   136                           ; FIXME: load CCP from file or system track
   137                   
-  138 00AB' AF          	xor	a
-  139 00AC' 32 0190'    	ld	(ccpfcb+15),a	; zero extent
-  140 00AF' 21 0000     	ld	hl,0
-  141 00B2' 22 01A1'    	ld	(fcbnr),hl	; start at beginning of file
-  142 00B5' 11 0181'    	ld	de,ccpfcb
-  143 00B8' 0E 0F       	ld	c,open
-  144 00BA' CD 0005     	call	bdos		; open file containing ccp
-  145 00BD' 11 01A4'    	ld	de,opnmsg
-  146 00C0' 3C          	inc	a
-  147 00C1' CA 00E3'    	jp	z,prterr	; error if file not found
-  148 00C4' 11 0100     	ld	de,ccp
-  149 00C7' 0E 1A       	ld	c,dma
-  150 00C9' CD 0005     	call	bdos		; start of tpa
-  151 00CC' 11 0080     	ld	de,128
-  152 00CF' 0E 2C       	ld	c,multisec
-  153 00D1' CD 0005     	call	bdos		; allow up to 16k bytes
-  154 00D4' 11 0181'    	ld	de,ccpfcb
-  155 00D7' 0E 14       	ld	c,readseq
-  156 00D9' CD 0005     	call	bdos		; load the thing
-  157 00DC' 11 01BF'    	ld	de,iomsg
-  158 00DF' 3C          	inc	a
-  159 00E0' C2 0100     	jp	nz,ccp
-  160 00E3' CD 00EC'    prterr:	call	printf		; print the complaint
-  161 00E6' 0E 01       	ld	c,getch
-  162 00E8' CD 0005     	call	bdos		; wait for any key
-  163                   	;jp	coldboot	; attempt cold boot
+  138 00AB' AF          	xor a
+  139 00AC' 32 0189'    	ld (ccpfcb+15),a ; zero extent
+  140 00AF' 21 0000     	ld hl,0
+  141 00B2' 22 019A'    	ld (fcbnr),hl	; start at beginning of file
+  142 00B5' 11 017A'    	ld de,ccpfcb
+  143 00B8' 0E 0F       	ld c,open
+  144 00BA' CD 0005     	call bdos	; open file containing ccp
+  145 00BD' 11 019D'    	ld de,opnmsg
+  146 00C0' 3C          	inc a
+  147 00C1' CA 00E3'    	jp z,prterr	; error if file not found
+  148 00C4' 11 0100     	ld de,ccp
+  149 00C7' 0E 1A       	ld c,dma
+  150 00C9' CD 0005     	call bdos	; start of tpa
+  151 00CC' 11 0080     	ld de,128
+  152 00CF' 0E 2C       	ld c,multisec
+  153 00D1' CD 0005     	call bdos	; allow up to 16k bytes
+  154 00D4' 11 017A'    	ld de,ccpfcb
+  155 00D7' 0E 14       	ld c,readseq
+  156 00D9' CD 0005     	call bdos	; load the thing
+  157 00DC' 11 01B8'    	ld de,iomsg
+  158 00DF' 3C          	inc a
+  159 00E0' C2 0100     	jp nz,ccp
+  160 00E3' CD 00EC'    prterr:	call printf	; print the complaint
+  161 00E6' 0E 01       	ld c,getch
+  162 00E8' CD 0005     	call bdos	; wait for any key
+  163                   	;jp coldboot	; attempt cold boot
   164 00EB' 76                  halt
   165                   
   166 00EC' 0E 09       printf:	ld	c,print
   167 00EE' C3 0005     	jp	bdos
   168                   
-  169 00F1' 3A 0004     	ld a,(usrdrv)           ; Save new drive number (0)
-  170 00F4' 4F          	ld c,a                  ; Pass drive number in C
-  171 00F5' C3 0100     	jp 0100h                ; Start CP/M by jumping to the CCP
-  172                   
-  173                   ; Console I/O ------------------------------------------------------------------
-  174                   
+  169                   ; Console I/O ------------------------------------------------------------------
+  170                   
+  171 00F1' DB 00       conist:	in a,(0)
+  172 00F3' C9          	ret
+  173                   
+  174 00F4' DB 01       conin:	in a,(1)
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
 BIOS    Z80
 
-  175 00F8' DB 00       conist:	in a,(0)
-  176 00FA' C9          	ret
-  177                   
-  178 00FB' DB 01       conin:	in a,(1)
-  179 00FD' C9          	ret
-  180                   
-  181 00FE' DB 02       conout:	in a,(2)
-  182 0100' C9          	ret
-  183                   
-  184 0101' 3E 1A       reader:	ld a,1Ah
-  185 0103' C9          	ret
-  186                   
-  187                   ; Disk I/O ---------------------------------------------------------------------
-  188                   
-  189 0104' 21 0000     seldsk:	ld	hl,0		; bad drive
-  190 0107' 79          	ld	a,c		; drive request
-  191 0108' 32 01E1'    	ld	(sekdsk),a
-  192 010B' FE 03       	cp	drives
-  193 010D' D0          	ret	nc		; exit if no space alloc for drive
-  194 010E' 69          	ld	l,c
-  195 010F' 26 00       	ld	h,0
-  196 0111' 29          	add	hl,hl		; create index from drive code
-  197 0112' 01 0000"    	ld	bc,drvtab
-  198 0115' 09          	add	hl,bc		; get pointer to dispatch table
-  199 0116' 7E          	ld	a,(hl)
-  200 0117' 23          	inc	hl
-  201 0118' 66          	ld	h,(hl)
-  202 0119' 6F          	ld	l,a		; point at disk descriptor
-  203 011A' C9          	ret
-  204                   
-  205 011B' 0E 00       home:	ld c,0
-  206 011D' 79          settrk: ld a,c
-  207 011E' 32 01E3'    	ld (seksat+1),a
-  208 0121' C9                  ret
+  175 00F6' C9          	ret
+  176                   
+  177 00F7' DB 02       conout:	in a,(2)
+  178 00F9' C9          	ret
+  179                   
+  180 00FA' 3E 1A       reader:	ld a,1Ah
+  181 00FC' C9          	ret
+  182                   
+  183                   ; Disk I/O ---------------------------------------------------------------------
+  184                   
+  185 00FD' 21 0000     seldsk:	ld hl,0		; bad drive
+  186 0100' 79          	ld a,c		; drive request
+  187 0101' 32 01DA'    	ld (sekdsk),a
+  188 0104' FE 03       	cp drives
+  189 0106' D0          	ret nc		; exit if no space alloc for drive
+  190 0107' 69          	ld l,c
+  191 0108' 26 00       	ld h,0
+  192 010A' 29          	add hl,hl	; create index from drive code
+  193 010B' 01 0000"    	ld bc,drvtab
+  194 010E' 09          	add hl,bc	; get pointer to dispatch table
+  195 010F' 7E          	ld a,(hl)
+  196 0110' 23          	inc hl
+  197 0111' 66          	ld h,(hl)
+  198 0112' 6F          	ld l,a		; point at disk descriptor
+  199 0113' C9          	ret
+  200                   
+  201 0114' 0E 00       home:	ld c,0
+  202 0116' 79          settrk: ld a,c
+  203 0117' 32 01DC'    	ld (seksat+1),a
+  204 011A' C9                  ret
+  205                   
+  206 011B' 21 01DB'    setsec: ld hl,seksat
+  207 011E' 71                  ld (hl),c
+  208 011F' C9                  ret
   209                   
-  210 0122' 21 01E2'    setsec: ld hl,seksat
-  211 0125' 71                  ld (hl),c
-  212 0126' C9                  ret
-  213                   
-  214 0127' ED 43 01E4' setdma: ld (dmaadr),bc
-  215 012B' C9                  ret
+  210 0120' ED 43 01DD' setdma: ld (dmaadr),bc
+  211 0124' C9                  ret
+  212                   
+  213 0125' 69          sectrn: ld l,c
+  214 0126' 60          	ld h,b
+  215 0127' C9                  ret
   216                   
-  217 012C' 69          sectrn: ld l,c
-  218 012D' 60          	ld h,b
-  219 012E' C9                  ret
-  220                   
-  221 012F' 06 01       read:	ld b,1
-  222 0131' 18 02               jr rdwr
-  223 0133' 06 81       write:	ld b,1+80h
-  224 0135'             rdwr:   
-  225         FFFF          if banked
-  226 0135' 3A 01E7'            ld a,(crwbk)
-  227 0138' DB 07               in a,(7)
-  228                       endif
-  229 013A' 3A 01E1'            ld a,(sekdsk)
-  230 013D' D5                  push de
-  231 013E' ED 5B 01E2'         ld de,(seksat)
-  232 0142' 2A 01E4'            ld hl,(dmaadr)
+  217 0128' 06 01       read:	ld b,1
+  218 012A' 18 02               jr rdwr
+  219 012C' 06 81       write:	ld b,1+80h
+  220 012E'             rdwr:   
+  221         FFFF          if banked
+  222 012E' 3A 01E0'            ld a,(crwbk)
+  223 0131' DB 07               in a,(7)
+  224                       endif
+  225 0133' 3A 01DA'            ld a,(sekdsk)
+  226 0136' D5                  push de
+  227 0137' ED 5B 01DB'         ld de,(seksat)
+  228 013B' 2A 01DD'            ld hl,(dmaadr)
+  229 013E' DB 04               in a,(4)
+  230 0140' D1                  pop de
+  231         FFFF          if banked
+  232 0141' F5                  push af
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   5
 BIOS    Z80
 
-  233 0145' DB 04               in a,(4)
-  234 0147' D1                  pop de
-  235         FFFF          if banked
-  236 0148' F5                  push af
-  237 0149' 3A 01E6'            ld a,(cbank)
-  238 014C' DB 07               in a,(7)
-  239 014E' F1                  pop af
-  240                       endif
-  241 014F' C9          	ret
-  242                   
-  243 0150' EB          move:	ex	de,hl
-  244 0151' ED B0       	ldir
-  245 0153' EB          	ex	de,hl
-  246 0154' C9          	ret
-  247                   
-  248 0155' 21 0000"    drvtbl:	ld	hl,drvtab
-  249 0158' C9          	ret
-  250                   
-  251         FFFF          if	banked
-  252 0159' 32 01E6'    selmem:	ld (cbank),a	; update current bank
-  253 015C' DB 07       	in a,(7)
-  254 015E' C9                  ret
-  255 015F' 32 01E7'    setbnk:	ld (crwbk),a
-  256 0162' C9          	ret
-  257                       else
-  260                       endif
-  261                   
-  262 0163'             devtbl:
-  263 0163'             devini:
-  264 0163'             flush:
-  265 0163'             time:
-  266 0163'             xmove:
-  267 0163'             listst:
-  268 0163'             list:
-  269 0163'             punch:
-  270 0163'             multio:
-  271 0163' C9          	ret
-  272                   
-  273 0164'             conost:
-  274 0164'             auxist:
-  275 0164'             auxost:
-  276 0164' AF          	xor a
-  277 0165' C9                  ret
-  278                   
-  279                   ; Data area --------------------------------------------------------------------
-  280                   
-  281 0166' 0D 0A 43 50 greet:  db 13,10,'CP/M vers 3.0 ('
-  282         0000          if not banked
-  284                       endif
-  285 0177' 62 61 6E 6B         db 'banked)',13,10,0
-  286                   
-  287 0181' 01 43 43 50 ccpFCB:	db	1,'CCP     COM',0,0,0,0
-  288 0191' 00 00 00 00 	db	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-  289 01A1' 00 00 00    fcbNr:	db	0,0,0
-  290 01A4' 0D 0A 42 49 opnmsg:	db	13, 10, 'BIOS can''t open CCP.COM ',0
-  291 01BF' 0D 0A 42 49 iomsg:	db	13, 10, 'BIOS I/O error reading CCP.COM ',0
+  233 0142' 3A 01DF'            ld a,(cbank)
+  234 0145' DB 07               in a,(7)
+  235 0147' F1                  pop af
+  236                       endif
+  237 0148' C9          	ret
+  238                   
+  239 0149' EB          move:	ex de,hl
+  240 014A' ED B0       	ldir
+  241 014C' EB          	ex de,hl
+  242 014D' C9          	ret
+  243                   
+  244 014E' 21 0000"    drvtbl:	ld hl,drvtab
+  245 0151' C9          	ret
+  246                   
+  247         FFFF          if	banked
+  248 0152' 32 01DF'    selmem:	ld (cbank),a	; update current bank
+  249 0155' DB 07       	in a,(7)
+  250 0157' C9                  ret
+  251 0158' 32 01E0'    setbnk:	ld (crwbk),a
+  252 015B' C9          	ret
+  253                       else
+  256                       endif
+  257                   
+  258 015C'             devtbl:
+  259 015C'             devini:
+  260 015C'             flush:
+  261 015C'             time:
+  262 015C'             xmove:
+  263 015C'             listst:
+  264 015C'             list:
+  265 015C'             punch:
+  266 015C'             multio:
+  267 015C' C9          	ret
+  268                   
+  269 015D'             conost:
+  270 015D'             auxist:
+  271 015D'             auxost:
+  272 015D' AF          	xor a
+  273 015E' C9                  ret
+  274                   
+  275                   ; Data area --------------------------------------------------------------------
+  276                   
+  277 015F' 0D 0A 43 50 greet:  db 13,10,'CP/M vers 3.0 ('
+  278         0000          if not banked
+  280                       endif
+  281 0170' 62 61 6E 6B         db 'banked)',13,10,0
+  282                   
+  283 017A' 01 43 43 50 ccpFCB:	db 1,'CCP     COM',0,0,0,0
+  284 018A' 00 00 00 00 	db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  285 019A' 00 00 00    fcbNr:	db 0,0,0
+  286 019D' 0D 0A 42 49 opnmsg:	db 13,10,'BIOS can''t open CCP.COM ',0
+  287 01B8' 0D 0A 42 49 iomsg:	db 13,10,'BIOS I/O error reading CCP.COM ',0
+  288                   
+  289 01DA'   0001      sekdsk: ds 1   ; seek disk number
+  290 01DB'   0002      seksat: ds 2   ; seek sector and track number
+  291 01DD'   0002      dmaadr: ds 2   ; last dma address
   292                   
-  293 01E1'   0001      sekdsk: ds 1   ; seek disk number
+  293 01DF'   0001      cbank:  ds 1   ; current bank
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   6
 BIOS    Z80
 
-  294 01E2'   0002      seksat: ds 2   ; seek sector and track number
-  295 01E4'   0002      dmaadr: ds 2   ; last dma address
-  296                   
-  297 01E6'   0001      cbank:  ds 1   ; current bank
-  298 01E7'   0001      crwbk:  ds 1   ; desired bank for read/write
-  299                   
-  300 01E8'   0008      	ds 8
-  301         01F0'     bstack  equ $
-  302                   
-  303                   ; ------------------------------------------------------------------------------
+  294 01E0'   0001      crwbk:  ds 1   ; desired bank for read/write
+  295                   
+  296 01E1'   0008      	ds 8
+  297         01E9'     bstack  equ $
+  298                   
+  299                   ; ------------------------------------------------------------------------------
+  300                   
+  301                           end
+ 0 Error(s) Detected. 489 Program Bytes. 109 Data Bytes.
+ 87 Symbols Detected.
+
+----------------------------------------------------
   304                   
   305                           end
  0 Error(s) Detected. 496 Program Bytes. 109 Data Bytes.
