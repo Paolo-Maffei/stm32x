@@ -1,0 +1,2066 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ; BIOS for CP/M Plus (for ALTAIR 8800 with Z80 CPU as SIMH simulation)
+                                ; written by Peter Schorn (January 2002)
+                                ; based on work by Bill Smith (CPM3ON2)
+                                ; and on Charles (Dutch) Owen's BIOS for CPM2.2
+                                ; and on Digital Research's modular BIOS
+                                
+                                ; Change history
+                                
+                                ; 02-May-2009, P. Schorn, removed LD BC,(addr) and DJNZ, bug found by Michael Rychlik
+                                ; 19-Aug-2008, P. Schorn, number of simulated hard drives is fully taken
+                                ;			  into account and can be 0..8
+                                ; 11-Jan-2007, H. Harte,  added support for DPB's retrieved
+                                ;                         from controller, and 128/256/512-byte
+                                ;                         physical sector sizes on a per-disk basis.
+                                ; 16-Oct-2002, P. Schorn, added simulated hard drive
+                                ; 15-Apr-2002, P. Schorn, simplifed disk read / write code
+                                ; 21-Mar-2002, P. Schorn, added test for banked memory
+                                ; 01-Mar-2002, P. Schorn, removed unused equ statements
+                                ; 23-Feb-2002, P. Schorn, removed SIMH reset from time routine
+                                
+                                		.8080
+  00C3                          jpop		equ	jmp		; jp instruction
+                                
+                                		.Z80
+                                
+  0008                          drives		equ	8		; number of drives supported
+  FFFF                          true		equ	-1
+  0000                          false		equ	not true
+                                
+  FFFF                          sleepol		equ	true		; if true then sleep a bit while status polling
+                                					; Note: requires SIMH
+                                
+                                
+                         C      		maclib	DEFS.LIB	; file name must be upper case!
+  FFFF                   C      banked	equ	true	; banked vs. non-banked
+  0004                   C      nhdisks	equ	4	; number of hard drives
+  C000                   C      expcom	equ	0c000h	; expected common base for banked memory
+                                					; defines, banked, nhdisks and expcom
+                                ; defaults
+                                    ifndef	nhdisks
+                                nhdisks		equ	0
+                                    endif
+                                
+                                    ifndef	banked
+                                banked		equ	false
+                                    endif
+                                
+                                    if	nhdisks gt 0
+                                ; constants for hard disk port
+  0001                          hdskReset	equ	1		; command to reset controller
+  0002                          hdskRead	equ	2		; read command
+  0003                          hdskWrite	equ	3		; write command
+  0004                          hdskParam	equ	4		; param command
+  00FD                          hdskport	equ	0fdh		; control port for simulated hard disk
+                                    endif
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+  00FE                          tracks		equ	254
+  00FF                          track1		equ	tracks+1
+  0089                          asecsiz		equ	137		; size of ALTAIR physical sector
+  0080                          csecsiz		equ	0080h		; sector size CP/M
+  0006                          restrk		equ	6		; reserved tracks
+  0020                          spt		equ	32		; sectors per track
+  001F                          sptmask		equ	spt-1		; mask corresponding to 'spt'
+  000D                          cr		equ	13		; Carriage Return
+  000A                          lf		equ	10		; Line Feed
+  0001                          getch		equ	1		; BDOS function
+  0009                          print		equ	9		; BDOS function
+  000F                          open		equ	15		; BDOS function
+  0014                          readseq		equ	20		; BDOS function
+  001A                          dma		equ	26		; BDOS function
+  002C                          multisec	equ	44		; BDOS function
+  0001                          bioserr		equ	1		; 1 indicates BIOS error
+                                
+                                ;	Address		Mode	Function
+                                ;	-------		----	--------
+                                ;	selout		Out	Selects and enables controller and drive
+                                ;	statin		In	Indicates status of drive and controller
+                                ;	dskcon		Out	Controls disk function
+                                ;	secpos		In	Indicates current sector position of disk
+                                ;	dskwrit		Out	Write data
+                                ;	dskread		In	Read data
+                                
+  0008                          selout	equ	8		; port to select and enable controller and drive (OUT)
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;	| C | X | X | X |   Device      |
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;
+                                ;	C	= If this bit is 1, the disk controller selected by 'device' is
+                                ;		  cleared. If the bit is zero, 'device' is selected as the
+                                ;		  device being controlled by subsequent I/O operations.
+                                ;	X	= not used
+                                ;	Device	= value zero thru 15, selects drive to be controlled.
+                                
+  0008                          statin	equ	8		; port indicating status of drive and controller (IN)
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;	| R | Z | I | X | X | H | M | W |
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;
+                                ;	W - When 0, write circuit ready to write another byte.
+                                ;	M - When 0, head movement is allowed
+                                ;	H - When 0, indicates head is loaded for read/write
+                                ;	X - not used (will be 0)
+                                ;	I - When 0, indicates interrupts enabled (not used this simulator)
+                                ;	Z - When 0, indicates head is on track 0
+                                ;	R - When 0, indicates that read circuit has new byte to read
+                                
+  0009                          dskcon	equ	9		; port to control disc function (OUT)
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;	| W | C | D | E | U | H | O | I |
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;
+                                ;	I - When 1, steps head IN one track
+	MACRO-80 3.44	09-Dec-81	PAGE	1-2
+
+
+                                ;	O - When 1, steps head OUT one track
+                                ;	H - When 1, loads head to drive surface
+                                ;	U - When 1, unloads head
+                                ;	E - Enables interrupts (ignored by this simulator)
+                                ;	D - Disables interrupts (ignored by this simulator)
+                                ;	C - When 1 lowers head current (ignored by this simulator)
+                                ;	W - When 1, starts Write Enable sequence:
+                                ;	    W bit on device 'statin' (see above) will go 1 and data will be read from
+                                ;	    port 'dskread' until 137 bytes have been read by the controller from
+                                ;	    that port. The W bit will go off then, and the sector data will be written
+                                ;	    to disk. Before you do this, you must have stepped the track to the desired
+                                ;	    number, and waited until the right sector number is presented on
+                                ;	    device 'secpos', then set this bit.
+                                
+  0009                          secpos	equ	9		; port to indicate current sector position of disk (IN)
+                                ;	As the sectors pass by the read head, they are counted and the
+                                ;	number of the current one is available in this register.
+                                ;
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;	| X | X |  Sector Number    | T |
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;
+                                ;	X		= Not used
+                                ;	Sector number	= binary of the sector number currently under the head, 0-31.
+                                ;	T		= Sector True, is a 1 when the sector is positioned to read or write.
+                                
+  000A                          dskwrit	equ	10		; port to write data (OUT)
+  000A                          dskread	equ	10		; port to read data (IN)
+                                
+                                ;	All I/O is via programmed I/O. Each device has a status port
+                                ;	and a data port. A write to the status port can select
+                                ;	some options for the device although the simulator only
+                                ;	recognizes the reset command (0x03).
+                                ;	A read of the status port gets the port status:
+                                ;
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;	| X | X | X | X | X | X | O | I |
+                                ;	+---+---+---+---+---+---+---+---+
+                                ;
+                                ;	I - A 1 in this bit position means a character has been received
+                                ;		on the data port and is ready to be read.
+                                ;	O - A 1 in this bit means the port is ready to receive a character
+                                ;		on the data port and transmit it out over the serial line.
+                                ;
+                                ;	A read to the data port gets the buffered character, a write
+                                ;	to the data port writes the character to the device.
+  0010                          constat	equ	16		; sio port 1 status port
+  0011                          condata	equ	17		; sio port 1 data port
+  0012                          punstat	equ	18		; sio port 2 status port
+  0013                          pundata	equ	19		; sio port 2 data port
+                                
+                                ; masks for disk controller (statin)
+  0002                          mhm	equ	02h		; head movement mask
+  0040                          mtzero	equ	40h		; head on track zero mask
+  00FF                          mall	equ	0ffh		; everything ok mask
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-3
+
+
+                                ; commands for disk controller (dskcon)
+  0001                          cstepin	equ	01h		; step in command
+  0002                          cstepot	equ	02h		; step out command
+  0004                          cload	equ	04h		; load head to drive surface command
+  0008                          cuload	equ	08h		; unload head from drive surface command
+  0080                          cwrseq	equ	80h		; 'start write enable sequence' command
+                                
+                                ; masks for SIO controller (constat, punstat)
+  0002                          mout	equ	02h		; output allowed mask
+                                
+                                ; commands for SIO controller (constat, punstat)
+  0003                          creset	equ	3		; reset command
+                                
+  00FE                          simhport	equ	0feh		; SIMH port
+  FF00                          coldboot	equ	0ff00h		; cold boot ROM starts here
+  0000                          bootram		equ	0000h
+  0005                          bdos		equ	0005h
+  0100                          ccp		equ	0100h
+  0009                          readclock	equ	9		; SIMH command to read clock
+  000A                          writeclock	equ	10		; SIMH command to write clock
+  001B                          simhsleep	equ	27		; SIMH sleep command
+                                
+                                	if	banked
+  0012                          hasBankedMemory	equ	18		; SIMH command to check for banked memory
+  000C                          setBankSelect	equ	12		; SIMH command to set memory bank
+  000D                          getCommon	equ	13		; SIMH command to get common memory base
+                                	endif
+                                
+  0005                          parblocksize	equ	5		; 5 byte in SCB for date/time data
+                                
+  0001                          mb$input	equ	00000001b	; device may do input
+  0002                          mb$output	equ	00000010b	; device may do output
+  0003                          mb$in$out	equ	mb$input+mb$output
+  0000                          baud$none	equ	0		; no baud rate associated
+                                
+                                ldbc	macro	addr
+                                	push	hl
+                                	ld	hl,(addr)
+                                	ld	b,h
+                                	ld	c,l
+                                	pop	hl
+                                	endm
+                                
+                                ;	external references
+                                	extrn	@civec, @covec, @aovec, @aivec, @lovec, @bnkbf
+                                	extrn	@crdma, @crdsk,	@fx, @resel, @vinfo, @usrcd
+                                	extrn	@ermde, @date, @hour, @min, @sec, @mxtpa
+                                
+                                ;--------------------------------------------------------
+                                ;
+                                ;	cp/m plus version 3.0 jump table
+                                ;
+                                ;--------------------------------------------------------
+  0000'                         	cseg
+                                
+  0000'   C3 0000"              	jp	boot		; arrive here from cold start load
+	MACRO-80 3.44	09-Dec-81	PAGE	1-4
+
+
+  0003'   C3 0076'              warmpt:	jp	wboot		; arrive here for warm start
+  0006'   C3 01DF'              	jp	const		; return console input status
+  0009'   C3 01FA'              	jp	conin		; read console character
+  000C'   C3 017C'              	jp	conout		; write console character
+  000F'   C3 0188'              	jp	list		; write list character
+  0012'   C3 0182'              	jp	auxout		; write aux character
+  0015'   C3 0200'              	jp	auxin		; read aux character
+  0018'   C3 006A"              	jp	home		; move to track zero on selected drive
+  001B'   C3 001D"              	jp	seldsk		; select disk drive
+  001E'   C3 006D"              	jp	settrk		; set track number
+  0021'   C3 0073"              	jp	setsec		; set sector number
+  0024'   C3 0078"              	jp	setdma		; set dma address
+  0027'   C3 0098"              	jp	read		; read selected sector
+  002A'   C3 00DF"              	jp	write		; write selected sector
+  002D'   C3 01AB'              	jp	listst		; return list device status
+  0030'   C3 0083"              	jp	sectrn		; translate logical to physical sector number
+  0033'   C3 019F'              	jp	conost		; return console output status
+  0036'   C3 01E5'              	jp	auxist		; return aux device input status
+  0039'   C3 01A5'              	jp	auxost		; return aux device output status
+  003C'   C3 0105'              	jp	devtbl		; return address of character i/o table
+  003F'   C3 0108'              	jp	devini		; init character i/o devices
+  0042'   C3 0109'              	jp	drvtbl		; return address of disk drive table
+  0045'   C3 008E"              	jp	multio		; set number of consec. sec. to read/write
+  0048'   C3 01F8'              	jp	flush		; flush user [de]blocking buffers
+  004B'   C3 0176'              	jp	move		; copy memory to memory
+  004E'   C3 014A'              	jp	time		; signal time and date operation
+  0051'   C3 010D'              	jp	selmem		; select memory bank
+  0054'   C3 007F"              	jp	setbnk		; set bank for next dma
+  0057'   C3 0108'              	jp	xmove		; set banks for next move
+  005A'   C3 0000               	jp	0		; reserved for future expansion
+  005D'   C3 0000               	jp	0		; reserved for future expansion
+  0060'   C3 0000               	jp	0		; reserved for future expansion
+                                
+  0063'                         	dseg			; this part can be banked
+                                
+  0000"   06 01                 boot:	ld	b,1		; indicate boot
+  0002"   21 8000               	ld	hl,8000h
+  0005"   22 0000*              	ld	(@civec),hl	; CONSOLE:=CON for input
+  0008"   22 0000*              	ld	(@covec),hl	; CONSOLE:=CON also for output
+  000B"   21 4000               	ld	hl,4000h
+  000E"   22 0000*              	ld	(@aovec),hl	; AUXOUT:=PTP
+  0011"   22 0000*              	ld	(@lovec),hl	; LST:=PTP
+  0014"   21 2000               	ld	hl,2000h
+  0017"   22 0000*              	ld	(@aivec),hl	; AUXIN:=PTR
+  001A"   C3 0078'              	jp	wboot1
+                                
+  001D"                         	cseg			; following in resident memory
+                                
+  0063'   AF                    ldir80:	xor	a		; <A> := 0
+  0064'   3D                    	dec	a		; <A> := 1111'1111b
+  0065'   EA 006B'              	jp	pe,ldir1	; on an 8080 this means parity is even
+  0068'   ED B0                 	ldir			; otherwise we have a Z80
+  006A'   C9                    	ret
+  006B'   7E                    ldir1:	ld	a,(hl)
+  006C'   12                    	ld	(de),a
+  006D'   23                    	inc	hl
+	MACRO-80 3.44	09-Dec-81	PAGE	1-5
+
+
+  006E'   13                    	inc	de
+  006F'   0B                    	dec	bc
+  0070'   79                    	ld	a,c
+  0071'   B0                    	or	b
+  0072'   C2 006B'              	jp	nz,ldir1
+  0075'   C9                    	ret
+                                
+  0076'   06 00                 wboot:	ld	b,0		; indicate warm boot
+  0078'   31 0105'              wboot1:	ld	sp,bstack
+                                
+                                ;
+                                ;	initialize low memory jumps
+                                ;
+                                
+                                    if	banked
+  007B'   3E 01                 	ld	a,1
+  007D'   CD 010D'              	call	selmem
+                                    endif
+                                
+  0080'   21 0003'              	ld	hl,warmpt
+  0083'   22 0001               	ld	(bootram+1),hl
+  0086'   2A 0000*              	ld	hl,(@mxtpa)
+  0089'   22 0006               	ld	(bdos+1),hl
+  008C'   3E C3                 	ld	a,jpop
+  008E'   32 0000               	ld	(bootram),a
+  0091'   32 0005               	ld	(bdos),a
+  0094'   78                    	ld	a,b
+  0095'   B7                    	or	a
+  0096'   CA 009F'              	jp	z,ldccp		; no message on warm boot
+  0099'   11 060B'              	ld	de,versio	; print version information
+  009C'   CD 00F8'              	call	printf
+                                ;
+                                ;	load ccp.com into tpa
+                                ;
+  009F'                         ldccp:
+                                
+                                    if	nhdisks gt 0
+  009F'   06 20                 	ld	b,32		; reset hard disk controller
+  00A1'   3E 01                 	ld	a,hdskReset	; by issuing the reset command 32 times
+  00A3'   D3 FD                 rhdsk:	out	(hdskPort),a
+  00A5'   05                    	dec	b
+  00A6'   C2 00A3'              	jp	nz,rhdsk	; post condition is <B> := 0
+                                    endif
+                                
+  00A9'   21 0322"              	ld	hl,ontrk0	; start address of table for current track positions
+  00AC'   06 08                 	ld	b,drives	; number of disks
+  00AE'   36 FF                 resett:	ld	(hl),track1	; reset entry for disk
+  00B0'   23                    	inc	hl		; point to next entry
+  00B1'   05                    	dec	b		; decrement counter for disks to go
+  00B2'   C2 00AE'              	jp	nz,resett	; jump if not yet done
+  00B5'   AF                    	xor	a
+  00B6'   32 055C'              	ld	(ccpfcb+15),a	; zero extent
+  00B9'   21 0000               	ld	hl,0
+  00BC'   22 056D'              	ld	(fcbnr),hl	; start at beginning of file
+  00BF'   11 054D'              	ld	de,ccpfcb
+  00C2'   0E 0F                 	ld	c,open
+	MACRO-80 3.44	09-Dec-81	PAGE	1-6
+
+
+  00C4'   CD 0005               	call	bdos		; open file containing ccp
+  00C7'   11 0570'              	ld	de,opnmsg
+  00CA'   3C                    	inc	a
+  00CB'   CA 00ED'              	jp	z,prterr	; error if file not found
+  00CE'   11 0100               	ld	de,ccp
+  00D1'   0E 1A                 	ld	c,dma
+  00D3'   CD 0005               	call	bdos		; start of tpa
+  00D6'   11 0080               	ld	de,128
+  00D9'   0E 2C                 	ld	c,multisec
+  00DB'   CD 0005               	call	bdos		; allow up to 16k bytes
+  00DE'   11 054D'              	ld	de,ccpfcb
+  00E1'   0E 14                 	ld	c,readseq
+  00E3'   CD 0005               	call	bdos		; load the thing
+  00E6'   11 058B'              	ld	de,iomsg
+  00E9'   3C                    	inc	a
+  00EA'   C2 0100               	jp	nz,ccp
+  00ED'   CD 00F8'              prterr:	call	printf		; print the complaint
+  00F0'   0E 01                 	ld	c,getch
+  00F2'   CD 0005               	call	bdos		; wait for any key
+  00F5'   C3 FF00               	jp	coldboot	; attempt cold boot
+  00F8'   0E 09                 printf:	ld	c,print
+  00FA'   C3 0005               	jp	bdos
+  00FD'                         	ds	8
+  0105'                         bstack:
+  0105'   21 0648'              devtbl:	ld	hl,ctbla
+  0108'                         devini:
+  0108'   C9                    xmove:	ret
+  0109'   21 02BB'              drvtbl:	ld	hl,dtbla
+                                
+                                    if	banked
+  010C'   C9                    	ret
+  010D'   32 0342'              selmem:	ld	(cbank),a	; update current bank
+  0110'   F5                    selme1:	push	af		; save
+  0111'   3E 12                 selme5:	ld	a,hasBankedMemory
+  0113'   D3 FE                 	out	(simhport),a
+  0115'   DB FE                 	in	a,(simhport)
+  0117'   B7                    	or	a
+  0118'   CA 0135'              	jp	z,selme2	; = 0 indicates that we don't have banked memory
+  011B'   3E 0D                 	ld	a,getCommon
+  011D'   D3 FE                 	out	(simhport),a
+  011F'   DB FE                 	in	a,(simhport)
+  0121'   FE 00                 	cp	0ffh and expcom
+  0123'   DB FE                 	in	a,(simhport)
+  0125'   C2 0135'              	jp	nz,selme2
+  0128'   FE C0                 	cp	0ffh and (expcom shr 8)
+  012A'   C2 0135'              	jp	nz,selme2
+  012D'   3E 0C                 	ld	a,setbankselect	; prepare command
+  012F'   D3 FE                 	out	(simhport),a	; execute it
+  0131'   F1                    	pop	af		; restore desired bank
+  0132'   D3 FE                 	out	(simhport),a	; inform mmu
+  0134'   C9                    	ret			; done
+  0135'   11 05D4'              selme2:	ld	de,nobankedmemory	; print message for missing banked memory
+  0138'   1A                    selme3:	ld	a,(de)		; get next character
+  0139'   FE 24                 	cp	'$'		; '$' denotes end of string
+  013B'   CA 0146'              	jp	z,selme4	; done if current character is '$'
+  013E'   4F                    	ld	c,a		; xconout expects character in <C>
+	MACRO-80 3.44	09-Dec-81	PAGE	1-7
+
+
+  013F'   CD 0272'              	call	xconout		; display character on console
+  0142'   13                    	inc	de		; point to next character
+  0143'   C3 0138'              	jp	selme3		; and repeat
+  0146'   76                    selme4:	halt			; halt and allow continuation if desired by user
+  0147'   C3 0111'              	jp	selme5
+                                    else
+                                selmem:	ret			; merge with drvtbl
+                                    endif
+                                
+  014A'   E5                    time:	push	hl
+  014B'   D5                    	push	de
+  014C'   79                    	ld	a,c
+  014D'   FE FF                 	cp	0ffh
+  014F'   CA 0166'              	jp	z,setclock
+  0152'   3E 09                 	ld	a,readclock
+  0154'   D3 FE                 	out	(simhport),a
+  0156'   21 0000*              	ld	hl,@date
+  0159'   06 05                 	ld	b,parblocksize
+  015B'   DB FE                 timag:	in	a,(simhport)
+  015D'   77                    	ld	(hl),a
+  015E'   23                    	inc	hl
+  015F'   05                    	dec	b
+  0160'   C2 015B'              	jp	nz,timag
+  0163'   C3 0173'              	jp	timdon
+  0166'                         setclock:
+  0166'   3E 0A                 	ld	a,writeclock
+  0168'   D3 FE                 	out	(simhport),a
+  016A'   21 0000*              	ld	hl,@date
+  016D'   7D                    	ld	a,l
+  016E'   D3 FE                 	out	(simhport),a
+  0170'   7C                    	ld	a,h
+  0171'   D3 FE                 	out	(simhport),a
+  0173'   D1                    timdon:	pop	de
+  0174'   E1                    	pop	hl
+  0175'   C9                    	ret
+                                
+  0176'   EB                    move:	ex	de,hl
+  0177'   CD 0063'              	call	ldir80
+  017A'   EB                    	ex	de,hl
+  017B'   C9                    	ret
+                                
+                                	; conout
+                                	;	console output. send character in <C>
+                                	;			to all selected devices
+  017C'   2A 0000*              conout:	ld	hl,(@covec)	; fetch console output bit vector
+  017F'   C3 018B'              	jp	out$scan
+                                
+                                	; auxout
+                                	;	auxiliary output. send character in <C>
+                                	;			to all selected devices
+  0182'   2A 0000*              auxout:	ld	hl,(@aovec)	; fetch aux output bit vector
+  0185'   C3 018B'              	jp	out$scan
+                                
+                                	; list
+                                	;	list output. send character in <C>
+                                	;			to all selected devices
+	MACRO-80 3.44	09-Dec-81	PAGE	1-8
+
+
+  0188'   2A 0000*              list:	ld	hl,(@lovec)	; fetch list output vector
+  018B'                         out$scan:
+  018B'   06 00                 	ld	b,0		; start with device 0
+  018D'                         co$next:
+  018D'   29                    	add	hl,hl		; shift out next bit
+  018E'   D2 0198'              	jp	nc,not$out$device
+  0191'   E5                    	push	hl		; save the vector
+  0192'   C5                    	push	bc		; save the count and character
+  0193'   CD 0227'              	call	?co		; if device selected, print it
+  0196'   C1                    	pop	bc		; recover count and character
+  0197'   E1                    	pop	hl		; recover the rest of the vector
+  0198'                         not$out$device:
+  0198'   04                    	inc	b		; next device number
+  0199'   7C                    	ld	a,h
+  019A'   B5                    	or	l		; see if any devices left
+  019B'   C2 018D'              	jp	nz,co$next	; and go find them...
+  019E'   C9                    	ret
+                                
+                                	; conost
+                                	;	console output status. return true if
+                                	;			all selected console output devices
+                                	;			are ready
+  019F'   2A 0000*              conost:	ld	hl,(@covec)	; get console output bit vector
+  01A2'   C3 01AE'              	jp	ost$scan
+                                
+                                	; auxost
+                                	;	auxiliary output status. return true if
+                                	;		all selected auxiliary output devices
+                                	;		are ready
+  01A5'   2A 0000*              auxost:	ld	hl,(@aovec)	; get aux output bit vector
+  01A8'   C3 01AE'              	jp	ost$scan
+                                
+                                	; listst
+                                	;	list output status. return true if
+                                	;		all selected list output devices
+                                	;		are ready
+  01AB'   2A 0000*              listst:	ld	hl,(@lovec)	; get list output bit vector
+  01AE'                         ost$scan:
+  01AE'   06 00                 	ld	b,0		; start with device 0
+  01B0'                         cos$next:
+  01B0'   19                    	add	hl,de		; check next bit
+  01B1'   E5                    	push	hl		; save the vector
+  01B2'   C5                    	push	bc		; save the count
+  01B3'   3E FF                 	ld	a,0ffh		; assume device ready
+  01B5'   DC 022D'              	call	c,?cost		; check status for this device
+  01B8'   C1                    	pop	bc		; recover count
+  01B9'   E1                    	pop	hl		; recover bit vector
+  01BA'   B7                    	or	a		; see if device ready
+  01BB'   C8                    	ret	z		; if any not ready, return false
+  01BC'   04                    	inc	b		; drop device number
+  01BD'   7C                    	ld	a,h
+  01BE'   B5                    	or	l		; see if any more selected devices
+  01BF'   C2 01B0'              	jp	nz,cos$next
+  01C2'   F6 FF                 	or	0ffh		; all selected were ready, return true
+  01C4'   C9                    	ret
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-9
+
+
+  01C5'   C5                    cistl:	push	bc		; get input status with <BC> and <HL> saved
+  01C6'   E5                    	push	hl
+  01C7'   CD 0221'              	call	?cist
+  01CA'   E1                    	pop	hl
+  01CB'   C1                    	pop	bc
+  01CC'   B7                    	or	a
+  01CD'   C9                    	ret
+                                
+  01CE'   C5                    costl:	push	bc		; get output status, saving <BC> & <HL>
+  01CF'   E5                    	push	hl
+  01D0'   CD 022D'              	call	?cost
+  01D3'   E1                    	pop	hl
+  01D4'   C1                    	pop	bc
+  01D5'   B7                    	or	a
+  01D6'   C9                    	ret
+                                
+  01D7'   C5                    cil:	push	bc		; get input, saving <BC> & <HL>
+  01D8'   E5                    	push	hl
+  01D9'   CD 021B'              	call	?ci
+  01DC'   E1                    	pop	hl
+  01DD'   C1                    	pop	bc
+  01DE'   C9                    	ret
+                                
+                                	; const
+                                	;	console input status. return true if
+                                	;		any selected console input device
+                                	;		has an available character
+  01DF'   2A 0000*              const:	ld	hl,(@civec)	; get console input bit vector
+  01E2'   C3 01E8'              	jp	ist@scan
+                                
+                                	; auxist
+                                	;	auxiliary input status. return true if
+                                	;		any selected auxiliary input device
+                                	;		has an available character
+  01E5'   2A 0000*              auxist:	ld	hl,(@aivec)	; get aux input bit vector
+  01E8'                         ist@scan:
+  01E8'   06 00                 	ld	b,0		; start with device 0
+  01EA'                         cis$next:
+  01EA'   29                    	add	hl,hl		; check next bit
+  01EB'   3E 00                 	ld	a,0		; assume device not ready
+  01ED'   DC 01C5'              	call	c,cistl		; check status for this device
+  01F0'   B7                    	or	a
+  01F1'   C0                    	ret	nz		; if any ready, return true
+  01F2'   04                    	inc	b		; next device number
+  01F3'   7C                    	ld	a,h
+  01F4'   B5                    	or	l		; see if any more selected devices
+  01F5'   C2 01EA'              	jp	nz,cis$next
+  01F8'   AF                    flush:	xor	a		; all selected were not ready, return false
+  01F9'   C9                    	ret
+                                
+                                	; conin
+                                	;	console input. return character from first
+                                	;		ready console input device
+  01FA'   2A 0000*              conin:	ld	hl,(@civec)
+  01FD'   C3 0203'              	jp	in$scan
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-10
+
+
+                                	; auxin
+                                	;	auxiliary input. return character from first
+                                	;		ready auxiliary input device
+  0200'   2A 0000*              auxin:	ld	hl,(@aivec)
+  0203'                         in$scan:
+  0203'   E5                    	push	hl		; save bit vector
+  0204'   06 00                 	ld	b,0
+  0206'                         ci$next:
+  0206'   29                    	add	hl,hl		; shift out next bit
+  0207'   3E 00                 	ld	a,0		; insure zero a (nonexistant device not ready)
+  0209'   DC 01C5'              	call	c,cistl		; see if the device has a character
+  020C'   B7                    	or	a
+  020D'   C2 021A'              	jp	nz,ci$rdy	; this device has a character
+  0210'   04                    	inc	b		; else, next device
+  0211'   7C                    	ld	a,h
+  0212'   B5                    	or	l		; see if any more devices
+  0213'   C2 0206'              	jp	nz,ci$next	; go look at them
+  0216'   E1                    	pop	hl		; recover bit vector
+  0217'   C3 0203'              	jp	in$scan		; loop til we find a character
+  021A'   E1                    ci$rdy:	pop	hl		; discard extra stack
+                                ; device number in b for ?ci, ?co, ?cist, ?cost
+                                
+  021B'   21 023A'              ?ci:	ld	hl,citab
+  021E'   C3 0230'              	jp	dotab
+  0221'   21 0240'              ?cist:	ld	hl,cisttab
+  0224'   C3 0230'              	jp	dotab
+  0227'   21 0246'              ?co:	ld	hl,cotab
+  022A'   C3 0230'              	jp	dotab
+  022D'   21 024C'              ?cost:	ld	hl,costtab
+  0230'   58                    dotab:	ld	e,b
+  0231'   16 00                 	ld	d,0
+  0233'   19                    	add	hl,de
+  0234'   19                    	add	hl,de
+  0235'   7E                    	ld	a,(hl)
+  0236'   23                    	inc	hl
+  0237'   66                    	ld	h,(hl)
+  0238'   6F                    	ld	l,a
+  0239'   E9                    	jp	(hl)
+                                
+                                ; crt, ptp, ptr
+  023A'   0262'                 citab:	dw	xconin		; CRT
+  023C'   0000                  	dw	0		; PTP
+  023E'   029A'                 	dw	xauxin		; PTR
+                                
+  0240'                         cisttab:
+  0240'   0252'                 	dw	xconst		; CRT
+  0242'   0000                  	dw	0		; PTP
+  0244'   02A3'                 	dw	xauxist		; PTR
+                                
+  0246'   0272'                 cotab:	dw	xconout		; CRT
+  0248'   0286'                 	dw	xauxout		; PTP
+  024A'   0000                  	dw	0		; PTR
+                                
+  024C'                         costtab:
+  024C'   027D'                 	dw	xconost		; CRT
+  024E'   0291'                 	dw	xauxost		; PTP
+	MACRO-80 3.44	09-Dec-81	PAGE	1-11
+
+
+  0250'   0000                  	dw	0		; PTR
+                                
+                                ; Serial device definitions
+                                ; We support console, AUXIN (SIMH PTR device) and AUXOUT (SIMH PTP device).
+                                ; The CP/M device name is AUX: for both input and output.
+                                ; The list device is redirected to PTP.
+                                
+                                	if	sleepol
+                                
+  0252'   DB 10                 xconst:	in	a,(constat)
+  0254'   1F                    	rra
+  0255'   3E 00                 	ld	a,0
+  0257'   D2 025C'              	jp	nc,nochr
+  025A'   3D                    	dec	a
+  025B'   C9                    	ret
+  025C'   3E 1B                 nochr:	ld	a,simhsleep	; otherwise sleep for SIMHSleep microseconds
+  025E'   D3 FE                 	out	(simhport),a	; execute command
+  0260'   AF                    	xor	a
+  0261'   C9                    	ret
+                                
+  0262'   DB 10                 xconin:	in	a,(constat)	; get console status
+  0264'   1F                    	rra			; I bit into carry
+  0265'   DA 026F'              	jp	c,getchr	; get character
+  0268'   3E 1B                 	ld	a,simhsleep	; otherwise sleep for SIMHSleep microseconds
+  026A'   D3 FE                 	out	(simhport),a	; execute command
+  026C'   C3 0262'              	jp	xconin		; try again
+  026F'   DB 11                 getchr:	in	a,(condata)	; read character
+  0271'   C9                    	ret
+                                
+                                	else
+                                
+                                xconst:	in	a,(constat)
+                                	rra
+                                	ld	a,0
+                                	ret	nc
+                                	dec	a
+                                	ret
+                                
+                                xconin:	in	a,(constat)
+                                	rra
+                                	jp	nc,xconin
+                                	in	a,(condata)
+                                	ret
+                                
+                                	endif
+                                
+  0272'                         xconout:
+  0272'   DB 10                 	in	a,(constat)
+  0274'   1F                    	rra
+  0275'   1F                    	rra
+  0276'   D2 0272'              	jp	nc,xconout
+  0279'   79                    	ld	a,c
+  027A'   D3 11                 	out	(condata),a
+  027C'   C9                    	ret
+                                
+  027D'                         xconost:
+	MACRO-80 3.44	09-Dec-81	PAGE	1-12
+
+
+  027D'   DB 10                 	in	a,(constat)
+  027F'   1F                    	rra
+  0280'   1F                    	rra
+  0281'   3E 00                 	ld	a,0
+  0283'   D0                    	ret	nc
+  0284'   3D                    	dec	a
+  0285'   C9                    	ret
+                                
+                                ;
+                                ; Reader/punch routines use sio port 2
+                                ;
+  0286'                         xauxout:
+  0286'   DB 12                 	in	a,(punstat)
+  0288'   1F                    	rra
+  0289'   1F                    	rra
+  028A'   D2 0286'              	jp	nc,xauxout
+  028D'   79                    	ld	a,c
+  028E'   D3 13                 	out	(pundata),a
+  0290'   C9                    	ret
+                                
+  0291'                         xauxost:
+  0291'   DB 12                 	in	a,(punstat)
+  0293'   1F                    	rra
+  0294'   1F                    	rra
+  0295'   3E 00                 	ld	a,0
+  0297'   D0                    	ret	nc
+  0298'   3D                    	dec	a
+  0299'   C9                    	ret
+                                
+  029A'   DB 12                 xauxin:	in	a,(punstat)
+  029C'   1F                    	rra
+  029D'   D2 029A'              	jp	nc,xauxin
+  02A0'   DB 13                 	in	a,(pundata)
+  02A2'   C9                    	ret
+                                
+  02A3'                         xauxist:
+  02A3'   DB 12                 	in	a,(punstat)
+  02A5'   1F                    	rra
+  02A6'   3E 00                 	ld	a,0
+  02A8'   D0                    	ret	nc
+  02A9'   3D                    	dec	a
+  02AA'   C9                    	ret
+                                
+  02AB'                         	dseg
+                                
+  001D"   21 0000               seldsk:	ld	hl,0		; bad drive
+  0020"   79                    	ld	a,c		; drive request
+  0021"   32 032A"              	ld	(diskno),a
+  0024"   FE 0C                 	cp	drives+nhdisks
+  0026"   D0                    	ret	nc		; exit if no space alloc for drive
+  0027"   69                    	ld	l,c
+  0028"   26 00                 	ld	h,0
+  002A"   29                    	add	hl,hl		; create index from drive code
+  002B"   01 02BB'              	ld	bc,dtbla
+  002E"   09                    	add	hl,bc		; get pointer to dispatch table
+  002F"   7E                    	ld	a,(hl)
+	MACRO-80 3.44	09-Dec-81	PAGE	1-13
+
+
+  0030"   23                    	inc	hl
+  0031"   66                    	ld	h,(hl)
+  0032"   6F                    	ld	l,a		; point at disk descriptor
+                                
+                                    if	nhdisks gt 0
+  0033"   3A 032A"              	ld	a,(diskno)
+  0036"   FE 08                 	cp	drives
+  0038"   D2 0040"              	jp	nc, hdsksel
+                                    endif
+                                
+  003B"   3E 80                 	ld	a,80h
+  003D"   D3 08                 	out	(selout),a
+  003F"   C9                    	ret
+                                
+                                    if	nhdisks gt 0
+                                ; entry: pointer to disk descriptor in HL.  This must be
+                                ; preserved.
+  0040"                         hdsksel:
+  0040"   E5                    	push	hl		; Preserve pointer to disk descriptor
+  0041"   01 000C               	ld	bc,12
+  0044"   09                    	add	hl,bc
+  0045"   7E                    	ld	a,(hl)
+  0046"   23                    	inc	hl
+  0047"   66                    	ld	h,(hl)
+  0048"   6F                    	ld	l,a		; point at disk dpb
+  0049"   3E 04                 	ld	a,hdskParam
+  004B"   D3 FD                 	out	(hdskPort),a	; Send 'get parameters' command
+  004D"   3A 032A"              	ld	a,(diskno)
+  0050"   D6 08                 	sub	drives
+  0052"   D3 FD                 	out	(hdskPort),a	; Send selected HDSK number
+  0054"   06 11                 	ld	b,17
+  0056"                         hdskpl:
+  0056"   DB FD                 	in	a,(hdskPort)	; Read 17-bytes of DPB
+  0058"   77                    	ld	(hl), a
+  0059"   23                    	inc	hl
+  005A"   05                    	dec	b
+  005B"   C2 0056"              	jp	nz,hdskpl
+  005E"   DB FD                 	in	a,(hdskPort)	; Read LSB of disk's physical sector size.
+  0060"   32 0330"              	ld	(hsecsiz), a
+  0063"   DB FD                 	in	a,(hdskPort)	; Read MSB of disk's physical sector size.
+  0065"   32 0331"              	ld	(hsecsiz+1), a
+                                
+  0068"   E1                    	pop	hl		; restore pointer to disk descriptor
+  0069"   C9                    	ret
+                                    endif
+                                
+  006A"   01 0000               home:	ld	bc,0		; move to track 00
+  006D"   69                    settrk:	ld	l,c		; save track
+  006E"   60                    	ld	h,b
+  006F"   22 032B"              	ld	(track),hl
+  0072"   C9                    	ret
+                                
+  0073"   79                    setsec:	ld	a,c		; set sector
+  0074"   32 032D"              	ld	(sector),a
+  0077"   C9                    	ret
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-14
+
+
+  0078"   69                    setdma:	ld	l,c
+  0079"   60                    	ld	h,b
+  007A"   22 032E"              	ld	(dmaad),hl	; set dma address
+  007D"   C9                    	ret
+                                
+                                    if	banked
+  007E"   C9                    	ret
+  007F"   32 0341'              setbnk:	ld	(crwbank),a
+  0082"   C9                    	ret
+                                    else
+                                setbnk:	ret			; also for setdma
+                                    endif
+                                
+                                ;Translate Sector Number Given Translate Table
+                                ;Entry Parameters:	BC=Logical Sector Number
+                                ;			DE=Translate Table Address
+                                ;Returned Values:	HL=Physical Sector Number
+                                ;
+                                ;SECTRN performs logical sequential sector address to physical sector
+                                ;translation to improve the overall response of CP/M 3. Digital Research
+                                ;ships standard CP/M disk with a skew factor of 6, where six physical
+                                ;sectors are skipped between each logical read operation. This skew
+                                ;factor allows enough time between sectors for most programs on a slow
+                                ;system to process their buffers without missing the next sector. In
+                                ;computer systems that use fast processors, memory, and disk subsystems,
+                                ;you can change the skew factor to improve overall response. Typically,
+                                ;most disk systems perform well with a skew of every other physical
+                                ;sector. You should maintain support of single-density, IBM 3740
+                                ;compatible disks using a skew factor of 6 in your CP/M 3 system to allow
+                                ;information transfer to and from other CP/M users. SECTRN receives a
+                                ;logical sector number in BC, and a translate table address in DE. The
+                                ;logical sector number is relative to zero. The translate table address
+                                ;is obtained from the Disk Parameter Block for the currently selected
+                                ;disk. The sector number is used as an index into the translate table,
+                                ;with the resulting physical sector number returned in HL. For standard,
+                                ;single-density, eight- inch disk systems, the tables and indexing code
+                                ;are provided in the sample BIOS and need not be changed. Certain drive
+                                ;types either do not need skewing or perform the skewing externally from
+                                ;the system software. In this case, the skew table address in the DPH
+                                ;can be set to zero, and the SECTRN routine can check for the zero in DE
+                                ;and return with the physical sector set to the logical sector.
+  0083"                         sectrn:
+                                    if	nhdisks gt 0
+  0083"   69                    	ld	l,c		; <HL> := BC, prepration for <DE> = 0
+  0084"   60                    	ld	h,b		; load upper byte
+  0085"   23                    	inc	hl		; rebase to one
+  0086"   7B                    	ld	a,e		; get lower byte of translate table address
+  0087"   B2                    	or	d		; or with upper byte
+  0088"   C8                    	ret	z		; if equal to zero, no translation necessary
+                                    endif
+  0089"   EB                    	ex	de,hl		; <HL> := translate table address
+  008A"   09                    	add	hl,bc
+  008B"   6E                    	ld	l,(hl)
+  008C"   26 00                 	ld	h,0
+  008E"   C9                    multio:	ret
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-15
+
+
+  008F"   2A 032E"              wldir:	ld	hl,(dmaad)	; source of sector is in 'dmaad'
+  0092"   11 0346'              	ld	de,altbuf+3	; destination inside local buffer
+                                
+                                    if	banked
+  0095"   C3 02AB'              	jp	ldirx
+                                    else
+                                	jp	ldir80
+                                    endif
+                                
+                                ;
+                                ; altair disk read/write drivers
+                                ;
+  0098"                         read:
+                                    if	nhdisks gt 0
+  0098"   3A 032A"              	ld	a,(diskno)	; get disk number
+  009B"   FE 08                 	cp	drives		; compare with number of Altair disks
+  009D"   DA 00AF"              	jp	c,aread		; carry means we got an Altair disk
+  00A0"   3E 02                 	ld	a,hdskRead	; otherwise perform hard disk read
+  00A2"   CD 00FA"              	call	set2		; send hard disk parameters
+                                	ldbc	hsecsiz		; sector size can be variable for HDSK Controller
+  00A5"   E5              +     	push	hl
+  00A6"   2A 0330"        +     	ld	hl,(hsecsiz)
+  00A9"   44              +     	ld	b,h
+  00AA"   4D              +     	ld	c,l
+  00AB"   E1              +     	pop	hl
+  00AC"   C3 00D2"              	jp	rldir
+  00AF"                         aread	equ	$
+                                    endif
+  00AF"   CD 014D"              	call	poshed		; select disk 'diskno' and position disk head to 'track'
+  00B2"   CD 01B2"              	call	secget		; position head to desired sector
+  00B5"   21 0343'              	ld	hl,altbuf	; address of sector buffer
+  00B8"   1E 89                 	ld	e,asecsiz	; number of bytes to read
+  00BA"   F3                    	di
+  00BB"   DB 08                 blrd1:	in	a,(statin)	; get disk status
+  00BD"   B7                    	or	a		; set sign of byte
+  00BE"   FA 00BB"              	jp	m,blrd1		; loop until disk has new byte to read
+  00C1"   DB 0A                 	in	a,(dskread)	; read byte of sector
+  00C3"   77                    	ld	(hl),a		; store into buffer
+  00C4"   23                    	inc	hl		; point to next position in buffer
+  00C5"   1D                    	dec	e		; decrement size counter
+  00C6"   C2 00BB"              	jp	nz,blrd1	; if not zero, we need to continue
+  00C9"   3E 08                 	ld	a,cuload	; unload head command
+  00CB"   D3 09                 	out	(dskcon),a	; do it
+  00CD"   FB                    	ei
+  00CE"   AF                    	xor	a		; <A> := 0 means no error
+  00CF"   01 0080               	ld	bc,csecsiz	; sector size is 128
+  00D2"   F5                    rldir:	push	af
+  00D3"   2A 032E"              	ld	hl,(dmaad)	; destination address
+  00D6"   11 0346'              	ld	de,altbuf+3	; address of sector just read
+  00D9"   EB                    	ex	de,hl		; prepare for ldir
+                                
+                                    if	banked
+  00DA"   CD 02AB'              	call	ldirx
+                                    else
+                                	call	ldir80
+                                    endif
+	MACRO-80 3.44	09-Dec-81	PAGE	1-16
+
+
+                                
+  00DD"   F1                    	pop	af
+  00DE"   C9                    	ret
+                                
+  00DF"                         	cseg
+                                
+                                    if	banked
+  02AB'   3A 0341'              ldirx:	ld	a,(crwbank)	; get desired bank
+  02AE'   CD 0110'              	call	selme1		; select it without updating current bank
+  02B1'   CD 0063'              	call	ldir80		; move memory for read or write
+  02B4'   3A 0342'              	ld	a,(cbank)	; get previous bank
+  02B7'   CD 010D'              	call	selmem		; select it
+  02BA'   C9                    	ret
+                                    endif
+                                
+  02BB'                         	dseg
+                                
+  00DF"                         write:
+                                    if	nhdisks gt 0
+  00DF"   3A 032A"              	ld	a,(diskno)	; get disk number
+  00E2"   FE 08                 	cp	drives		; compare with number of Altair disks
+  00E4"   DA 0122"              	jp	c,awrite	; carry means we got an Altair disk
+                                	ldbc	hsecsiz		; sector size can be variable for HDSK Controller
+  00E7"   E5              +     	push	hl
+  00E8"   2A 0330"        +     	ld	hl,(hsecsiz)
+  00EB"   44              +     	ld	b,h
+  00EC"   4D              +     	ld	c,l
+  00ED"   E1              +     	pop	hl
+  00EE"   CD 008F"              	call	wldir
+  00F1"   3E 03                 	ld	a,hdskWrite	; otherwise perform hard disk write
+                                	ldbc	hsecsiz		; sector size can be variable for HDSK Controller
+  00F3"   E5              +     	push	hl
+  00F4"   2A 0330"        +     	ld	hl,(hsecsiz)
+  00F7"   44              +     	ld	b,h
+  00F8"   4D              +     	ld	c,l
+  00F9"   E1              +     	pop	hl
+  00FA"   D3 FD                 set2:	out	(hdskPort),a	; send command
+  00FC"   3A 032A"              	ld	a,(diskno)	; get disk number
+  00FF"   D6 08                 	sub	drives		; rebase
+  0101"   D3 FD                 	out	(hdskPort),a	; send rebased disk number
+  0103"   3A 032D"              	ld	a,(sector)	; get sector
+  0106"   3D                    	dec	a		; rebase to 0
+  0107"   D3 FD                 	out	(hdskPort),a	; send rebased sector number
+  0109"   3A 032B"              	ld	a,(track)	; get lower byte of track
+  010C"   D3 FD                 	out	(hdskPort),a	; send lower byte of track
+  010E"   3A 032C"              	ld	a,(track+1)	; get upper byte of track
+  0111"   D3 FD                 	out	(hdskPort),a	; send upper byte of track
+  0113"   3A 0120"              	ld	a,(dma2)	; get lower byte DMA address
+  0116"   D3 FD                 	out	(hdskPort),a	; send lower byte of DMA address
+  0118"   3A 0121"              	ld	a,(dma2+1)	; get upper byte of DMA address
+  011B"   D3 FD                 	out	(hdskPort),a	; send upper byte of DMA address
+  011D"   DB FD                 	in	a,(hdskPort)	; perform command and get result
+  011F"   C9                    	ret
+  0120"   0346'                 dma2:	dw	altbuf+3
+  0122"                         awrite	equ	$
+                                    endif
+	MACRO-80 3.44	09-Dec-81	PAGE	1-17
+
+
+  0122"   CD 014D"              	call	poshed		; select desired disk and position to desired track
+  0125"   CD 01B2"              	call	secget		; position head to desired sector
+  0128"   01 0080               	ld	bc,csecsiz	; sector size is 128
+  012B"   CD 008F"              	call	wldir
+  012E"   3E 80                 	ld	a,cwrseq	; command for 'start write enable sequence'
+  0130"   D3 09                 	out	(dskcon),a	; do it
+  0132"   F3                    	di
+  0133"   21 0343'              	ld	hl,altbuf	; point to first byte in local buffer
+  0136"   06 8A                 	ld	b,asecsiz+1	; number of bytes to write (additional byte triggers 'real' write)
+  0138"   DB 08                 wready:	in	a,(statin)	; get status
+  013A"   1F                    	rra			; get bit for ready for write
+  013B"   DA 0138"              	jp	c,wready	; loop until ready for write
+  013E"   7E                    	ld	a,(hl)		; byte to write
+  013F"   D3 0A                 	out	(dskwrit),a	; write byte
+  0141"   23                    	inc	hl		; point to next byte
+  0142"   05                    	dec	b		; decrement counter of bytes
+  0143"   C2 0138"              	jp	nz,wready	; jp if not done
+  0146"   3E 08                 	ld	a,cuload	; unload head command
+  0148"   D3 09                 	out	(dskcon),a	; do it
+  014A"   FB                    	ei
+  014B"   AF                    	xor	a		; <A> := 0 means no error
+  014C"   C9                    	ret
+                                
+                                ; Select disk 'diskno' and position disk head to 'track'
+  014D"   CD 01A5"              poshed:	call	calcd		; position altair disk head
+  0150"   7A                    	ld	a,d		; select disk <D>, cur track in <B>
+  0151"   D3 08                 	out	(selout),a	; select disk
+  0153"   DB 08                 	in	a,(statin)	; get status of selected drive
+  0155"   FE FF                 	cp	mall		; ok?
+  0157"   CA 0199"              	jp	z,selerr	; no!
+  015A"   78                    	ld	a,b		; <B> := track of selected disk
+  015B"   FE FF                 	cp	track1		; compare with non-existing track
+  015D"   C2 0172"              	jp	nz,alseek	; if a regular track, proceed to seek
+                                ; position disk on track zero, <A> == 0 at the end
+  0160"   DB 08                 dhome:	in	a,(statin)	; position disk to track 0
+  0162"   E6 40                 	and	mtzero		; mask for 'head is on track zero'
+  0164"   CA 0171"              	jp	z,posh1		; track zero reached, done
+  0167"   CD 019D"              	call	whmove		; loop until head movement is allowed
+  016A"   3E 02                 	ld	a,cstepot	; command for 'step head out one track'
+  016C"   D3 09                 	out	(dskcon),a	; do it
+  016E"   C3 0160"              	jp	dhome		; try again
+  0171"   47                    posh1:	ld	b,a		; <B> := 0 (current track)
+                                ;Input:		location 'track' contains desired track
+                                ;		<B> contains current track
+                                ;Output:	desired track is reached and stored in track array
+  0172"   3A 032B"              alseek:	ld	a,(track)	; seek to 'track' (cur track in b)
+  0175"   5F                    	ld	e,a		; <E> := desired track
+  0176"   78                    	ld	a,b		; <A> := current track
+  0177"   93                    	sub	e		; <A> := current track - desired track
+  0178"   C8                    	ret	z		; we are already at desired track
+  0179"   5F                    	ld	e,a		; e is the number of "step in" or "step out"
+  017A"   DA 0182"              	jp	c,stpin		; current track < desired track
+  017D"   0E 02                 	ld	c,cstepot	; command for step head out one track
+  017F"   C3 0187"              	jp	aseek		; perform steps
+  0182"   0E 01                 stpin:	ld	c,cstepin	; command for step head in one track
+  0184"   2F                    	cpl			; <A> := ~(current track - desired track)
+	MACRO-80 3.44	09-Dec-81	PAGE	1-18
+
+
+  0185"   3C                    	inc	a		; <A> := desired track - current track (positive)
+  0186"   5F                    	ld	e,a		; <E> is positive number of tracks to move
+  0187"   CD 019D"              aseek:	call	whmove		; loop until head movement is allowed
+  018A"   79                    	ld	a,c		; get command (step in or step out)
+  018B"   D3 09                 	out	(dskcon),a	; perform it
+  018D"   1D                    	dec	e		; next iteration
+  018E"   C2 0187"              	jp	nz,aseek	; loop if not done
+  0191"   CD 01A5"              	call	calcd		; get pointer to 'track' of 'diskno'
+  0194"   3A 032B"              	ld	a,(track)	; this is the current track
+  0197"   77                    	ld	(hl),a		; update 'track' of 'diskno'
+  0198"   C9                    	ret
+  0199"   E1                    selerr:	pop	hl		; discard return address
+  019A"   3E 01                 	ld	a,bioserr	; <A> := 1 means error
+  019C"   C9                    	ret
+                                
+                                ; loop until head movement is allowed
+  019D"   DB 08                 whmove:	in	a,(statin)	; get status
+  019F"   E6 02                 	and	mhm		; mask for 'head movement allowed'
+  01A1"   C2 019D"              	jp	nz,whmove	; loop until movement allowed
+  01A4"   C9                    	ret
+                                
+                                ; Input:	<none> - implicit input is location 'diskno'
+                                ; Output:	<B> contains the current track of 'diskno'
+                                ;		<A>, <D> and <E> contain 'diskno'
+                                ;		<HL> points to 'track' of 'diskno'
+  01A5"   3A 032A"              calcd:	ld	a,(diskno)	; get 'diskno'
+  01A8"   5F                    	ld	e,a		; <E> := 'diskno'
+  01A9"   21 0322"              	ld	hl,ontrk0
+  01AC"   16 00                 	ld	d,0
+  01AE"   19                    	add	hl,de		; <HL> points to 'track' of 'diskno'
+  01AF"   46                    	ld	b,(hl)		; <B> := 'track' of 'diskno'
+  01B0"   53                    	ld	d,e		; <E> := 'diskno'
+  01B1"   C9                    	ret
+                                
+                                ; Input:	'sector' contains desired sector number
+                                ; Output:	head is positioned at desired sector
+  01B2"   3E 04                 secget:	ld	a,cload		; command to load head to drive surface
+  01B4"   D3 09                 	out	(dskcon),a	; do it
+  01B6"   3A 032D"              	ld	a,(sector)	; <A> := desired sector
+  01B9"   3D                    	dec	a		; adjust to range 0..(spt-1)
+  01BA"   47                    	ld	b,a		; <B> := adjusted, desired sector
+  01BB"   FE 20                 	cp	spt		; compare with sectors per track
+  01BD"   DA 01C9"              	jp	c,seclp2	; desired sector is less than total sectors per track, ok
+  01C0"   C5                    	push	bc		; save sector
+  01C1"   11 05AD'              	ld	de,secmsg	; prepare error message
+  01C4"   CD 00F8'              	call	printf		; print it
+  01C7"   C1                    	pop	bc		; restore sector
+  01C8"   76                    	halt			; not much we can do
+  01C9"   DB 09                 seclp2:	in	a,(secpos)	; get sector position
+  01CB"   1F                    	rra			; rotate T bit into carry
+  01CC"   DA 01C9"              	jp	c,seclp2	; loop until sector is positioned to read or write
+  01CF"   E6 1F                 	and	sptmask		; <A> now contains the sector under the head
+  01D1"   B8                    	cp	b		; compare with desired sector
+  01D2"   C2 01C9"              	jp	nz,seclp2	; repeat if not equal
+  01D5"   C9                    	ret
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-19
+
+
+                                ;Drive Table
+                                ;
+                                ;The drive table consists of 16 words containing the addresses of the
+                                ;Disk Parameter Headers for each logical drive name, A through P, and
+                                ;takes the general form:
+                                ;
+                                ;	drivetable	dw	dpho
+                                ;			dw	dphl
+                                ;			dw	dph2
+                                ;			.
+                                ; 			.
+                                ;			dw	dphf
+                                ;
+                                ;If a logical drive does not exist in your system, the corresponding
+                                ;entry in the drive table must be zero.
+                                ;
+                                ;The GENCPM utility accesses the drive table to locate the various disk
+                                ;parameter data structures, so that it can determine which system
+                                ;configuration to use, and optionally allocate the various buffers
+                                ;itself. You must supply a drive table if you want GENCPM to do this
+                                ;allocation. If certain addresses in the Disk Parameter Headers
+                                ;referenced by this drive table are set to 0FFFEH, GENCPM allocates the
+                                ;appropriate data structures and updates the DPH. You can supply the
+                                ;drive table even if you have performed your own memory allocation.
+                                ;
+                                ;
+                                ;Disk Parameter Header
+                                ;
+                                ;In the following figure, which shows the format of the Disk Parameter
+                                ;Header, B refers to bits.
+                                ;
+                                ;	+---+---+--+---+---+---+------+------+----+-----+
+                                ;	|XLT|-0-|MF|DPB|CSV|ALV|DIRBCB|DTABCB|HASH|HBANK|
+                                ;	+---+---+--+---+---+---+------+------+----+-----+
+                                ;	|16B|72B|8B|16B|16B|16B|  16B |  16B | 16B|  8B |
+                                ;	+---+---+--+---+---+---+------+------+----+-----+
+                                ;
+                                ;
+                                ;Field		Comments
+                                ;XLT	Set the XLT field to the address of the logical to
+                                ;	physical sector translation table. If there is no sector
+                                ;	translation and the logical and physical sector numbers are the
+                                ;	same, set XLT to 0000H. Disk drives with identical sector skew
+                                ;	factors can share the same translation table.
+                                ;
+                                ;	XLT is the value passed to SECTRN in registers DE. Usually the
+                                ;	translation table consists of one byte per physical sector.
+                                ;	Generally, it is advisable to keep the number of physical
+                                ;	sectors per logical track to a reasonable value to prevent the
+                                ;	translation table from becoming too large. In the case of disks
+                                ;	with multiple heads, you can compute the head number from the
+                                ;	track address rather than the sector address.
+                                ;
+                                ;-0-	These 72 bits (9 bytes) of zeroes are the scratch
+                                ;	area the BDOS uses to maintain various parameters associated
+                                ;	with the drive.
+	MACRO-80 3.44	09-Dec-81	PAGE	1-20
+
+
+                                ;
+                                ;MF	MF is the Media Flag. The BDOS resets MF to zero when
+                                ;	the drive is logged in. The BIOS can set this flag and @MEDIA in
+                                ;	the SCB to 0FFH if it detects that a drive door has been opened.
+                                ;	If the flag is set to 0FFH, the BDOS checks for a media change
+                                ;	prior to performing the next BDOS file operation on that drive.
+                                ;	If the BDOS determines that the drive contains a new volume, the
+                                ;	BDOS performs a login on that drive, and resets the MF flag to
+                                ;	00H. Note that the BDOS checks this flag only when a system call
+                                ;	is made, and not during an operation. Usually, this flag is used
+                                ;	only by systems that support door-open interrupts.
+                                ;
+                                ;DPB	Set the DPB field to the address of a Disk Parameter Block
+                                ;	that describes the characteristics of the disk drive. Several
+                                ;	Disk Parameter Headers can address the same Disk Parameter Block
+                                ;	if their drive characteristics are identical. The Disk Parameter
+                                ;	Block is described below
+                                ;
+                                ;CSV	CSV is the address of a scratchpad area used to detect
+                                ;	changed disks. This address must be different for each removable
+                                ;	media Disk Parameter Header. There must be one byte for every 4
+                                ;	directory entries (or 128 bytes of directory). In other words,
+                                ;	length(CSV) = (DRM/4)+l. (See Table 3-3 for an explanation of
+                                ;	the DRM field.) If the drive is permanently mounted, set the CKS
+                                ;	variable in the DPB to 8000H and set CSV to 0000H. This way, no
+                                ;	storage is reserved for a checksum vector. The checksum vector
+                                ;	may be located in common memory or in Bank 0. Set CSV to 0FFFEH
+                                ;	for GENCPM to set up the checksum vector.
+                                ;
+                                ;ALV	ALV is the address of the scratchpad area called the
+                                ;	allocation vector, which the BDOS uses to keep disk storage
+                                ;	allocation information. This area must be unique for each drive.
+                                ;	The allocation vector usually requires 2 bits for each block on
+                                ;	the drive. Thus, length(ALV) = (DSM/4) + 2. In the nonbanked
+                                ;	version of CP/M 3, you can optionally specify that GENCPM
+                                ;	reserve only one bit in the allocation vector per block on the
+                                ;	drive. In this case, length(ALV) = (DSM/8) + The GENCPM option
+                                ;	to use single-bit allocation vectors is provided in the
+                                ;	nonbanked version of CP/M 3 because additional memory is
+                                ;	required by the double-bit allocation vector. This option
+                                ;	applies to all drives on the system. With double-bit allocation
+                                ;	vectors, CP/M 3 automatically frees, at every system warm start,
+                                ;	all file blocks that are not permanently recorded in the
+                                ;	directory. Note that file space allocated to a file is not
+                                ;	permanently recorded in a directory unless the file is closed.
+                                ;	Therefore, the allocation vectors in memory can indicate that
+                                ;	space is allocated although directory records indicate that
+                                ;	space is free for allocation. With single-bit allocation
+                                ;	vectors, CP/M 3 requires that a drive be reset before this space
+                                ;	can be reclaimed. Because it increases performance, CP/M 3 does
+                                ;	not reset disks at system warm start. Thus, with single-bit
+                                ;	allocation vectors, if you do not reset the disk system, DIR and
+                                ;	SHOW can report an inaccurate amount of free space. With
+                                ;	single-bit allocation vectors, the user must type a CTRL-C at
+                                ;	the system prompt to (continued) reset the disk system to ensure
+                                ;	accurate reporting of free space. Set ALV to 0FFFEH for GENCPM
+	MACRO-80 3.44	09-Dec-81	PAGE	1-21
+
+
+                                ;	to automatically assign space for the allocation vector, single-
+                                ;	or double-bit, during system generation. In the nonbanked
+                                ;	system, GENCPM prompts for the type of allocation vector. In the
+                                ;	banked system, the allocation vector is always double-bit and
+                                ;	can reside in common memory or Bank 0. When GENCPM automatically
+                                ;	assigns space for the allocation vector (ALV = OFFFEH) , it
+                                ;	places the allocation vector in Bank 0.
+                                ;
+                                ;DIRBCB	Set DIRBCB to the address of a single directory Buffer
+                                ;	Control Block (BCB) in an unbanked system. Set DIRBCB to the
+                                ;	address of a BCB list head in a banked system. Set DIRBCB to
+                                ;	OFFFEH for GENCPM to set up the DIRBCB field. The BDOS uses
+                                ;	directory buffers for all accesses of the disk directory.
+                                ;	Several DPHs can refer to the same directory BCB or BCB list
+                                ;	head; or, each DPH can reference an independent BCB or BCB list
+                                ;	head.
+                                ;
+                                ;DTABCB	Set DTABCB to the address of a single data BCB in an unbanked system.
+                                ;	Set DTABCB to the address of a data BCB list head in a banked
+                                ;	system. Set DTABCB to OFFFEH for GENCPM to set up the DTABCB
+                                ;	field. The BDOS uses data buffers to hold physical sectors so
+                                ;	that it can block and deblock logical 128-byte records. If the
+                                ;	physical record size of the media associated with a DPH is 128
+                                ;	bytes, you can set the DTABCB field of the DPH to 0FFFFH,
+                                ;	because in this case, the BDOS does not use a data buffer.
+                                ;
+                                ;HASH	HASH contains the address of the optional directory hashing table
+                                ;	associated with a DPH. Set HASH to 0FFFFH to disable directory
+                                ;	hashing. Set RASH to OFFFEH to make directory hashing on the
+                                ;	drive a (continued) GENCPM option. Each DPH using hashing must
+                                ;	reference a unique hash table. If a hash table is supplied, it
+                                ;	must be 4*(DRM+l) bytes long, where DRM is one less than the
+                                ;	length of the directory. In other words, the hash table must
+                                ;	contain four bytes for each directory entry of the disk.
+                                ;
+                                ;HBANK	Set HBANK to the bank number of the hash table. HBANK is
+                                ;	not used in unbanked systems and should be set to zero. The hash
+                                ;	tables can be contained in the system bank, common memory, or
+                                ;	any alternate bank except Bank 1, because hash tables cannot be
+                                ;	located in the Transient Program Area. GENCPM automatically sets
+                                ;	HBANK when HASH is set to 0FFFEH.
+                                ;
+                                ;
+                                ;Disk Parameter Block
+                                ;
+                                ;The following figure shows the format of the Disk Parameter Block, where
+                                ;B refers to bits.
+                                ;
+                                ;		+---+---+---+---+---+---+---+---+---+---+---+---+
+                                ;		|SPT|BSH|BLM|EXM|DSM|DRM|AL0|AL1|CKS|OFF|PSH|PHM|
+                                ;		+---+---+---+---+---+---+---+---+---+---+---+---+
+                                ;		|16B| 8B| 8B| 8B|16B|16B| 8B| 8B|16B|16B| 8B| 8B|
+                                ;		+---+---+---+---+---+---+---+---+---+---+---+---+
+                                ;
+                                ;Field		Comments
+                                ;SPT		Set SPT to the total number of 128-byte logical
+	MACRO-80 3.44	09-Dec-81	PAGE	1-22
+
+
+                                ;		records per track.
+                                ;
+                                ;BSH		Data allocation block shift factor. The value of BSH
+                                ;		is determined by the data block allocation size.
+                                ;
+                                ;BLM		Block mask. The value of BLM is determined by the
+                                ;		data block allocation size.
+                                ;
+                                ;EXM		Extent mask determined by the data block allocation
+                                ;		size and the number of disk blocks.
+                                ;
+                                ;DSM		Determines the total storage capacity of the disk
+                                ;		drive. DSM is one less than the total number of blocks
+                                ;		on the drive.
+                                ;
+                                ;DRM		Total number of directory entries minus one that can
+                                ;		be stored on this drive. The directory requires 32 bytes
+                                ;		per entry.
+                                ;
+                                ;ALO, AL1	Determine reserved directory blocks. See Figure 3-4 for
+                                ;		more information.
+                                ;
+                                ;CKS		The size of the directory check vector, (DRM/4)+1.
+                                ;		Set bit 15 of CKS to 1 if the drive is permanently
+                                ;		mounted. Set CKS to 8000H to indicate that the drive is
+                                ;		permanently mounted and directory checksumming is not
+                                ;		required. Note: full directory checksumming is required
+                                ;		on removable media to support the automatic login
+                                ;		feature of CP/M 3.
+                                ;
+                                ;OFF		The number of reserved tracks at the beginning of the
+                                ;		logical disk. 0FF is the track on which the directory
+                                ;		starts.
+                                ;
+                                ;PSH		Specifies the physical record shift factor.
+                                ;
+                                ;PHM		Specifies the physical record mask.
+                                ;
+                                ;CP/M allocates disk space in a unit called a block. Blocks are also
+                                ;called allocation units, or clusters. BLS is the number of bytes in a
+                                ;block. The block size can be 1024, 2048, 4096, 8192, or 16384 (decimal)
+                                ;bytes.
+                                ;
+                                ;A large block size decreases the size of the allocation vectors but can
+                                ;result in wasted disk space. A smaller block size increases the size of
+                                ;the allocation vectors because there are more blocks on the same size
+                                ;disk.
+                                ;
+                                ;There is a restriction on the block size. If the block size is 1024,
+                                ;there cannot be more than 255 blocks present on a logical drive. In
+                                ;other words, if the disk is larger than 256K, it is necessary to use at
+                                ;least 2048 byte blocks.
+                                ;
+                                ;The value of BLS is not a field in the Disk Parameter Block; rather, it
+                                ;is derived from the values of BSH and BLM as given in the following
+                                ;table.
+	MACRO-80 3.44	09-Dec-81	PAGE	1-23
+
+
+                                ;
+                                ;	BLS	BSH	BLM
+                                ;	1,024	3	7
+                                ;	2,048	4	15
+                                ;	4,096	5	31
+                                ;	8,192	6	63
+                                ;	16,384	7	127
+                                ;
+                                ;The block mask, BLM, equals one less than the number of 128- byte
+                                ;records in an allocation unit, (BLS/128 - 1), or (2**BSH)-l.
+                                ;
+                                ;The value of the Block Shift Factor, BSH, is determined by the data
+                                ;block allocation size. The Block Shift Factor (BSH) equals the logarithm
+                                ;base two of the block size in 128-byte records, or LOG2 (BLS/128) ,
+                                ;where LOG2 represents the binary logarithm function.
+                                ;
+                                ;The value of EXM depends upon both the BLS and whether the DSM value is
+                                ;less than 256 or greater than 255, as shown in the following table.
+                                ;
+                                ;	BLS	EXM values
+                                ;		DSM<256		DSM>255
+                                ;	1,024	0		N/A
+                                ;	2,048	1		0
+                                ;	4,096	3		1
+                                ;	8,192	7		3
+                                ;	16,384	15		7
+                                ;
+                                ;The value of EXM is one less than the maximum number of 16K extents per
+                                ;FCB. Set EXM to zero if you want media compatibility with an extended
+                                ;CP/M 1.4 system. This only applies to double-density CP/M 1.4 systems,
+                                ;with disk sizes greater than 256K bytes. It is preferable to copy
+                                ;double-density 1.4 disks to single-density, then reformat them and
+                                ;recreate them with the CP/M 3 system, because CP/M 3 uses directory
+                                ;entries more effectively than CP/M 1.4.
+                                ;
+                                ;DSM is one less than the total number of blocks on the drive. DSM must
+                                ;be less than or equal to 7FFFH. If the disk uses 1024 byte blocks
+                                ;(BSH=3, BLM=7), DSM must be less than or equal to OOFFH. The product
+                                ;BLS*(DSM+l) is the total number of bytes the drive holds and must be
+                                ;within the capacity of the physical disk. It does not include the
+                                ;reserved operating system tracks.
+                                ;
+                                ;The DRM entry is one less than the total number of 32-byte directory
+                                ;entries, and is a 16-bit value. DRM must be less than or equal to
+                                ;(BLS/32 * 16) - 1. DRM determines the values of AL0 and ALI. The two
+                                ;fields AL0 and ALI can together be considered a string of 16 bits, as
+                                ;shown in the following figure.
+                                ;
+                                ;	+-----------------------+-----------------------+
+                                ;	|	AL0		|	AL1		|
+                                ;	+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+                                ;	|00|01|02|03|04|05|06|07|08|09|10|11|12|13|14|15|
+                                ;	+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+                                ;
+                                ;Position 00 corresponds to the high-order bit of the byte labeled AL0,
+                                ;and position 15 corresponds to the low-order bit of the byte labeled
+	MACRO-80 3.44	09-Dec-81	PAGE	1-24
+
+
+                                ;ALI. Each bit position reserves a data block for a number of directory
+                                ;entries, thus allowing a maximum of 16 data blocks to be assigned for
+                                ;directory entries. Bits are assigned starting at 00 and filled to the
+                                ;right until position 15. AL0 and ALI overlay the first two bytes of the
+                                ;allocation vector for the associated drive.
+                                ;
+                                ;The following table shows DRM maximums for the various block sizes.
+                                ;
+                                ;	BLS	Directory Entries	Maximum DRM
+                                ;	1,024	 32 * reserved blocks	511
+                                ;	2,048	 64 * reserved blocks	1,023
+                                ;	4,096	128 * reserved blocks	2,047
+                                ;	8,192	256 * reserved blocks	4,095
+                                ;	16,384	512 * reserved blocks	8,191
+                                ;
+                                ;If DRM = 127 (128 directory entries) , and BLS = 1024, there are 32
+                                ;directory entries per block, requiring 4 reserved blocks. In this case,
+                                ;the 4 high-order bits of AL0 are set, resulting in the values AL0 = OF0H
+                                ;and AL1 = 00H. The maximum directory allocation is 16 blocks where the
+                                ;block size is determined by BSH and BLM.
+                                ;
+                                ;The OFF field determines the number of tracks that are skipped at the
+                                ;beginning of the physical disk. It can be used as a mechanism for
+                                ;skipping reserved operating system tracks, which on system disks contain
+                                ;the Cold Boot Loader, CPMLDR, and possibly the CCP. It is also used to
+                                ;partition a large disk into smaller segmented sections.
+                                ;
+                                ;PSH and PHM determine the physical sector size of the disk. All disk I/O
+                                ;is in terms of the physical sector size. Set PSH and PSM to zero if the
+                                ;BIOS is blocking and deblocking instead of the BDOS.
+                                ;
+                                ;PSH specifies the physical record shift factor, ranging from 0 to 5,
+                                ;corresponding to physical record sizes of 128, 256, 512, 1K, 2K, or 4K
+                                ;bytes. It is equal to the logarithm base two of the physical record size
+                                ;divided by 128, or LOG2(sector-size/128). See the table below for PSH
+                                ;values.
+                                ;
+                                ;PHM specifies the physical record mask, ranging from 0 to 31,
+                                ;corresponding to physical record sizes of 128, 256, 512, 1K, 2K, or 4K
+                                ;bytes. It is equal to one less than the sector size divided by 128, or,
+                                ;(sector-size/128)-l. See the following table for PHM values.
+                                ;
+                                ;	Sector size	PSH	PHM
+                                ;	128		0	0
+                                ;	256		1	1
+                                ;	512		2	3
+                                ;	1,024		3	7
+                                ;	2,048		4	15
+                                ;	4,096		5	31
+                                ;
+                                
+  01D6"                         	cseg
+                                
+  FFFE                          gencpm	equ	0fffeh
+                                
+                                dpb	macro	?spt,?bsh,?blm,?exm,?dsm,?drm1,?al0,?cks,?rstk,?psh,?phm
+	MACRO-80 3.44	09-Dec-81	PAGE	1-25
+
+
+                                	dw	?spt	; SPT
+                                	db	?bsh	; BSH
+                                	db	?blm	; BLM
+                                	db	?exm	; EXM
+                                	dw	?dsm	; DSM
+                                	dw	?drm1-1	; DRM
+                                	db	?al0	; AL0
+                                	db	0	; AL1
+                                	dw	?cks	; CKS
+                                	dw	?rstk	; OFF
+                                	db	?psh ;0	; PSH
+                                	db	?phm ;0	; PHM
+                                	endm
+                                
+                                dph	macro	?xlt,?dpb,?csv
+                                	dw	?xlt			; XLT
+                                	db	0,0,0,0,0,0,0,0,0	; -0-
+                                	db	0			; MF
+                                	dw	?dpb			; DPB
+                                	dw	?csv			; CSV
+                                	dw	gencpm			; ALV
+                                	dw	gencpm			; DIRBCB
+                                	dw	gencpm			; DTABCB
+                                	dw	0ffffh			; HASH
+                                	db	0			; HBANK
+                                	endm
+                                
+                                dtblh	macro	prefix,val
+                                	dw	prefix&val
+                                	endm
+                                
+                                dtbl	macro	base,n,prefix
+                                cnt	defl	base
+                                	rept	n
+                                	dtblh	prefix,%cnt
+                                cnt	defl	cnt + 1
+                                	endm
+                                	endm
+                                
+                                maklab	macro	prefix,val
+                                prefix&val:
+                                	endm
+                                
+  02BB'                         dtbla:	dtbl	0,8,dph			; 8 floppy headers
+  02BB'   01D6"           +     	dw	dph&0
+  02BD'   01EF"           +     	dw	dph&1
+  02BF'   0208"           +     	dw	dph&2
+  02C1'   0221"           +     	dw	dph&3
+  02C3'   023A"           +     	dw	dph&4
+  02C5'   0253"           +     	dw	dph&5
+  02C7'   026C"           +     	dw	dph&6
+  02C9'   0285"           +     	dw	dph&7
+                                	dtbl	8,nhdisks,dph		; nhdisks hard disk headers
+  02CB'   029E"           +     	dw	dph&8
+  02CD'   02B7"           +     	dw	dph&9
+  02CF'   02D0"           +     	dw	dph&10
+	MACRO-80 3.44	09-Dec-81	PAGE	1-26
+
+
+  02D1'   02E9"           +     	dw	dph&11
+                                	rept	8-nhdisks		; rest (8-nhdisks) is 0
+                                	dw	0
+                                	endm
+  02D3'   0000            +     	dw	0
+  02D5'   0000            +     	dw	0
+  02D7'   0000            +     	dw	0
+  02D9'   0000            +     	dw	0
+                                
+  02DB'                         dpbX:	dpb	32,4,15,0,01efh, 256, 0f0h,40h,6,0,0
+  02DB'   0020            +     	dw	32	; SPT
+  02DD'   04              +     	db	4	; BSH
+  02DE'   0F              +     	db	15	; BLM
+  02DF'   00              +     	db	0	; EXM
+  02E0'   01EF            +     	dw	01efh	; DSM
+  02E2'   00FF            +     	dw	256-1	; DRM
+  02E4'   F0              +     	db	0f0h	; AL0
+  02E5'   00              +     	db	0	; AL1
+  02E6'   0040            +     	dw	40h	; CKS
+  02E8'   0006            +     	dw	6	; OFF
+  02EA'   00              +     	db	0 ;0	; PSH
+  02EB'   00              +     	db	0 ;0	; PHM
+  02EC'                         dpbN:	dpb	32,3, 7,0,00e3h, 256, 0ffh,40h,6,0,0
+  02EC'   0020            +     	dw	32	; SPT
+  02EE'   03              +     	db	3	; BSH
+  02EF'   07              +     	db	7	; BLM
+  02F0'   00              +     	db	0	; EXM
+  02F1'   00E3            +     	dw	00e3h	; DSM
+  02F3'   00FF            +     	dw	256-1	; DRM
+  02F5'   FF              +     	db	0ffh	; AL0
+  02F6'   00              +     	db	0	; AL1
+  02F7'   0040            +     	dw	40h	; CKS
+  02F9'   0006            +     	dw	6	; OFF
+  02FB'   00              +     	db	0 ;0	; PSH
+  02FC'   00              +     	db	0 ;0	; PHM
+                                
+                                ;dpb0:	dpb	32,5,31,1,2047-6,1024,0ffh,8000h,6,2,3	; AltairZ80 HDSK Image
+                                ;dpb1:	dpb	32,3, 7,0,127,63,0C0h,0h,0,2,3		; 128K FLASH Disk Image
+                                ;dpb2:	dpb	72,4, 15,0,711,255,0F0h,0h,2,2,3	; P112
+                                ;dpb3:	dpb	36,4, 15,0,354,127,0C0h,0020h,2,2,3	; Super-I/O 720K
+                                
+  0000                          cnt	defl	0
+                                	rept	nhdisks
+                                	maklab	dpb,%cnt
+                                cnt	defl	cnt+1
+                                	dpb	32,5,31,1,2047-6,1024,0ffh,0100h,6,2,3	; AltairZ80 HDSK Image
+                                	endm
+  02FD'                   +     dpb&0:
+  02FD'   0020            +     	dw	32	; SPT
+  02FF'   05              +     	db	5	; BSH
+  0300'   1F              +     	db	31	; BLM
+  0301'   01              +     	db	1	; EXM
+  0302'   07F9            +     	dw	2047-6	; DSM
+  0304'   03FF            +     	dw	1024-1	; DRM
+  0306'   FF              +     	db	0ffh	; AL0
+  0307'   00              +     	db	0	; AL1
+	MACRO-80 3.44	09-Dec-81	PAGE	1-27
+
+
+  0308'   0100            +     	dw	0100h	; CKS
+  030A'   0006            +     	dw	6	; OFF
+  030C'   02              +     	db	2 ;0	; PSH
+  030D'   03              +     	db	3 ;0	; PHM
+  030E'                   +     dpb&1:
+  030E'   0020            +     	dw	32	; SPT
+  0310'   05              +     	db	5	; BSH
+  0311'   1F              +     	db	31	; BLM
+  0312'   01              +     	db	1	; EXM
+  0313'   07F9            +     	dw	2047-6	; DSM
+  0315'   03FF            +     	dw	1024-1	; DRM
+  0317'   FF              +     	db	0ffh	; AL0
+  0318'   00              +     	db	0	; AL1
+  0319'   0100            +     	dw	0100h	; CKS
+  031B'   0006            +     	dw	6	; OFF
+  031D'   02              +     	db	2 ;0	; PSH
+  031E'   03              +     	db	3 ;0	; PHM
+  031F'                   +     dpb&2:
+  031F'   0020            +     	dw	32	; SPT
+  0321'   05              +     	db	5	; BSH
+  0322'   1F              +     	db	31	; BLM
+  0323'   01              +     	db	1	; EXM
+  0324'   07F9            +     	dw	2047-6	; DSM
+  0326'   03FF            +     	dw	1024-1	; DRM
+  0328'   FF              +     	db	0ffh	; AL0
+  0329'   00              +     	db	0	; AL1
+  032A'   0100            +     	dw	0100h	; CKS
+  032C'   0006            +     	dw	6	; OFF
+  032E'   02              +     	db	2 ;0	; PSH
+  032F'   03              +     	db	3 ;0	; PHM
+  0330'                   +     dpb&3:
+  0330'   0020            +     	dw	32	; SPT
+  0332'   05              +     	db	5	; BSH
+  0333'   1F              +     	db	31	; BLM
+  0334'   01              +     	db	1	; EXM
+  0335'   07F9            +     	dw	2047-6	; DSM
+  0337'   03FF            +     	dw	1024-1	; DRM
+  0339'   FF              +     	db	0ffh	; AL0
+  033A'   00              +     	db	0	; AL1
+  033B'   0100            +     	dw	0100h	; CKS
+  033D'   0006            +     	dw	6	; OFF
+  033F'   02              +     	db	2 ;0	; PSH
+  0340'   03              +     	db	3 ;0	; PHM
+                                
+                                    if	banked
+  0341'                         crwbank:
+  0341'   00                    	db	0	; bank desired by READ or WRITE
+  0342'   00                    cbank:	db	0	; current bank
+                                    endif
+                                
+  0343'                         altbuf:	ds	asecsiz+1+384
+                                ;		   12345678123
+  054D'   01 43 43 50           ccpFCB:	db	1,'CCP     COM',0,0,0,0
+  0551'   20 20 20 20           
+  0555'   20 43 4F 4D           
+  0559'   00 00 00 00           
+	MACRO-80 3.44	09-Dec-81	PAGE	1-28
+
+
+  055D'   00 00 00 00           	db	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0561'   00 00 00 00           
+  0565'   00 00 00 00           
+  0569'   00 00 00 00           
+  056D'   00 00 00              fcbNr:	db	0,0,0
+  0570'   0D 0A 42 49           opnmsg:	db	cr, lf, 'BIOS can''t open CCP.COM $'
+  0574'   4F 53 20 63           
+  0578'   61 6E 27 74           
+  057C'   20 6F 70 65           
+  0580'   6E 20 43 43           
+  0584'   50 2E 43 4F           
+  0588'   4D 20 24              
+  058B'   0D 0A 42 49           iomsg:	db	cr, lf, 'BIOS I/O error reading CCP.COM $'
+  058F'   4F 53 20 49           
+  0593'   2F 4F 20 65           
+  0597'   72 72 6F 72           
+  059B'   20 72 65 61           
+  059F'   64 69 6E 67           
+  05A3'   20 43 43 50           
+  05A7'   2E 43 4F 4D           
+  05AB'   20 24                 
+  05AD'   0D 0A 43 61           secmsg:	db	cr, lf, 'Cannot find sector in register <B>', cr, lf, '$'
+  05B1'   6E 6E 6F 74           
+  05B5'   20 66 69 6E           
+  05B9'   64 20 73 65           
+  05BD'   63 74 6F 72           
+  05C1'   20 69 6E 20           
+  05C5'   72 65 67 69           
+  05C9'   73 74 65 72           
+  05CD'   20 3C 42 3E           
+  05D1'   0D 0A 24              
+                                    if	banked
+                                dbhex	macro	?val
+                                    if	?val gt 9
+                                	db	'A'+?val-10
+                                    else
+                                	db	'0'+?val
+                                    endif
+                                	endm
+                                
+  05D4'                         nobankedmemory:
+  05D4'   0D 0A 4E 6F           	db	cr, lf, 'No banked memory detected with common base 0'
+  05D8'   20 62 61 6E           
+  05DC'   6B 65 64 20           
+  05E0'   6D 65 6D 6F           
+  05E4'   72 79 20 64           
+  05E8'   65 74 65 63           
+  05EC'   74 65 64 20           
+  05F0'   77 69 74 68           
+  05F4'   20 63 6F 6D           
+  05F8'   6D 6F 6E 20           
+  05FC'   62 61 73 65           
+  0600'   20 30                 
+                                	dbhex	%(0fh and (expcom shr 12))
+  0602'   43              +     	db	'A'+12-10
+                                	dbhex	%(0fh and (expcom shr 8))
+	MACRO-80 3.44	09-Dec-81	PAGE	1-29
+
+
+  0603'   30              +     	db	'0'+0
+                                	dbhex	%(0fh and (expcom shr 4))
+  0604'   30              +     	db	'0'+0
+                                	dbhex	%(0fh and expcom)
+  0605'   30              +     	db	'0'+0
+  0606'   68 2E 0D 0A           	db	'h.', cr, lf, '$'
+  060A'   24                    
+                                    endif
+  060B'   0D 0A 42 49           versio:	db	cr, lf, 'BIOS3'
+  060F'   4F 53 33              
+                                
+                                    if	banked
+  0612'   20 42 61 6E           	db	' Banked'
+  0616'   6B 65 64              
+                                    endif
+                                
+  0619'   20 66 6F 72           	db	' for SIMH Altair V-1.27, '
+  061D'   20 53 49 4D           
+  0621'   48 20 41 6C           
+  0625'   74 61 69 72           
+  0629'   20 56 2D 31           
+  062D'   2E 32 37 2C           
+  0631'   20                    
+                                
+                                    if	nhdisks gt 0
+  0632'   34                    	db	'0' + nhdisks
+  0633'   20 48 44 2C           	db	' HD, '
+  0637'   20                    
+                                    endif
+                                
+  0638'   30 32 2D 4D           	db  '02-May-2009', cr, lf, cr, lf, '$'
+  063C'   61 79 2D 32           
+  0640'   30 30 39 0D           
+  0644'   0A 0D 0A 24           
+                                
+  0648'   43 52 54 20           ctbla:	db 'CRT   '	; device 0
+  064C'   20 20                 
+  064E'   03                    	db mb$in$out
+  064F'   00                    	db baud$none
+  0650'   50 54 50 20           	db 'PTP   '	; device 1
+  0654'   20 20                 
+  0656'   02                    	db mb$output
+  0657'   00                    	db baud$none
+  0658'   50 54 52 20           	db 'PTR   '	; device 2
+  065C'   20 20                 
+  065E'   01                    	db mb$input
+  065F'   00                    	db baud$none
+  0660'   00                    	db 0		; table terminator
+                                
+  0661'                         	dseg
+                                
+  01D6"                         dph0:	dph	atrans,dpbX,gencpm
+  01D6"   0302"           +     	dw	atrans			; XLT
+  01D8"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  01DC"   00 00 00 00     +     
+  01E0"   00              +     
+	MACRO-80 3.44	09-Dec-81	PAGE	1-30
+
+
+  01E1"   00              +     	db	0			; MF
+  01E2"   02DB'           +     	dw	dpbX			; DPB
+  01E4"   FFFE            +     	dw	gencpm			; CSV
+  01E6"   FFFE            +     	dw	gencpm			; ALV
+  01E8"   FFFE            +     	dw	gencpm			; DIRBCB
+  01EA"   FFFE            +     	dw	gencpm			; DTABCB
+  01EC"   FFFF            +     	dw	0ffffh			; HASH
+  01EE"   00              +     	db	0			; HBANK
+  01EF"                         dph1:	dph	atrans,dpbX,gencpm
+  01EF"   0302"           +     	dw	atrans			; XLT
+  01F1"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  01F5"   00 00 00 00     +     
+  01F9"   00              +     
+  01FA"   00              +     	db	0			; MF
+  01FB"   02DB'           +     	dw	dpbX			; DPB
+  01FD"   FFFE            +     	dw	gencpm			; CSV
+  01FF"   FFFE            +     	dw	gencpm			; ALV
+  0201"   FFFE            +     	dw	gencpm			; DIRBCB
+  0203"   FFFE            +     	dw	gencpm			; DTABCB
+  0205"   FFFF            +     	dw	0ffffh			; HASH
+  0207"   00              +     	db	0			; HBANK
+  0208"                         dph2:	dph	atrans,dpbX,gencpm
+  0208"   0302"           +     	dw	atrans			; XLT
+  020A"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  020E"   00 00 00 00     +     
+  0212"   00              +     
+  0213"   00              +     	db	0			; MF
+  0214"   02DB'           +     	dw	dpbX			; DPB
+  0216"   FFFE            +     	dw	gencpm			; CSV
+  0218"   FFFE            +     	dw	gencpm			; ALV
+  021A"   FFFE            +     	dw	gencpm			; DIRBCB
+  021C"   FFFE            +     	dw	gencpm			; DTABCB
+  021E"   FFFF            +     	dw	0ffffh			; HASH
+  0220"   00              +     	db	0			; HBANK
+  0221"                         dph3:	dph	atrans,dpbX,gencpm
+  0221"   0302"           +     	dw	atrans			; XLT
+  0223"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  0227"   00 00 00 00     +     
+  022B"   00              +     
+  022C"   00              +     	db	0			; MF
+  022D"   02DB'           +     	dw	dpbX			; DPB
+  022F"   FFFE            +     	dw	gencpm			; CSV
+  0231"   FFFE            +     	dw	gencpm			; ALV
+  0233"   FFFE            +     	dw	gencpm			; DIRBCB
+  0235"   FFFE            +     	dw	gencpm			; DTABCB
+  0237"   FFFF            +     	dw	0ffffh			; HASH
+  0239"   00              +     	db	0			; HBANK
+  023A"                         dph4:	dph	atrans,dpbX,gencpm
+  023A"   0302"           +     	dw	atrans			; XLT
+  023C"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  0240"   00 00 00 00     +     
+  0244"   00              +     
+  0245"   00              +     	db	0			; MF
+  0246"   02DB'           +     	dw	dpbX			; DPB
+  0248"   FFFE            +     	dw	gencpm			; CSV
+  024A"   FFFE            +     	dw	gencpm			; ALV
+	MACRO-80 3.44	09-Dec-81	PAGE	1-31
+
+
+  024C"   FFFE            +     	dw	gencpm			; DIRBCB
+  024E"   FFFE            +     	dw	gencpm			; DTABCB
+  0250"   FFFF            +     	dw	0ffffh			; HASH
+  0252"   00              +     	db	0			; HBANK
+  0253"                         dph5:	dph	atrans,dpbX,gencpm
+  0253"   0302"           +     	dw	atrans			; XLT
+  0255"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  0259"   00 00 00 00     +     
+  025D"   00              +     
+  025E"   00              +     	db	0			; MF
+  025F"   02DB'           +     	dw	dpbX			; DPB
+  0261"   FFFE            +     	dw	gencpm			; CSV
+  0263"   FFFE            +     	dw	gencpm			; ALV
+  0265"   FFFE            +     	dw	gencpm			; DIRBCB
+  0267"   FFFE            +     	dw	gencpm			; DTABCB
+  0269"   FFFF            +     	dw	0ffffh			; HASH
+  026B"   00              +     	db	0			; HBANK
+  026C"                         dph6:	dph	atrans,dpbX,gencpm
+  026C"   0302"           +     	dw	atrans			; XLT
+  026E"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  0272"   00 00 00 00     +     
+  0276"   00              +     
+  0277"   00              +     	db	0			; MF
+  0278"   02DB'           +     	dw	dpbX			; DPB
+  027A"   FFFE            +     	dw	gencpm			; CSV
+  027C"   FFFE            +     	dw	gencpm			; ALV
+  027E"   FFFE            +     	dw	gencpm			; DIRBCB
+  0280"   FFFE            +     	dw	gencpm			; DTABCB
+  0282"   FFFF            +     	dw	0ffffh			; HASH
+  0284"   00              +     	db	0			; HBANK
+  0285"                         dph7:	dph	atrans,dpbN,gencpm
+  0285"   0302"           +     	dw	atrans			; XLT
+  0287"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  028B"   00 00 00 00     +     
+  028F"   00              +     
+  0290"   00              +     	db	0			; MF
+  0291"   02EC'           +     	dw	dpbN			; DPB
+  0293"   FFFE            +     	dw	gencpm			; CSV
+  0295"   FFFE            +     	dw	gencpm			; ALV
+  0297"   FFFE            +     	dw	gencpm			; DIRBCB
+  0299"   FFFE            +     	dw	gencpm			; DTABCB
+  029B"   FFFF            +     	dw	0ffffh			; HASH
+  029D"   00              +     	db	0			; HBANK
+                                
+                                dpbx	macro	prefix,val
+                                	dph	0,prefix&val,gencpm
+                                	endm
+                                
+  0000                          cnt1	defl	0
+  0008                          cnt2	defl	8
+                                	rept	nhdisks
+                                	maklab	dph,%cnt2
+                                	dpbx	dpb,%cnt1
+                                cnt1	defl	cnt1+1
+                                cnt2	defl	cnt2+1
+                                	endm
+	MACRO-80 3.44	09-Dec-81	PAGE	1-32
+
+
+  029E"                   +     dph&8:
+  029E"   0000            +     	dw	0			; XLT
+  02A0"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  02A4"   00 00 00 00     +     
+  02A8"   00              +     
+  02A9"   00              +     	db	0			; MF
+  02AA"   02FD'           +     	dw	dpb&0			; DPB
+  02AC"   FFFE            +     	dw	gencpm			; CSV
+  02AE"   FFFE            +     	dw	gencpm			; ALV
+  02B0"   FFFE            +     	dw	gencpm			; DIRBCB
+  02B2"   FFFE            +     	dw	gencpm			; DTABCB
+  02B4"   FFFF            +     	dw	0ffffh			; HASH
+  02B6"   00              +     	db	0			; HBANK
+  02B7"                   +     dph&9:
+  02B7"   0000            +     	dw	0			; XLT
+  02B9"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  02BD"   00 00 00 00     +     
+  02C1"   00              +     
+  02C2"   00              +     	db	0			; MF
+  02C3"   030E'           +     	dw	dpb&1			; DPB
+  02C5"   FFFE            +     	dw	gencpm			; CSV
+  02C7"   FFFE            +     	dw	gencpm			; ALV
+  02C9"   FFFE            +     	dw	gencpm			; DIRBCB
+  02CB"   FFFE            +     	dw	gencpm			; DTABCB
+  02CD"   FFFF            +     	dw	0ffffh			; HASH
+  02CF"   00              +     	db	0			; HBANK
+  02D0"                   +     dph&10:
+  02D0"   0000            +     	dw	0			; XLT
+  02D2"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  02D6"   00 00 00 00     +     
+  02DA"   00              +     
+  02DB"   00              +     	db	0			; MF
+  02DC"   031F'           +     	dw	dpb&2			; DPB
+  02DE"   FFFE            +     	dw	gencpm			; CSV
+  02E0"   FFFE            +     	dw	gencpm			; ALV
+  02E2"   FFFE            +     	dw	gencpm			; DIRBCB
+  02E4"   FFFE            +     	dw	gencpm			; DTABCB
+  02E6"   FFFF            +     	dw	0ffffh			; HASH
+  02E8"   00              +     	db	0			; HBANK
+  02E9"                   +     dph&11:
+  02E9"   0000            +     	dw	0			; XLT
+  02EB"   00 00 00 00     +     	db	0,0,0,0,0,0,0,0,0	; -0-
+  02EF"   00 00 00 00     +     
+  02F3"   00              +     
+  02F4"   00              +     	db	0			; MF
+  02F5"   0330'           +     	dw	dpb&3			; DPB
+  02F7"   FFFE            +     	dw	gencpm			; CSV
+  02F9"   FFFE            +     	dw	gencpm			; ALV
+  02FB"   FFFE            +     	dw	gencpm			; DIRBCB
+  02FD"   FFFE            +     	dw	gencpm			; DTABCB
+  02FF"   FFFF            +     	dw	0ffffh			; HASH
+  0301"   00              +     	db	0			; HBANK
+                                
+                                ; speedball (copylib) skewtable
+  0302"   01 12 03 14           atrans:	db	01,18,03,20,05,22,07,24
+  0306"   05 16 07 18           
+	MACRO-80 3.44	09-Dec-81	PAGE	1-33
+
+
+  030A"   09 1A 0B 1C           	db	09,26,11,28,13,30,15,32
+  030E"   0D 1E 0F 20           
+  0312"   11 02 13 04           	db	17,02,19,04,21,06,23,08
+  0316"   15 06 17 08           
+  031A"   19 0A 1B 0C           	db	25,10,27,12,29,14,31,16
+  031E"   1D 0E 1F 10           
+                                
+                                ; Position of disk drive head
+  0322"   FF                    ontrk0:	db	track1	; current track# drive 0 (logical 1)
+  0323"   FF                    	db	track1	; current track# drive 1 (logical 2)
+  0324"   FF                    	db	track1	; current track# drive 2 (logical 3)
+  0325"   FF                    	db	track1	; current track# drive 3 (logical 4)
+  0326"   FF                    	db	track1	; current track# drive 4 (logical 5)
+  0327"   FF                    	db	track1	; current track# drive 5 (logical 6)
+  0328"   FF                    	db	track1	; current track# drive 6 (logical 7)
+  0329"   FF                    	db	track1	; current track# drive 7 (logical 8)
+  032A"   00                    diskno:	db	0
+  032B"   0000                  track:	dw	0
+  032D"   00                    sector:	db	0
+  032E"   0000                  dmaad:	dw	0
+  0330"   0080                  hsecsiz: dw	0080h
+                                
+                                	end
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+DBHEX           DPB             DPBX            DPH             DTBL            
+DTBLH           LDBC            MAKLAB          
+
+Symbols:
+021B'	?CI             0221'	?CIST           0227'	?CO             
+022D'	?COST           0201*	@AIVEC          01A6*	@AOVEC          
+0000*	@BNKBF          01FB*	@CIVEC          01A0*	@COVEC          
+0000*	@CRDMA          0000*	@CRDSK          016B*	@DATE           
+0000*	@ERMDE          0000*	@FX             0000*	@HOUR           
+01AC*	@LOVEC          0000*	@MIN            0087*	@MXTPA          
+0000*	@RESEL          0000*	@SEC            0000*	@USRCD          
+0000*	@VINFO          0172"	ALSEEK          0343'	ALTBUF          
+00AF"	AREAD           0089 	ASECSIZ         0187"	ASEEK           
+0302"	ATRANS          0200'	AUXIN           01E5'	AUXIST          
+01A5'	AUXOST          0182'	AUXOUT          0122"	AWRITE          
+FFFF 	BANKED          0000 	BAUD$NONE       0005 	BDOS            
+0001 	BIOSERR         00BB"	BLRD1           0000"	BOOT            
+0000 	BOOTRAM         0105'	BSTACK          01A5"	CALCD           
+0342'	CBANK           0100 	CCP             054D'	CCPFCB          
+0206'	CI$NEXT         021A'	CI$RDY          01D7'	CIL             
+01EA'	CIS$NEXT        01C5'	CISTL           0240'	CISTTAB         
+023A'	CITAB           0004 	CLOAD           0004 	CNT             
+0004 	CNT1            000C 	CNT2            018D'	CO$NEXT         
+FF00 	COLDBOOT        0011 	CONDATA         01FA'	CONIN           
+019F'	CONOST          017C'	CONOUT          01DF'	CONST           
+0010 	CONSTAT         01B0'	COS$NEXT        01CE'	COSTL           
+024C'	COSTTAB         0246'	COTAB           000D 	CR              
+0003 	CRESET          0341'	CRWBANK         0080 	CSECSIZ         
+0001 	CSTEPIN         0002 	CSTEPOT         0648'	CTBLA           
+0008 	CULOAD          0080 	CWRSEQ          0108'	DEVINI          
+0105'	DEVTBL          0160"	DHOME           032A"	DISKNO          
+001A 	DMA             0120"	DMA2            032E"	DMAAD           
+0230'	DOTAB           02FD'	DPB0            030E'	DPB1            
+031F'	DPB2            0330'	DPB3            02EC'	DPBN            
+02DB'	DPBX            01D6"	DPH0            01EF"	DPH1            
+02D0"	DPH10           02E9"	DPH11           0208"	DPH2            
+0221"	DPH3            023A"	DPH4            0253"	DPH5            
+026C"	DPH6            0285"	DPH7            029E"	DPH8            
+02B7"	DPH9            0008 	DRIVES          0109'	DRVTBL          
+0009 	DSKCON          000A 	DSKREAD         000A 	DSKWRIT         
+02BB'	DTBLA           C000 	EXPCOM          0000 	FALSE           
+056D'	FCBNR           01F8'	FLUSH           FFFE 	GENCPM          
+0001 	GETCH           026F'	GETCHR          000D 	GETCOMMON       
+0012 	HASBANKEDMEMORY 0004 	HDSKPARAM       0056"	HDSKPL          
+00FD 	HDSKPORT        0002 	HDSKREAD        0001 	HDSKRESET       
+0040"	HDSKSEL         0003 	HDSKWRITE       006A"	HOME            
+0330"	HSECSIZ         0203'	IN$SCAN         058B'	IOMSG           
+01E8'	IST@SCAN        00C3 	JPOP            009F'	LDCCP           
+006B'	LDIR1           0063'	LDIR80          02AB'	LDIRX           
+000A 	LF              0188'	LIST            01AB'	LISTST          
+00FF 	MALL            0003 	MB$IN$OUT       0001 	MB$INPUT        
+0002 	MB$OUTPUT       0002 	MHM             0002 	MOUT            
+0176'	MOVE            0040 	MTZERO          008E"	MULTIO          
+002C 	MULTISEC        0004 	NHDISKS         05D4'	NOBANKEDMEMORY  
+025C'	NOCHR           0198'	NOT$OUT$DEVICE  0322"	ONTRK0          
+	MACRO-80 3.44	09-Dec-81	PAGE	S-1
+
+
+000F 	OPEN            0570'	OPNMSG          01AE'	OST$SCAN        
+018B'	OUT$SCAN        0005 	PARBLOCKSIZE    0171"	POSH1           
+014D"	POSHED          0009 	PRINT           00F8'	PRINTF          
+00ED'	PRTERR          0013 	PUNDATA         0012 	PUNSTAT         
+0098"	READ            0009 	READCLOCK       0014 	READSEQ         
+00AE'	RESETT          0006 	RESTRK          00A3'	RHDSK           
+00D2"	RLDIR           01B2"	SECGET          01C9"	SECLP2          
+05AD'	SECMSG          0009 	SECPOS          032D"	SECTOR          
+0083"	SECTRN          001D"	SELDSK          0199"	SELERR          
+0110'	SELME1          0135'	SELME2          0138'	SELME3          
+0146'	SELME4          0111'	SELME5          010D'	SELMEM          
+0008 	SELOUT          00FA"	SET2            000C 	SETBANKSELECT   
+007F"	SETBNK          0166'	SETCLOCK        0078"	SETDMA          
+0073"	SETSEC          006D"	SETTRK          00FE 	SIMHPORT        
+001B 	SIMHSLEEP       FFFF 	SLEEPOL         0020 	SPT             
+001F 	SPTMASK         0008 	STATIN          0182"	STPIN           
+015B'	TIMAG           0173'	TIMDON          014A'	TIME            
+032B"	TRACK           00FF 	TRACK1          00FE 	TRACKS          
+FFFF 	TRUE            060B'	VERSIO          0003'	WARMPT          
+0076'	WBOOT           0078'	WBOOT1          019D"	WHMOVE          
+008F"	WLDIR           0138"	WREADY          00DF"	WRITE           
+000A 	WRITECLOCK      029A'	XAUXIN          02A3'	XAUXIST         
+0291'	XAUXOST         0286'	XAUXOUT         0262'	XCONIN          
+027D'	XCONOST         0272'	XCONOUT         0252'	XCONST          
+0108'	XMOVE           
+
+
+
+No Fatal error(s)
+
+
