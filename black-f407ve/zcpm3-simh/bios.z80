@@ -7,10 +7,7 @@ false	equ	not true
 	maclib	DEFS.LIB	; file name must be upper case!
 				; defines, banked, nhdisks and expcom
 
-; Memory map -------------------------------------------------------------------
-
-bdos	equ	0005h
-CCP     equ 0100h
+; BDOS calls -------------------------------------------------------------------
 
 getch		equ	1		; BDOS function
 print		equ	9		; BDOS function
@@ -21,9 +18,11 @@ multisec	equ	44		; BDOS function
 
 ; low memory -------------------------------------------------------------------
 
-iobyte  equ 03h     ; Intel standard I/O definition byte
-usrdrv  equ 04h     ; Current user number and drive
+iobyte  equ 0003h   ; Intel standard I/O definition byte
+usrdrv  equ 0004h   ; Current user number and drive
+bdos	equ 0005h   ; bdos entry point
 tpabuf  equ 0080h   ; Default I/O buffer and command line storage
+ccp     equ 0100h   ; ccp load and start address
 
 ;	external references
 	extrn	@civec, @covec, @aovec, @aivec, @lovec, @bnkbf
@@ -101,7 +100,15 @@ boot:	ld b,1
 
 wboot:	ld b,0
 wboot1: di
-	ld sp,0100h
+
+    if	banked
+        ld a,0C0h
+        in a,(6) ; set memory split at 0C000h
+	ld a,1
+	call selmem
+    endif
+
+	ld sp,bstack
 
 	ld hl,tpabuf            ; Address of BIOS DMA buffer
 	ld (dmaadr),hl
@@ -211,12 +218,23 @@ sectrn: ld l,c
 read:	ld b,1
         jr rdwr
 write:	ld b,1+80h
-rdwr:   ld a,(sekdsk)
+rdwr:   
+    if banked
+        ld a,(crwbk)
+        in a,(7)
+    endif
+        ld a,(sekdsk)
         push de
         ld de,(seksat)
         ld hl,(dmaadr)
         in a,(4)
         pop de
+    if banked
+        push af
+        ld a,(cbank)
+        in a,(7)
+        pop af
+    endif
 	ret
 
 move:	ex	de,hl
@@ -227,16 +245,21 @@ move:	ex	de,hl
 drvtbl:	ld	hl,drvtab
 	ret
 
-conost:
-auxist:
-auxost:
-	xor a
+    if	banked
+selmem:	ld (cbank),a	; update current bank
+	in a,(7)
+        ret
+setbnk:	ld (crwbk),a
+	ret
+    else
+selmem:
+setbnk:
+    endif
+
 devtbl:
 devini:
 flush:
 time:
-selmem:
-setbnk:
 xmove:
 listst:
 list:
@@ -244,9 +267,19 @@ punch:
 multio:
 	ret
 
+conost:
+auxist:
+auxost:
+	xor a
+        ret
+
 ; Data area --------------------------------------------------------------------
 
-greet:  db 13,10,'CP/M vers 3.0 (nonbanked)',13,10,0
+greet:  db 13,10,'CP/M vers 3.0 ('
+    if not banked
+        db 'non'
+    endif
+        db 'banked)',13,10,0
 
 ccpFCB:	db	1,'CCP     COM',0,0,0,0
 	db	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -257,6 +290,9 @@ iomsg:	db	13, 10, 'BIOS I/O error reading CCP.COM ',0
 sekdsk: ds 1   ; seek disk number
 seksat: ds 2   ; seek sector and track number
 dmaadr: ds 2   ; last dma address
+
+cbank:  ds 1   ; current bank
+crwbk:  ds 1   ; desired bank for read/write
 
 	ds 8
 bstack  equ $

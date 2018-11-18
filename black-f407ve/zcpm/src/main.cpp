@@ -67,7 +67,7 @@ static void setBankSplit (uint8_t page) {
     memset(context.offset, 0, sizeof context.offset);
 #if NBANKS > 1
     uint8_t* base = bankedMem;
-    for (int i = 0; i < NBANKS; ++i) {
+    for (int i = 1; i < NBANKS; ++i) {
         uint8_t* limit = base + (page << 8);
         if (limit >= bankedMem + sizeof bankedMem)
             break; // no more complete banks left
