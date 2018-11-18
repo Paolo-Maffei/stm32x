@@ -10,7 +10,7 @@ pip gencpm.dat=gencpmb.dat
 ;
 z80asm bios/fm
 z80asm scb/m
-link bnkbios3[os]=bios,scb
+link bnkbios3[b]=bios,scb
 ;
 gencpm auto display
 ;

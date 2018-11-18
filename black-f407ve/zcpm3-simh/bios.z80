@@ -69,9 +69,9 @@ wboote: jp wboot    ;  1 Warm boot
 
 ; Disk Parameter Headers -------------------------------------------------------
 
-drvtab: dw dph0,dph1,dph2,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-
         dseg
+
+drvtab: dw dph0,dph1,dph2,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 dph0:	dw 0,0,0,0,0,0,dpb,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
         db 0
