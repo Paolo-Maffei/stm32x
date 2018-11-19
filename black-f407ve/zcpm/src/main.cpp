@@ -96,9 +96,11 @@ static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
     if (dmp != currDisk || sect != currSect) {
         if (currDirty && !currDisk->ioSect(true, currSect, currBuf))
             printf("WR-ERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
+        currDirty = false;
+        if (dmp == 0)
+            return 0; // it's a flush request, return value vill be ignored
         currDisk = dmp;
         currSect = sect;
-        currDirty = false;
         if (currDisk != 0 && !currDisk->ioSect(false, currSect, currBuf))
             printf("RD-ERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
     }
@@ -136,8 +138,8 @@ void SystemCall (Context* z, int req) {
             //  ret
             bool out = (B & 0x80) != 0;
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
-            //printf("\nrw128: out %d cnt %d dsk %d trk %d sec %d -> %d\n",
-            //        out, cnt, dsk, trk, sec, skewMap[sec]);
+            printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d -> %d\n",
+                    context.bank, HL, out, cnt, dsk, trk, sec, skewMap[sec]);
             if (0 < dsk && dsk < 4)
                 sec = skewMap[sec]-1;
             // TODO hard-coded for now, should use value in DPB
