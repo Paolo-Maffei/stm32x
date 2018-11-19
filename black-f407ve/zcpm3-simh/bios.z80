@@ -294,7 +294,6 @@ setbnk:
 
 devtbl:
 devini:
-flush:
 time:
 xmove:
 listst:
@@ -306,6 +305,7 @@ multio:
 conost:
 auxist:
 auxost:
+flush:
         xor a
         ret
 

@@ -138,8 +138,8 @@ void SystemCall (Context* z, int req) {
             //  ret
             bool out = (B & 0x80) != 0;
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
-            printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d -> %d\n",
-                    context.bank, HL, out, cnt, dsk, trk, sec, skewMap[sec]);
+            //printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d -> %d\n",
+            //        context.bank, HL, out, cnt, dsk, trk, sec, skewMap[sec]);
             if (0 < dsk && dsk < 4)
                 sec = skewMap[sec]-1;
             // TODO hard-coded for now, should use value in DPB

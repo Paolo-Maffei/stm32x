@@ -63,7 +63,7 @@ BIOS    Z80
 BIOS    Z80
 
    59 0045' C3 0148'            jp multio   ; 23 set number of consec. sec. to read/write
-   60 0048' C3 0148'            jp flush    ; 24 flush user [de]blocking buffers
+   60 0048' C3 0149'            jp flush    ; 24 flush user [de]blocking buffers
    61 004B' C3 0139'            jp move     ; 25 copy memory to memory
    62 004E' C3 0148'            jp time     ; 26 signal time and date operation
    63 0051' C3 013E'            jp selmem   ; 27 select memory bank
@@ -310,18 +310,18 @@ BIOS    Z80
   294                   
   295 0148'             devtbl:
   296 0148'             devini:
-  297 0148'             flush:
-  298 0148'             time:
-  299 0148'             xmove:
-  300 0148'             listst:
-  301 0148'             list:
-  302 0148'             punch:
-  303 0148'             multio:
-  304 0148' C9                  ret
-  305                   
-  306 0149'             conost:
-  307 0149'             auxist:
-  308 0149'             auxost:
+  297 0148'             time:
+  298 0148'             xmove:
+  299 0148'             listst:
+  300 0148'             list:
+  301 0148'             punch:
+  302 0148'             multio:
+  303 0148' C9                  ret
+  304                   
+  305 0149'             conost:
+  306 0149'             auxist:
+  307 0149'             auxost:
+  308 0149'             flush:
   309 0149' AF                  xor a
   310 014A' C9                  ret
   311                   
