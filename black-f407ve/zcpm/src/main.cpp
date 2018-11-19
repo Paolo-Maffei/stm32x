@@ -169,9 +169,8 @@ void SystemCall (Context* z, int req) {
         case 5: { // time get/set
             if (C == 0) {
                 RTC::DateTime dt = rtc.get();
-                printf("%d %02d/%02d/%02d %02d:%02d:%02d\n", ticks,
-                        dt.yr, dt.mo, dt.dy, dt.hh, dt.mm, dt.ss);
-                HL = DE;
+                //printf("%d %02d/%02d/%02d %02d:%02d:%02d\n", ticks,
+                //        dt.yr, dt.mo, dt.dy, dt.hh, dt.mm, dt.ss);
                 uint8_t* ptr = mapMem(&context, HL);
                 ptr[0] = 1; // TODO garbage, for now
                 ptr[1] = 2;

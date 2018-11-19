@@ -292,9 +292,14 @@ selmem:
 setbnk:
     endif
 
+time:   push hl
+        ld hl,@date
+        in a,(5)
+        pop hl
+        ret
+
 devtbl:
 devini:
-time:
 xmove:
 listst:
 list:
