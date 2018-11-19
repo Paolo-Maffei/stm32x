@@ -1,6 +1,6 @@
 ; Minimal CPM Plus BIOS -jcw, 2018-11-16
 
-drives	equ	3		; number of drives supported
+drives	equ	8		; number of drives supported
 true	equ	-1
 false	equ	not true
 
@@ -71,29 +71,64 @@ wboote: jp wboot    ;  1 Warm boot
 
         dseg
 
-drvtab: dw dph0,dph1,dph2,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+drvtab: dw dph0,dph1,dph2,dph3,dph4,dph5,dph6,dph7
+        dw 0,0,0,0,0,0,0,0
 
-dph0:	dw 0,0,0,0,0,0,dpb,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+dph0:	dw 0,0,0,0,0,0,dpb1,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
         db 0
-
-dph1:	dw 0,0,0,0,0,0,dpb,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+dph1:	dw 0,0,0,0,0,0,dpb1,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
         db 0
-
-dph2:	dw 0,0,0,0,0,0,dpb,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+dph2:	dw 0,0,0,0,0,0,dpb1,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+        db 0
+dph3:	dw 0,0,0,0,0,0,dpb1,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+        db 0
+dph4:	dw 0,0,0,0,0,0,dpb2,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+        db 0
+dph5:	dw 0,0,0,0,0,0,dpb3,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+        db 0
+dph6:	dw 0,0,0,0,0,0,dpb3,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
+        db 0
+dph7:	dw 0,0,0,0,0,0,dpb3,0,0FFFEh,0FFFEh,0FFFFh,0FFFFh
         db 0
 
         cseg
 
-dpb:	dw 26      ; SPT - sectors per track
+dpb1:	dw 26      ; SPT - sectors per track
 	db 3       ; BSH - block shift factor
 	db 7       ; BLM - block mask
 	db 0       ; EXM - Extent mask
 	dw 242     ; DSM - Storage size (blocks - 1)
 	dw 63      ; DRM - Number of directory entries - 1
-	db 192     ; AL0 - 1 bit set per directory block
+	db 0C0h    ; AL0 - 1 bit set per directory block
 	db 0       ; AL1 - ... 8 more bits
 	dw 8000h   ; CKS - DIR check vector size (DRM+1)/4 (8000h=fixed disk)
 	dw 2       ; OFF - Reserved tracks
+        db 0       ; PSH - physical record shift
+        db 0       ; PSM - physical record mask
+
+dpb2:	dw 72      ; SPT - sectors per track
+	db 4       ; BSH - block shift factor
+	db 15      ; BLM - block mask
+	db 0       ; EXM - Extent mask
+	dw 710     ; DSM - Storage size (blocks - 1)
+	dw 255     ; DRM - Number of directory entries - 1
+	db 0F0h    ; AL0 - 1 bit set per directory block
+	db 0       ; AL1 - ... 8 more bits
+	dw 8000h   ; CKS - DIR check vector size (DRM+1)/4 (8000h=fixed disk)
+	dw 2       ; OFF - Reserved tracks
+        db 0       ; PSH - physical record shift
+        db 0       ; PSM - physical record mask
+
+dpb3:	dw 256     ; SPT - sectors per track
+	db 5       ; BSH - block shift factor
+	db 31      ; BLM - block mask
+	db 1       ; EXM - Extent mask
+	dw 2047    ; DSM - Storage size (blocks - 1)
+	dw 1023    ; DRM - Number of directory entries - 1
+	db 0FFh    ; AL0 - 1 bit set per directory block
+	db 0       ; AL1 - ... 8 more bits
+	dw 8000h   ; CKS - DIR check vector size (DRM+1)/4 (8000h=fixed disk)
+	dw 0       ; OFF - Reserved tracks
         db 0       ; PSH - physical record shift
         db 0       ; PSM - physical record mask
 
@@ -182,6 +217,11 @@ reader:	ld a,1Ah
 
 ; Disk I/O ---------------------------------------------------------------------
 
+        dseg
+
+drvtbl:	ld hl,drvtab
+	ret
+
 seldsk:	ld hl,0		; bad drive
 	ld a,c		; drive request
 	ld (sekdsk),a
@@ -214,6 +254,8 @@ sectrn: ld l,c
 	ld h,b
         ret
 
+        cseg
+
 read:	ld b,1
         jr rdwr
 write:	ld b,1+80h
@@ -223,25 +265,20 @@ rdwr:
         in a,(7)
     endif
         ld a,(sekdsk)
-        push de
         ld de,(seksat)
         ld hl,(dmaadr)
         in a,(4)
-        pop de
     if banked
-        push af
+        ld c,a
         ld a,(cbank)
         in a,(7)
-        pop af
+        ld a,c
     endif
 	ret
 
 move:	ex de,hl
 	ldir
 	ex de,hl
-	ret
-
-drvtbl:	ld hl,drvtab
 	ret
 
     if	banked
@@ -274,12 +311,6 @@ auxost:
 
 ; Data area --------------------------------------------------------------------
 
-greet:  db 13,10,'CP/M vers 3.0 ('
-    if not banked
-        db 'non'
-    endif
-        db 'banked)',13,10,0
-
 ccpFCB:	db 1,'CCP     COM',0,0,0,0
 	db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 fcbNr:	db 0,0,0
@@ -292,6 +323,12 @@ dmaadr: ds 2   ; last dma address
 
 cbank:  ds 1   ; current bank
 crwbk:  ds 1   ; desired bank for read/write
+
+greet:  db 13,10,'CP/M vers 3.0 ('
+    if not banked
+        db 'non'
+    endif
+        db 'banked)',13,10,0
 
 	ds 8
 bstack  equ $

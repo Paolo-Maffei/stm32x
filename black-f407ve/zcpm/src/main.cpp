@@ -50,8 +50,8 @@ SdCard< decltype(spi2) > sdCard;
 FatFS< decltype(sdCard) > fatFs;
 
 // TODO yucky init
-typedef FileMap< decltype(fatFs), 9 > DiskMap;
-DiskMap disks [] = {fatFs,fatFs};
+typedef FileMap< decltype(fatFs), 257 > DiskMap; // 8M = 256 fat entries x 32K
+DiskMap disks [] = {fatFs,fatFs,fatFs,fatFs,fatFs,fatFs,fatFs};
 DiskMap* currDisk;
 
 RTC rtc;
@@ -138,9 +138,11 @@ void SystemCall (Context* z, int req) {
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
             //printf("\nrw128: out %d cnt %d dsk %d trk %d sec %d -> %d\n",
             //        out, cnt, dsk, trk, sec, skewMap[sec]);
-            if (dsk > 0)
+            if (0 < dsk && dsk < 4)
                 sec = skewMap[sec]-1;
-            int blk = 26 * trk + sec;
+            // TODO hard-coded for now, should use value in DPB
+            int spt = dsk < 4 ? 26 : dsk < 5 ? 72 : 256;
+            int blk = trk * spt + sec;
 
             A = 0;
             for (int i = 0; i < cnt; ++i) {
@@ -264,14 +266,13 @@ int main() {
 #endif
         listSdFiles();
 
-        int len;
-        len = disks[0].open("CPMA    CPM");
-        //if (len > 0)
-        //    printf("  cpma = %db\n", len);
-        len = disks[1].open("ZORK1   CPM");
-        //if (len > 0)
-        //    printf("  zork1 = %db\n", len);
-        (void) len;
+        disks[0].open("CPMA    CPM"); // B:
+        disks[1].open("ZORK1   CPM"); // C:
+        disks[2].open("T1      DSK"); // D:
+        disks[3].open("T2      DSK"); // E:
+        disks[4].open("T3      DSK"); // F:
+        disks[5].open("T4      DSK"); // G:
+        disks[6].open("T5      DSK"); // H:
     }
 
     // The "K0" and "K1" buttons are checked on power-up and reset:
