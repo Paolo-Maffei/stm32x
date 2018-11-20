@@ -108,6 +108,88 @@ static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
     return currBuf + (blk*128) % 512;
 }
 
+// see simh/dosplus/FDATE.MAC
+//
+// PROCEDURE drtodate(thedate : integer; VAR yr, mo, day : integer);
+// (* 1 Jan 1978 corresponds to Digital Research date = 1  *)
+// (* BUG - cannot handle negative values for dates > 2067 *)
+//
+//   VAR
+//     i, y1        : integer;
+//     dayspermonth : ARRAY[1..12] OF 1..31;
+//
+//   BEGIN (* drtodate *)
+//   FOR i := 1 TO 12 DO dayspermonth[i] := 31;
+//   dayspermonth[4] := 30; dayspermonth[6] := 30;
+//   dayspermonth[9] := 30; dayspermonth[11] := 30;
+//   IF thedate > 731 THEN BEGIN (* avoid overflows *)
+//     yr := 1980; thedate := thedate - 731; END
+//   ELSE BEGIN
+//     thedate := thedate + 730; yr := 1976; END;
+//   (* 0..365=y0; 366..730=y1; 731..1095=y2; 1096..1460=y3 *)
+//   i := thedate DIV 1461; thedate := thedate MOD 1461;
+//   y1 := (thedate-1) DIV 365; yr := yr + y1 + 4*i;
+//   IF y1 = 0 THEN (* leap year *) dayspermonth[2] := 29
+//   ELSE BEGIN
+//     thedate := thedate - 1; (* 366 -> 365 -> 1 Jan *)
+//     dayspermonth[2] := 28; END;
+//   day := thedate - 365*y1 + 1; mo := 1;
+//   WHILE day > dayspermonth[mo] DO BEGIN
+//     day := day - dayspermonth[mo];
+//     mo := succ(mo); END;
+//   END; (* drtodate *)
+//
+// Incorporate (a) in year (c), overflows to century (b)
+
+void dr2date (int date, RTC::DateTime* dt) {
+    static uint8_t daysInMonth [] = {
+        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 
+    };
+
+    int yr;
+    if (date >731) {
+        date -= 731;
+        yr = 1980;
+    } else {
+        date += 730;
+        yr = 1976;
+    }
+    int i = date / 1461;
+    date %= 1461;
+    int y1 = (date-1) / 365;
+    yr += y1 + 4*i;
+    if (y1 == 0)
+        daysInMonth[1] = 29;
+    else {
+        --date;
+        daysInMonth[1] = 28;
+    }
+    int day = date - 365*y1 + 1;
+    int mon = 0;
+    while (day > daysInMonth[mon]) {
+        day -= daysInMonth[mon];
+        ++mon;
+    }
+    dt->dy = day;
+    dt->mo = mon+1;
+    dt->yr = yr%100;
+    //printf("dr2date: y %d m %d d %d\n", yr, mon+1, day);
+}
+
+// see https://www.oryx-embedded.com/doc/date__time_8c_source.html
+
+uint16_t date2dr (int y, int m, int d) {
+   y += 2000;
+
+   // count Jan and Feb as months 13 and 14 of the previous year
+   if(m <= 2) {
+      m += 12;
+      --y;
+   }
+
+   return 365*y + y/4 - y/100 + y/400 + 30*m + (3*(m+1))/5 + d - 1586;
+}
+
 void SystemCall (Context* z, int req) {
     static const uint8_t skewMap [] = {
         1,7,13,19,25,5,11,17,23,3,9,15,21,2,8,14,20,26,6,12,18,24,4,10,16,22
@@ -169,11 +251,12 @@ void SystemCall (Context* z, int req) {
         case 5: { // time get/set
             if (C == 0) {
                 RTC::DateTime dt = rtc.get();
-                //printf("%d %02d/%02d/%02d %02d:%02d:%02d\n", ticks,
-                //        dt.yr, dt.mo, dt.dy, dt.hh, dt.mm, dt.ss);
+                //printf("mdy %02d/%02d/20%02d %02d:%02d:%02d (%d ms)\n",
+                //        dt.mo, dt.dy, dt.yr, dt.hh, dt.mm, dt.ss, ticks);
                 uint8_t* ptr = mapMem(&context, HL);
-                ptr[0] = 1; // TODO garbage, for now
-                ptr[1] = 2;
+                int t = date2dr(dt.yr, dt.mo, dt.dy);
+                ptr[0] = t;
+                ptr[1] = t>>8;
                 ptr[2] = dt.hh + 6*(dt.hh/10); // hours, to BCD
                 ptr[3] = dt.mm + 6*(dt.mm/10); // minutes, to BCD
                 ptr[4] = dt.ss + 6*(dt.ss/10); // seconcds, to BCD
@@ -181,6 +264,7 @@ void SystemCall (Context* z, int req) {
                 RTC::DateTime dt;
                 uint8_t* ptr = mapMem(&context, HL);
                 // TODO set clock date & time
+                dr2date(*(uint16_t*) ptr, &dt);
                 dt.hh = ptr[2] - 6*(ptr[2]>>4); // hours, from BCD
                 dt.mm = ptr[3] - 6*(ptr[3]>>4); // minutes, from BCD
                 dt.ss = ptr[4] - 6*(ptr[4]>>4); // seconds, from BCD
