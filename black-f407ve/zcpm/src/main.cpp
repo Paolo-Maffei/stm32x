@@ -51,7 +51,7 @@ FatFS< decltype(sdCard) > fatFs;
 
 // TODO yucky init
 typedef FileMap< decltype(fatFs), 257 > DiskMap; // 8M = 256 fat entries x 32K
-DiskMap disks [] = {fatFs,fatFs,fatFs,fatFs,fatFs,fatFs,fatFs};
+DiskMap disks [] = {fatFs,fatFs,fatFs,fatFs,fatFs,fatFs,fatFs,fatFs};
 DiskMap* currDisk;
 
 RTC rtc;
