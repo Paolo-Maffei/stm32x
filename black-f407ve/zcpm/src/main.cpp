@@ -179,15 +179,13 @@ void dr2date (int date, RTC::DateTime* dt) {
 // see https://www.oryx-embedded.com/doc/date__time_8c_source.html
 
 uint16_t date2dr (int y, int m, int d) {
-   y += 2000;
-
    // count Jan and Feb as months 13 and 14 of the previous year
    if(m <= 2) {
       m += 12;
       --y;
    }
-
-   return 365*y + y/4 - y/100 + y/400 + 30*m + (3*(m+1))/5 + d - 1586;
+   // this should work for at least y = 1..63 (i.e. 2001..2063)
+   return 365*y + y/4 - y/100 + y/400 + 30*m + (3*(m+1))/5 + d + 8003;
 }
 
 void SystemCall (Context* z, int req) {
