@@ -73,24 +73,28 @@ void listSdFiles () {
     //printf("\n");
 }
 
-void diskCopy (int from, int to, int num) {
+void diskCopy (int from, int to, int kb) {
     DiskMap* df = disks + from;
     DiskMap* dt = disks + to;
 
     uint32_t start = ticks;
 
-    uint8_t buf [128];
-    for (int i = 0; i < num; ++i) {
-        void* pf = reBlock128(df, i, false);
-        memcpy(buf, pf, 128);
-        void* pt = reBlock128(dt, i, true);
-        memcpy(pt, buf, 128);
+    uint8_t buf [1024];
+    for (int i = 0; i < kb; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            void* pf = reBlock128(df, 8*i + j, false);
+            memcpy(buf + 128*j, pf, 128);
+        }
+        for (int j = 0; j < 8; ++j) {
+            void* pt = reBlock128(dt, 8*i + j, true);
+            memcpy(pt, buf + 128*j, 128);
+        }
     }
     reBlock128(); // flush
 
     uint32_t ms = ticks - start;
-    printf("%5d KB: (%d -> %d) = %4d ms = %3d KB/sec\n",
-            num/8, from, to, ms, (125*num)/ms);
+    printf("%5d KB: (%d -> %d) %4d ms = %4d KB/sec\n",
+            kb, from, to, ms, (1000*kb)/ms);
 }
 
 int main() {
@@ -105,14 +109,19 @@ int main() {
     if (sdCard.init()) {
         //printf("[sd card: sdhc %d]\n", sdCard.sdhc);
 
+        uint32_t t1 = ticks;
         fatFs.init();
-
-        printf("base %d spc %d rdir %d rmax %d data %d clim %d\n\n",
+        printf("init %d ms\n", ticks - t1);
+#if 0
+        printf("base %d spc %d rdir %d rmax %d data %d clim %d\n",
                                     fatFs.base, fatFs.spc, fatFs.rdir,
                                     fatFs.rmax, fatFs.data, fatFs.clim);
+#endif
+        uint32_t t2 = ticks;
         listSdFiles();
-        printf("\n");
+        printf("list %d ms\n", ticks - t2);
 
+        uint32_t t3 = ticks;
         disks[0].open("CPMA    CPM"); // B:
         disks[1].open("ZORK1   CPM"); // C:
         disks[2].open("T1      DSK"); // D:
@@ -120,9 +129,11 @@ int main() {
         disks[4].open("T3      DSK"); // F:
         disks[5].open("T4      DSK"); // G:
         disks[6].open("T5      DSK"); // H:
+        printf("open %d ms\n", ticks - t3);
 
-        diskCopy(5, 6, 8 * 10);
-        diskCopy(5, 6, 8 * 100);
+        diskCopy(5, 6, 1);
+        diskCopy(5, 6, 10);
+        diskCopy(5, 6, 100);
     }
 
     PinB<1> backlight;
