@@ -98,7 +98,7 @@ static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
             printf("WR-ERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
         currDirty = false;
         if (dmp == 0)
-            return 0; // it's a flush request, return value vill be ignored
+            return 0; // it's a flush request, return value will be ignored
         currDisk = dmp;
         currSect = sect;
         if (currDisk != 0 && !currDisk->ioSect(false, currSect, currBuf))
@@ -297,7 +297,6 @@ void SystemCall (Context* z, int req) {
 }
 
 void listSdFiles () {
-    //printf("\n");
     for (int i = 0; i < fatFs.rmax; ++i) {
         int off = (i*32) % 512;
         if (off == 0)
@@ -316,7 +315,6 @@ void listSdFiles () {
             printf(" %7d b\n", length);
         }
     }
-    //printf("\n");
 }
 
 int main() {
@@ -340,7 +338,6 @@ int main() {
     spi2.init();
     if (sdCard.init()) {
         //printf("[sd card: sdhc %d]\n", sdCard.sdhc);
-
         fatFs.init();
 #if 0
         printf("base %d spc %d rdir %d rmax %d data %d clim %d\n",
