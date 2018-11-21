@@ -1,11 +1,11 @@
 // Wear-leveling wrapper around the internal Flash driver.
 
 class FlashWear {
-    static constexpr bool DEBUG = true;
+    static constexpr bool DEBUG = false;
     static constexpr int SECLEN = 128;
     static constexpr int NUM_MODS = 500;
     static constexpr int SEC_PER_SEG = 1024;
-    static constexpr int NUM_SEGS = 3;
+    static constexpr int SEGSUSED = 2; // plus one spare
 
     typedef struct {
         uint16_t map [NUM_MODS];
@@ -25,11 +25,11 @@ class FlashWear {
         if (DEBUG)
             printf("reFlashChanges\n");
 
-        uint16_t counts [NUM_SEGS-1];
+        uint16_t counts [SEGSUSED];
         memset(counts, 0, sizeof counts);
 
         // count how many changes there are in each segment, after merging
-        for (int seg = 0; seg < NUM_SEGS-1; ++seg) {
+        for (int seg = 0; seg < SEGSUSED; ++seg) {
 
             // keep track of all sectors, only count each sector once
             uint8_t useBits [SEC_PER_SEG/8];
@@ -45,20 +45,24 @@ class FlashWear {
                 }
         }
 
-        if (DEBUG) {
-            printf("counts:");
-            for (int i = 0; i < NUM_SEGS-1; ++i)
-                printf(" %d", counts[i]);
-            printf("\n");
-        }
-
-        // start re-flashing segments, until less than 30 changes remain
-        uint8_t newPhys [NUM_SEGS-1];
+        // start re-flashing segments, until only a few changes remain
+        uint8_t newPhys [SEGSUSED];
         memcpy(newPhys, mods.phys, sizeof newPhys);
 
         for (;;) {
-            int remain = 0, nextSeg = 0;
-            for (int i = 0; i < NUM_SEGS; ++i) {
+            if (DEBUG) {
+                printf("counts:");
+                for (int i = 0; i < SEGSUSED; ++i)
+                    printf(" %d", counts[i]);
+                printf("\n");
+                printf("newPhys:");
+                for (int i = 0; i < SEGSUSED; ++i)
+                    printf(" %d", newPhys[i]);
+                printf("\n");
+            }
+
+            uint32_t remain = 0, nextSeg = 0;
+            for (int i = 0; i < SEGSUSED; ++i) {
                 remain += counts[i];
                 if (counts[i] > counts[nextSeg])
                     nextSeg = i;
@@ -66,13 +70,22 @@ class FlashWear {
 
             if (DEBUG)
                 printf("remain %d nextSeg %d\n", remain, nextSeg);
-            if (remain <= 30)
-                break;
 
-            // careful, maps.phys/newPhys/freePhys are PHYSICAL sectors (+1) !
+            //if (remain <= 30) // TODO needs more logic to migrate remaining
+            if (remain == 0) {
+                // changes have been merged back, now clean up the mods page
+                Flash::erasePage(&mods);
+                for (int i = 0; i < SEGSUSED; ++i)
+                    Flash::write8(mods.phys + i, newPhys[i]);
+                fill = remain; // TODO will always be zero for now
+                return;
+            }
+
+            // dumb way to find *the* segment which is currently not being used
+            // careful, maps.phys/newPhys/freePhys are PHYSICAL segments (+1) !
             int freePhys = 0;
-            for (int i = 1; i <= NUM_SEGS; ++i)
-                if (memchr(mods.phys, i, NUM_SEGS-1) == 0)
+            for (int i = 1; i <= SEGSUSED+1; ++i)
+                if (memchr(newPhys, i, SEGSUSED) == 0)
                     freePhys = i;
 
             // prepare to update the unused segment, leaving behind the old one
@@ -93,8 +106,6 @@ class FlashWear {
             newPhys[nextSeg] = freePhys;
             counts[nextSeg] = 0;
         }
-
-        for (;;) {}
     }
 
 public:
@@ -102,10 +113,10 @@ public:
         if (DEBUG)
             printf("FlashWear %d, ModPage %d, Segment %d\n",
                     sizeof (FlashWear), sizeof (ModPage), sizeof (Segment));
-        if (erase || mods.phys[0] > 2) { // TODO 2 is not right
+        if (erase || mods.phys[0] > SEGSUSED+1) {
             printf("initialising internal flash\n");
             Flash::erasePage(&mods);
-            for (int i = 0; i < NUM_SEGS-1; ++i)
+            for (int i = 0; i < SEGSUSED; ++i)
                 Flash::write8(mods.phys + i, i+1);
         }
         for (fill = NUM_MODS; mods.map[fill-1] == 0xFFFF; --fill)
@@ -113,11 +124,11 @@ public:
                 break;
         if (DEBUG) {
             printf("fill %d, phys:", fill);
-            for (int i = 0; i < NUM_SEGS-1; ++i)
+            for (int i = 0; i < SEGSUSED; ++i)
                 printf(" %d", mods.phys[i]);
             printf("\n");
         }
-        return (NUM_SEGS-1) * SEC_PER_SEG;
+        return (SEGSUSED) * SEC_PER_SEG;
     }
 
     static void readSector (int pos, void* buf) {
