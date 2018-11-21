@@ -5,6 +5,7 @@
 #include <jee/spi-sdcard.h>
 #include <string.h>
 #include "spi-wear.h"
+#include "flashwear.h"
 
 UartBufDev< PinA<9>, PinA<10> > console;
 PinE<4> key0;
@@ -95,10 +96,16 @@ void diskCopy (int from, int to, int kb) {
             kb, from, to, ms, (1000*kb)/ms);
 }
 
+FlashWear iflash;
+
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
     printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
+    uint32_t t0 = ticks;
+    int nsec = iflash.init();
+    printf("iflash %d ms, %d sectors\n", ticks - t0, nsec);
 
     spi1.init();
     spiWear.init();

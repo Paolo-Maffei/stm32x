@@ -7,6 +7,7 @@
 #include <jee/text-font.h>
 #include <string.h>
 #include "spi-wear.h"
+#include "flashwear.h"
 
 extern "C" {
 #include "context.h"
@@ -26,7 +27,7 @@ ILI9341<0x60080000> lcd;
 TextLcd< decltype(lcd) > text;
 Font5x7< decltype(text) > screen;
 
-UartBufDev< PinA<9>, PinA<10> > console;
+UartDev< PinA<9>, PinA<10> > console;
 PinE<4> key0;
 PinE<3> key1;
 
@@ -48,6 +49,8 @@ SpiWear< decltype(spiFlash), PinA<6> > spiWear;
 SpiGpio< PinD<2>, PinC<8>, PinC<12>, PinC<11> > spi2;
 SdCard< decltype(spi2) > sdCard;
 FatFS< decltype(sdCard) > fatFs;
+
+FlashWear iflash;
 
 // TODO yucky init
 typedef FileMap< decltype(fatFs), 257 > DiskMap; // 8M = 256 fat entries x 32K
@@ -220,7 +223,7 @@ void SystemCall (Context* z, int req) {
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
             //printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d -> %d\n",
             //        context.bank, HL, out, cnt, dsk, trk, sec, skewMap[sec]);
-            if (0 < dsk && dsk < 4)
+            if (0 < dsk && dsk < 4 && dsk != 2)
                 sec = skewMap[sec]-1;
             // TODO hard-coded for now, should use value in DPB
             int spt = dsk < 4 ? 26 : dsk < 5 ? 72 : 256;
@@ -228,20 +231,26 @@ void SystemCall (Context* z, int req) {
 
             A = 0;
             for (int i = 0; i < cnt; ++i) {
-                // TODO careful with wrapping in paged memory!!!
+                // TODO careful with wrapping across paged memory boundary!!!
                 void* mem = mapMem(&context, HL + 128 * i);
-                if (dsk > 0) {
+                if (dsk == 0) {
+                    int off = + blk + i;
+                    if (out)
+                        spiWear.write128(off, mem);
+                    else
+                        spiWear.read128(off, mem);
+                } else if (dsk == 2) {
+                    int off = + blk + i;
+                    if (out)
+                        iflash.writeSector(off, mem);
+                    else
+                        iflash.readSector(off, mem);
+                } else {
                     void* ptr = reBlock128(disks + dsk - 1, blk + i, out);
                     if (out)
                         memcpy(ptr, mem, 128);
                     else
                         memcpy(mem, ptr, 128);
-                } else {
-                    int off = (256*1024/128)*dsk + blk + i;
-                    if (out)
-                        spiWear.write128(off, mem);
-                    else
-                        spiWear.read128(off, mem);
                 }
             }
             break;
@@ -331,6 +340,18 @@ int main() {
     key1.mode(Pinmode::in_pullup); // inverted logic
 
     rtc.init();
+
+    int nsec = iflash.init();
+    printf("iflash %d sectors\n", nsec);
+
+    if (0) { // set up empty directory blocks
+        printf("clearing iflash directory");
+        for (int i = 0; i < 16; ++i) {
+            uint8_t buf [128];
+            memset(buf, 0xE5, sizeof buf);
+            iflash.writeSector(2*26 + i, buf);
+        }
+    }
 
     spi1.init();
     spiWear.init();
