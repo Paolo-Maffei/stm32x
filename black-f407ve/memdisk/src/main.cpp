@@ -25,8 +25,8 @@ SpiGpio< PinD<2>, PinC<8>, PinC<12>, PinC<11> > spi2;
 SdCard< decltype(spi2) > sdCard;
 FatFS< decltype(sdCard) > fatFs;
 
-// TODO yucky init
-typedef FileMap< decltype(fatFs), 257 > DiskMap; // 8M = 256 fat entries x 32K
+// 8M = 256 fat entries x 32K
+typedef FileMap< decltype(fatFs), 257 > DiskMap;
 DiskMap* currDisk;
 
 static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
@@ -77,11 +77,12 @@ struct VirtualDisk {
     static constexpr uint32_t DISK_NORM = 160*8*4;   // 3.5" HD
     static constexpr uint32_t DISK_HUGE = 255*256*1; // 8 MB hd
 
+    uint32_t size = 0;
+
     VirtualDisk () {}
     virtual ~VirtualDisk () {}
 
-    virtual uint32_t init (char const [11]) =0;
-    virtual uint32_t size () =0;
+    virtual bool init (char const [11]) =0;
     virtual void read (uint32_t pos, void* buf) =0;
     virtual void write (uint32_t pos, void const* buf) =0;
 };
@@ -95,7 +96,7 @@ public:
     OnChipDisk () {}
     virtual ~OnChipDisk () {}
 
-    virtual uint32_t init (char const def [11]) {
+    virtual bool init (char const def [11]) {
         if (def[8] >= '1' && def[9] == ' ') {
             static uint32_t totalSectors = 0;
             if (totalSectors == 0)
@@ -103,37 +104,34 @@ public:
 
             unsigned num = def[8] - '1';
             offset = num * DISK_TINY;
-            if (offset + DISK_TINY <= totalSectors)
-                return DISK_TINY;
+            size = DISK_TINY;
+            if (offset + size <= totalSectors)
+                return true;
         }
 
-        offset = -1;
-        return 0;
-    }
-
-    virtual uint32_t size () {
-        return DISK_TINY;
+        size = 0;
+        return false;
     }
 
     virtual void read (uint32_t pos, void* buf) {
-        if (offset >= 0 && pos < DISK_TINY)
+        if (pos < DISK_TINY)
             iflash.readSector(offset + pos, buf);
     }
 
     virtual void write (uint32_t pos, void const* buf) {
-        if (offset >= 0 && pos < DISK_TINY)
+        if (pos < DISK_TINY)
             iflash.writeSector(offset + pos, buf);
     }
 };
 
 class SpiFlashDisk : public VirtualDisk {
-    uint16_t offset, limit = 0;
+    uint16_t offset;
 
 public:
     SpiFlashDisk () {}
     virtual ~SpiFlashDisk () {}
 
-    virtual uint32_t init (char const def [11]) {
+    virtual bool init (char const def [11]) {
         if (def[8] == '0' && def[9] >= '1' && def[10] == ' ') {
             static uint32_t kbSize = 0;
             if (kbSize == 0) {
@@ -159,95 +157,76 @@ public:
                 offset = 0;
                 for (unsigned i = 0; i < num; ++i)
                     offset += diskSizes[i];
-                limit = diskSizes[num];
-                if (limit <= kbSize * 1024 / BUFLEN)
-                    return limit;
+                size = diskSizes[num];
+                if (size <= kbSize * 1024 / BUFLEN)
+                    return true;
             }
         }
 
-        limit = 0;
-        return 0;
-    }
-
-    virtual uint32_t size () {
-        return limit;
+        size = 0;
+        return false;
     }
 
     virtual void read (uint32_t pos, void* buf) {
-        if (pos < limit)
+        if (pos < size)
             spiWear.read128(offset + pos, buf);
     }
 
     virtual void write (uint32_t pos, void const* buf) {
-        if (pos < limit)
+        if (pos < size)
             spiWear.write128(offset + pos, buf);
     }
 };
 
 class SdCardDisk : public VirtualDisk {
     DiskMap diskMap;
-    uint32_t limit = 0;
 
 public:
     SdCardDisk () : diskMap (fatFs) {}
     virtual ~SdCardDisk () {}
 
-    virtual uint32_t init (char const def [11]) {
-        limit = diskMap.open(def) / BUFLEN;
-        return limit;
-    }
-
-    virtual uint32_t size () {
-        return limit;
+    virtual bool init (char const def [11]) {
+        size = diskMap.open(def) / BUFLEN;
+        return true;
     }
 
     virtual void read (uint32_t pos, void* buf) {
-        if (pos < limit) {
+        if (pos < size) {
             void* ptr = reBlock128(&diskMap, pos, false);
             memcpy(buf, ptr, BUFLEN);
         }
     }
 
     virtual void write (uint32_t pos, void const* buf) {
-        if (pos < limit) {
+        if (pos < size) {
             void* ptr = reBlock128(&diskMap, pos, true);
             memcpy(ptr, buf, BUFLEN);
         }
     }
 };
 
-constexpr int NUMDRIVES = 8;
-
 struct Drive {
-    OnChipDisk onChipDisk;
+    OnChipDisk   onChipDisk;
     SpiFlashDisk spiFlashDisk;
-    SdCardDisk sdCardDisk;
+    SdCardDisk   sdCardDisk;
     VirtualDisk* current = 0;
 
     Drive () {}
 
-    uint32_t assign (char const name [11]) {
-        uint32_t size = onChipDisk.init(name);
-        if (size > 0)
+    int assign (char const name [11]) {
+        if (onChipDisk.init(name))
             current = &onChipDisk;
+        else if (spiFlashDisk.init(name))
+            current = &spiFlashDisk;
+        else if (sdCardDisk.init(name))
+            current = &sdCardDisk;
         else {
-            size = spiFlashDisk.init(name);
-            if (size > 0)
-                current = &spiFlashDisk;
-            else {
-                size = sdCardDisk.init(name);
-                if (size > 0)
-                    current = &sdCardDisk;
-                else
-                    current = 0;
-            }
+            current = 0;
+            return -1;
         }
-        printf("current %08x size %d\n", current, size);
-        return size;
-    }
 
-    int size () {
-        return current != 0 ? current->size() : -1;
+        printf("current %08x size %d\n", current, current->size);
+        return current->size;
     }
 
     void read (uint32_t pos, void* buf) {
@@ -261,7 +240,7 @@ struct Drive {
     }
 };
 
-Drive drives [NUMDRIVES];
+Drive drives [8];
 
 void diskCopy (int from, int to, int kb) {
     Drive* df = drives + from;
@@ -288,15 +267,6 @@ int main() {
     console.baud(115200, fullSpeedClock()/2);
     printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
-    printf("%08x\n", drives);
-
-    //uint32_t t0 = ticks;
-    //int nsec = iflash.init();
-    //printf("iflash %d ms, %d sectors\n", ticks - t0, nsec);
-
-    //spi1.init();
-    //spiWear.init();
-
     spi2.init();
     if (sdCard.init()) {
         //printf("[sd card: sdhc %d]\n", sdCard.sdhc);
@@ -317,7 +287,7 @@ int main() {
         drives[0].assign("        01 "); // A:
         drives[1].assign("CPMA    CPM"); // B:
         drives[2].assign("        1  "); // C:
-        drives[3].assign("T1      DSK"); // D:
+        drives[3].assign("        02 "); // D:
         drives[4].assign("T2      DSK"); // E:
         drives[5].assign("T3      DSK"); // F:
         drives[6].assign("T4      DSK"); // G:
@@ -327,6 +297,14 @@ int main() {
         diskCopy(6, 7, 1);
         diskCopy(6, 7, 10);
         diskCopy(6, 7, 100);
+
+        diskCopy(0, 3, 1);
+        diskCopy(0, 3, 10);
+        diskCopy(0, 3, 100);
+
+        diskCopy(2, 2, 1);
+        diskCopy(2, 2, 10);
+        diskCopy(2, 2, 100);
     }
 
     PinB<1> backlight;
