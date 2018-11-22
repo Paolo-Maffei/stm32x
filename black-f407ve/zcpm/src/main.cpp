@@ -8,6 +8,7 @@
 #include <string.h>
 #include "spi-wear.h"
 #include "flashwear.h"
+#include "drive.h"
 
 extern "C" {
 #include "context.h"
@@ -41,25 +42,9 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-// chip select needs a minute slowdown to work at 168 MHz
-SpiGpio< PinB<5>, PinB<4>, PinB<3>, SlowPin< PinB<0>, 2 > > spi1;
-SpiFlash< decltype(spi1) > spiFlash;
-SpiWear< decltype(spiFlash), PinA<6> > spiWear;
-
-SpiGpio< PinD<2>, PinC<8>, PinC<12>, PinC<11> > spi2;
-SdCard< decltype(spi2) > sdCard;
-FatFS< decltype(sdCard) > fatFs;
-
-FlashWear iflash;
-
-// TODO yucky init
-typedef FileMap< decltype(fatFs), 257 > DiskMap; // 8M = 256 fat entries x 32K
-DiskMap disks [] = {fatFs,fatFs,fatFs,fatFs,fatFs,fatFs,fatFs,fatFs};
-DiskMap* currDisk;
-
 RTC rtc;
-
 Context context;
+Drive drives [8];
 
 static void setBankSplit (uint8_t page) {
     context.split = MAINMEM + (page << 8);
@@ -88,27 +73,6 @@ static void initFsmcLcd () {
     MMIO32(bcr1) = (1<<12) | (1<<7) | (1<<4);
     MMIO32(btr1) = (1<<20) | (3<<8) | (1<<4) | (1<<0);
     MMIO32(bcr1) |= (1<<0);
-}
-
-static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
-    static int currSect;
-    static bool currDirty;
-    static uint8_t currBuf [512];
-
-    int sect = blk / 4;  // CP/M blocks are 128b, SD card sectors are 512b
-    if (dmp != currDisk || sect != currSect) {
-        if (currDirty && !currDisk->ioSect(true, currSect, currBuf))
-            printf("WR-ERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
-        currDirty = false;
-        if (dmp == 0)
-            return 0; // it's a flush request, return value will be ignored
-        currDisk = dmp;
-        currSect = sect;
-        if (currDisk != 0 && !currDisk->ioSect(false, currSect, currBuf))
-            printf("RD-ERR: disk %d sect %d blk %d\n", dmp-disks, sect, blk);
-    }
-    currDirty |= dirty;
-    return currBuf + (blk*128) % 512;
 }
 
 // see simh/dosplus/FDATE.MAC
@@ -221,8 +185,8 @@ void SystemCall (Context* z, int req) {
             //  ret
             bool out = (B & 0x80) != 0;
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
-            //printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d -> %d\n",
-            //        context.bank, HL, out, cnt, dsk, trk, sec, skewMap[sec]);
+            //printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d\n",
+            //        context.bank, HL, out, cnt, dsk, trk, sec);
             if (0 < dsk && dsk < 4 && dsk != 2)
                 sec = skewMap[sec]-1;
             // TODO hard-coded for now, should use value in DPB
@@ -233,25 +197,10 @@ void SystemCall (Context* z, int req) {
             for (int i = 0; i < cnt; ++i) {
                 // TODO careful with wrapping across paged memory boundary!!!
                 void* mem = mapMem(&context, HL + 128 * i);
-                if (dsk == 0) {
-                    int off = + blk + i;
-                    if (out)
-                        spiWear.write128(off, mem);
-                    else
-                        spiWear.read128(off, mem);
-                } else if (dsk == 2) {
-                    int off = + blk + i;
-                    if (out)
-                        iflash.writeSector(off, mem);
-                    else
-                        iflash.readSector(off, mem);
-                } else {
-                    void* ptr = reBlock128(disks + dsk - 1, blk + i, out);
-                    if (out)
-                        memcpy(ptr, mem, 128);
-                    else
-                        memcpy(mem, ptr, 128);
-                }
+                if (out)
+                    drives[dsk].write(blk + i, mem);
+                else
+                    drives[dsk].read(blk + i, mem);
             }
             break;
         }
@@ -341,9 +290,6 @@ int main() {
 
     rtc.init();
 
-    int nsec = iflash.init();
-    printf("iflash %d sectors\n", nsec);
-
     if (0) { // set up empty directory blocks
         printf("clearing iflash directory");
         for (int i = 0; i < 16; ++i) {
@@ -352,9 +298,6 @@ int main() {
             iflash.writeSector(2*26 + i, buf);
         }
     }
-
-    spi1.init();
-    spiWear.init();
 
     spi2.init();
     if (sdCard.init()) {
@@ -367,13 +310,14 @@ int main() {
 #endif
         listSdFiles();
 
-        disks[0].open("CPMA    CPM"); // B:
-        disks[1].open("ZORK1   CPM"); // C:
-        disks[2].open("T1      DSK"); // D:
-        disks[3].open("T2      DSK"); // E:
-        disks[4].open("T3      DSK"); // F:
-        disks[5].open("T4      DSK"); // G:
-        disks[6].open("T5      DSK"); // H:
+        drives[0].assign("        01 "); // A:
+        drives[1].assign("CPMA    CPM"); // B:
+        drives[2].assign("        1  "); // C:
+        drives[3].assign("T1      DSK"); // D:
+        drives[4].assign("T2      DSK"); // E:
+        drives[5].assign("T3      DSK"); // F:
+        drives[6].assign("T4      DSK"); // G:
+        drives[7].assign("T5      DSK"); // H:
     }
 
     // The "K0" and "K1" buttons are checked on power-up and reset:
