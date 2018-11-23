@@ -9,6 +9,7 @@
 #include "spi-wear.h"
 #include "flashwear.h"
 #include "drive.h"
+#include "cpmdate.h"
 
 extern "C" {
 #include "context.h"
@@ -73,86 +74,6 @@ static void initFsmcLcd () {
     MMIO32(bcr1) = (1<<12) | (1<<7) | (1<<4);
     MMIO32(btr1) = (1<<20) | (3<<8) | (1<<4) | (1<<0);
     MMIO32(bcr1) |= (1<<0);
-}
-
-// see simh/dosplus/FDATE.MAC
-//
-// PROCEDURE drtodate(thedate : integer; VAR yr, mo, day : integer);
-// (* 1 Jan 1978 corresponds to Digital Research date = 1  *)
-// (* BUG - cannot handle negative values for dates > 2067 *)
-//
-//   VAR
-//     i, y1        : integer;
-//     dayspermonth : ARRAY[1..12] OF 1..31;
-//
-//   BEGIN (* drtodate *)
-//   FOR i := 1 TO 12 DO dayspermonth[i] := 31;
-//   dayspermonth[4] := 30; dayspermonth[6] := 30;
-//   dayspermonth[9] := 30; dayspermonth[11] := 30;
-//   IF thedate > 731 THEN BEGIN (* avoid overflows *)
-//     yr := 1980; thedate := thedate - 731; END
-//   ELSE BEGIN
-//     thedate := thedate + 730; yr := 1976; END;
-//   (* 0..365=y0; 366..730=y1; 731..1095=y2; 1096..1460=y3 *)
-//   i := thedate DIV 1461; thedate := thedate MOD 1461;
-//   y1 := (thedate-1) DIV 365; yr := yr + y1 + 4*i;
-//   IF y1 = 0 THEN (* leap year *) dayspermonth[2] := 29
-//   ELSE BEGIN
-//     thedate := thedate - 1; (* 366 -> 365 -> 1 Jan *)
-//     dayspermonth[2] := 28; END;
-//   day := thedate - 365*y1 + 1; mo := 1;
-//   WHILE day > dayspermonth[mo] DO BEGIN
-//     day := day - dayspermonth[mo];
-//     mo := succ(mo); END;
-//   END; (* drtodate *)
-//
-// Incorporate (a) in year (c), overflows to century (b)
-
-void dr2date (int date, RTC::DateTime* dt) {
-    static uint8_t daysInMonth [] = {
-        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 
-    };
-
-    int yr;
-    if (date >731) {
-        date -= 731;
-        yr = 1980;
-    } else {
-        date += 730;
-        yr = 1976;
-    }
-    int i = date / 1461;
-    date %= 1461;
-    int y1 = (date-1) / 365;
-    yr += y1 + 4*i;
-    if (y1 == 0)
-        daysInMonth[1] = 29;
-    else {
-        --date;
-        daysInMonth[1] = 28;
-    }
-    int day = date - 365*y1 + 1;
-    int mon = 0;
-    while (day > daysInMonth[mon]) {
-        day -= daysInMonth[mon];
-        ++mon;
-    }
-    dt->dy = day;
-    dt->mo = mon+1;
-    dt->yr = yr%100;
-    //printf("dr2date: y %d m %d d %d\n", yr, mon+1, day);
-}
-
-// see https://www.oryx-embedded.com/doc/date__time_8c_source.html
-
-uint16_t date2dr (int y, int m, int d) {
-   // count Jan and Feb as months 13 and 14 of the previous year
-   if(m <= 2) {
-      m += 12;
-      --y;
-   }
-   // this should work for at least y = 1..63 (i.e. 2001..2063)
-   return 365*y + y/4 - y/100 + y/400 + 30*m + (3*(m+1))/5 + d + 8003;
 }
 
 void SystemCall (Context* z, int req) {
@@ -254,27 +175,6 @@ void SystemCall (Context* z, int req) {
     }
 }
 
-void listSdFiles () {
-    for (int i = 0; i < fatFs.rmax; ++i) {
-        int off = (i*32) % 512;
-        if (off == 0)
-            sdCard.read512(fatFs.rdir + i/16, fatFs.buf);
-        int length = *(int32_t*) (fatFs.buf+off+28);
-        if (length >= 0 && '!' < fatFs.buf[off] &&
-                fatFs.buf[off] <= '~' && fatFs.buf[off+6] != '~') {
-            uint8_t attr = fatFs.buf[off+11];
-            printf("   %s\t", attr & 8 ? "vol:" : attr & 16 ? "dir:" : "");
-            for (int j = 0; j < 11; ++j) {
-                int c = fatFs.buf[off+j];
-                if (j == 8)
-                    printf(".");
-                printf("%c", c);
-            }
-            printf(" %7d b\n", length);
-        }
-    }
-}
-
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
@@ -334,16 +234,15 @@ int main() {
     if (!key1) { // set up system tracks on disk 1
         printf("[updating system tracks] ");
         for (uint32_t i = 0; i < sizeof rom; i += 128)
-            spiWear.write128(i / 128, rom + i);
+            drives[0].write(i / 128, rom + i);
     }
 
     if (!key0) { // set up empty directory blocks on disk 1
         printf("[clearing boot directory] ");
-        for (int i = 0; i < 16; ++i) {
-            uint8_t buf [128];
-            memset(buf, 0xE5, sizeof buf);
-            spiWear.write128(2*26 + i, buf);
-        }
+        uint8_t buf [128];
+        memset(buf, 0xE5, sizeof buf);
+        for (int i = 0; i < 16; ++i)
+            drives[0].write(2*26 + i, buf);
     }
 
     // wait for both keys to be released
@@ -351,7 +250,7 @@ int main() {
         wait_ms(100); // debounce
 
     // emulate a boot loader which loads the first block of A: at 0x0000
-    spiWear.read128(0, mapMem(&context, 0));
+    drives[0].read(0, mapMem(&context, 0));
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
     memcpy(mapMem(&context, 0x0100), ram, sizeof ram);
 

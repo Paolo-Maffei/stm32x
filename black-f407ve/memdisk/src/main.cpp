@@ -19,39 +19,15 @@ int printf(const char* fmt, ...) {
 
 Drive drives [8];
 
-void listSdFiles () {
-    for (int i = 0; i < fatFs.rmax; ++i) {
-        int off = (i*32) % 512;
-        if (off == 0)
-            sdCard.read512(fatFs.rdir + i/16, fatFs.buf);
-        int length = *(int32_t*) (fatFs.buf+off+28);
-        if (length >= 0 && '!' < fatFs.buf[off] &&
-                fatFs.buf[off] <= '~' && fatFs.buf[off+6] != '~') {
-            uint8_t attr = fatFs.buf[off+11];
-            printf("   %s\t", attr & 8 ? "vol:" : attr & 16 ? "dir:" : "");
-            for (int j = 0; j < 11; ++j) {
-                int c = fatFs.buf[off+j];
-                if (j == 8)
-                    printf(".");
-                printf("%c", c);
-            }
-            printf(" %7d b\n", length);
-        }
-    }
-}
-
 void diskCopy (int from, int to, int kb) {
-    Drive* df = drives + from;
-    Drive* dt = drives + to;
-
     uint32_t start = ticks;
 
     uint8_t buf [8][128];
     for (int i = 0; i < kb; ++i) {
         for (int j = 0; j < 8; ++j)
-            df->read(8*i + j, buf[j]);
+            drives[from].read(8*i + j, buf[j]);
         for (int j = 0; j < 8; ++j)
-            df->write(8*i + j, buf[j]);
+            drives[to].write(8*i + j, buf[j]);
     }
     reBlock128(); // flush
 
