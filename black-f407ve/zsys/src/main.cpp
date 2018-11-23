@@ -6,7 +6,7 @@
 const uint8_t* FlashBase = (const uint8_t*) 0x40000;
 
 extern "C" {
-#include "zextest.h"
+#include "context.h"
 #include "z80emu.h"
 #include "macros.h"
 }
@@ -22,9 +22,9 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-ZEXTEST zex;
+Context zex;
 
-void SystemCall (ZEXTEST* z, int req) {
+void SystemCall (Context* z, int req) {
 
     Z80_STATE* state = &(z->state);
     switch (req) {
@@ -38,8 +38,8 @@ void SystemCall (ZEXTEST* z, int req) {
             console.putc(C);
             break;
         case 3: // constr
-            for (uint16_t i = DE; z->memory[i] != 0; i++)
-                console.putc(z->memory[i]);
+            for (uint16_t i = DE; MAINMEM[i] != 0; i++)
+                console.putc(MAINMEM[i]);
             break;
         case 4: { // read
 #if 0
@@ -53,9 +53,9 @@ void SystemCall (ZEXTEST* z, int req) {
             uint8_t e = DE, d = DE >> 8;
             int pos = 128 * (e + 26 * d);
             if (pos < sizeof rom)
-                memcpy(z->memory + HL, rom + pos, 128 * B);
+                memcpy(MAINMEM + HL, rom + pos, 128 * B);
             else
-                memset(z->memory + HL, 0xE5, 128 * B);
+                memset(MAINMEM + HL, 0xE5, 128 * B);
             A = 0;
             break;
         }
@@ -87,10 +87,10 @@ int main() {
                           ((const uint32_t*) FlashBase)[1]);
 
     // now emulate a boot loader which loads the first "disk" block at 0x0000
-    memcpy(zex.memory, FlashBase, 128);
+    memcpy(MAINMEM, FlashBase, 128);
     Z80Reset(&zex.state);
 
-    while (!zex.is_done)
+    while (!zex.done)
         Z80Emulate(&zex.state, 4000000, &zex);
 
     while (1) {}

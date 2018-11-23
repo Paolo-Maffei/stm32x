@@ -4,7 +4,7 @@
 #include <string.h>
 
 extern "C" {
-#include "zextest.h"
+#include "context.h"
 #include "z80emu.h"
 #include "macros.h"
 }
@@ -29,9 +29,9 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-ZEXTEST zex;
+Context zex;
 
-void SystemCall (ZEXTEST* z, int req) {
+void SystemCall (Context* z, int req) {
 
     Z80_STATE* state = &(z->state);
     switch (req) {
@@ -45,8 +45,8 @@ void SystemCall (ZEXTEST* z, int req) {
             console.putc(C);
             break;
         case 3: // constr
-            for (uint16_t i = DE; z->memory[i] != 0; i++)
-                console.putc(z->memory[i]);
+            for (uint16_t i = DE; MAINMEM[i] != 0; i++)
+                console.putc(MAINMEM[i]);
             break;
         case 4: { // read
 #if 0
@@ -60,9 +60,9 @@ void SystemCall (ZEXTEST* z, int req) {
             uint8_t e = DE, d = DE >> 8;
             int pos = 128 * (e + 26 * d);
             if (pos < ramSize)
-                memcpy(z->memory + HL, ram + pos, 128 * B);
+                memcpy(MAINMEM + HL, ram + pos, 128 * B);
             else
-                memset(z->memory + HL, 0xE5, 128 * B);
+                memset(MAINMEM + HL, 0xE5, 128 * B);
             A = 0;
             break;
         }
@@ -70,7 +70,7 @@ void SystemCall (ZEXTEST* z, int req) {
             uint8_t e = DE, d = DE >> 8;
             int pos = 128 * (e + 26 * d);
             if (pos + 128 * B < ramSize) {
-                memcpy(ram + pos, z->memory + HL, 128 * B);
+                memcpy(ram + pos, MAINMEM + HL, 128 * B);
                 A = 0;
             } else
                 A = 1;
@@ -90,13 +90,13 @@ int main() {
     memcpy(ram, sys, sizeof sys);
 
     // now emulate a boot loader which loads the first "disk" block at 0x0000
-    memcpy(zex.memory, ram, 128);
+    memcpy(MAINMEM, ram, 128);
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
-    memcpy(zex.memory + 0x0100, hexsave, sizeof hexsave);
+    memcpy(MAINMEM + 0x0100, hexsave, sizeof hexsave);
 
     Z80Reset(&zex.state);
 
-    while (!zex.is_done)
+    while (!zex.done)
         Z80Emulate(&zex.state, 4000000, &zex);
 
     while (1) {}

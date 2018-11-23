@@ -12,7 +12,7 @@
 #include <string.h>
 
 extern "C" {
-#include "zextest.h"
+#include "context.h"
 #include "z80emu.h"
 }
 
@@ -33,22 +33,22 @@ PinA<6> led;
 
 static void emulate (const void* rom, int len)
 {
-    static ZEXTEST	context;
-    memcpy(context.memory + 0x100, rom, len);
+    static Context context;
+    memcpy(MAINMEM + 0x100, rom, len);
 
     /* Patch the memory of the program. Reset at 0x0000 is trapped by an
      * OUT which will stop emulation. CP/M bdos call 5 is trapped by an IN.
      * See Z80_INPUT_BYTE() and Z80_OUTPUT_BYTE() definitions in z80user.h.
      */
 
-    context.memory[0] = 0xd3;       /* OUT N, A */
-    context.memory[1] = 0x00;
+    MAINMEM[0] = 0xd3;       /* OUT N, A */
+    MAINMEM[1] = 0x00;
 
-    context.memory[5] = 0xdb;       /* IN A, N */
-    context.memory[6] = 0x00;
-    context.memory[7] = 0xc9;       /* RET */
+    MAINMEM[5] = 0xdb;       /* IN A, N */
+    MAINMEM[6] = 0x00;
+    MAINMEM[7] = 0xc9;       /* RET */
 
-    context.is_done = 0;
+    context.done = 0;
 
     /* Emulate. */
 
@@ -57,7 +57,7 @@ static void emulate (const void* rom, int len)
     do {
         led.toggle();
         Z80Emulate(&context.state, 4000000, &context);
-    } while (!context.is_done);
+    } while (!context.done);
     led = 0;
 }
 
@@ -65,17 +65,17 @@ static void emulate (const void* rom, int len)
  * (output $-terminated string to screen).
  */
 
-void SystemCall (ZEXTEST *zextest)
+void SystemCall (Context *zextest, int)
 {
     if (zextest->state.registers.byte[Z80_C] == 2)
         printf("%c", zextest->state.registers.byte[Z80_E]);
     else if (zextest->state.registers.byte[Z80_C] == 9) {
         int     i, c;
         for (i = zextest->state.registers.word[Z80_DE], c = 0; 
-                zextest->memory[i] != '$';
+                MAINMEM[i] != '$';
                 i++) {
 
-            printf("%c", zextest->memory[i & 0xffff]);
+            printf("%c", MAINMEM[i & 0xffff]);
         }
     }
 }

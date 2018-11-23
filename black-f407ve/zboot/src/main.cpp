@@ -6,7 +6,7 @@
 const uint8_t* FlashBase = (const uint8_t*) 0x40000;
 
 extern "C" {
-#include "zextest.h"
+#include "context.h"
 #include "z80emu.h"
 }
 
@@ -21,11 +21,11 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
-ZEXTEST zex;
+Context zex;
 
-void SystemCall (ZEXTEST*) {
-    for (int i = zex.state.registers.word[Z80_DE]; zex.memory[i] != '$'; i++)
-        console.putc(zex.memory[i & 0xffff]);
+void SystemCall (Context*, int) {
+    for (int i = zex.state.registers.word[Z80_DE]; MAINMEM[i] != '$'; i++)
+        console.putc(MAINMEM[i & 0xffff]);
 }
 
 int main() {
@@ -47,10 +47,10 @@ int main() {
                           ((const uint32_t*) FlashBase)[1]);
 
     // now emulate a boot loader which loads the first "disk" block at 0x0000
-    memcpy(zex.memory, FlashBase, 128);
+    memcpy(MAINMEM, FlashBase, 128);
     Z80Reset(&zex.state);
 
-    while (!zex.is_done)
+    while (!zex.done)
         Z80Emulate(&zex.state, 4000000, &zex);
 
     while (1) {}
