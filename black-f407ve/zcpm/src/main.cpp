@@ -105,14 +105,12 @@ void SystemCall (Context* z, int req) {
 
             A = 0;
             for (int i = 0; i < cnt; ++i) {
-                // this is ok even with "overflowing" sector numbers, see lba()
-                uint32_t blk = drives[dsk]->lba(trk, sec + i);
                 // TODO careful with wrapping across paged memory boundary!!!
                 void* mem = mapMem(&context, HL + 128 * i);
                 if (out)
-                    drives[dsk]->write(blk, mem);
+                    drives[dsk].write(trk, sec+i, mem);
                 else
-                    drives[dsk]->read(blk, mem);
+                    drives[dsk].read(trk, sec+i, mem);
             }
             break;
         }
@@ -235,7 +233,7 @@ int main() {
     if (!key1) { // set up system tracks on A:
         printf("[updating system tracks] ");
         for (uint32_t i = 0; i < sizeof rom; i += 128)
-            drives[0]->write(i / 128, rom + i);
+            drives[0].write(0, i / 128, rom + i);
     }
 
     if (!key0) { // set up empty directory blocks on A:
@@ -244,7 +242,7 @@ int main() {
         memset(buf, 0xE5, sizeof buf);
         for (int i = 0; i < 16; ++i)
             // TODO start track depends on disk parameters
-            drives[0]->write(drives[0]->lba(2, i), buf);
+            drives[0].write(2, i, buf);
     }
 
     // wait for both keys to be released
@@ -252,7 +250,7 @@ int main() {
         wait_ms(100); // debounce
 
     // emulate a boot loader which loads the first block of A: at 0x0000
-    drives[0]->read(0, mapMem(&context, 0));
+    drives[0].read(0, 0, mapMem(&context, 0));
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
     memcpy(mapMem(&context, 0x0100), ram, sizeof ram);
 

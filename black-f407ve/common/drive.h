@@ -45,18 +45,11 @@ struct VirtualDisk {
     VirtualDisk () {}
     virtual ~VirtualDisk () {}
 
-    virtual bool init (char const [11]) =0;
-    virtual void read (uint32_t pos, void* buf) =0;
-    virtual void write (uint32_t pos, void const* buf) =0;
+    virtual bool init (char const [11]) { return false; }
+    virtual void read (uint32_t pos, void* buf) {}
+    virtual void write (uint32_t pos, void const* buf) {}
 
     virtual uint32_t skew (uint32_t /*trk*/, uint32_t sec) { return sec; }
-
-    uint32_t lba (uint32_t trk, uint32_t sec) {
-        uint32_t spt = size == DISK_TINY ? 26 :
-                       size == DISK_NORM ? 72 : 256;
-        trk += sec / spt;
-        return trk * spt + skew(trk, sec % spt);
-    }
 };
 
 static FlashWear iflash;
@@ -193,11 +186,20 @@ public:
     }
 };
 
+static VirtualDisk noDisk;
+
 class Drive {
     OnChipDisk   onChipDisk;
     SpiFlashDisk spiFlashDisk;
     SdCardDisk   sdCardDisk;
-    VirtualDisk* current = 0;
+    VirtualDisk* current = &noDisk;
+
+    uint32_t lba (uint32_t trk, uint32_t sec) {
+        uint32_t spt = current->size == VirtualDisk::DISK_TINY ? 26 :
+                       current->size == VirtualDisk::DISK_NORM ? 72 : 256;
+        trk += sec / spt;
+        return trk * spt + current->skew(trk, sec % spt);
+    }
 
 public:
     Drive () {}
@@ -210,14 +212,24 @@ public:
         else if (sdCardDisk.init(name))
             current = &sdCardDisk;
         else {
-            current = 0;
+            current = &noDisk;
             return -1;
         }
         //printf("current %08x size %d\n", current, current->size);
         return current->size;
     }
 
-    VirtualDisk* operator-> () { return current; }
+    void read (uint32_t trk, uint32_t sec, void* buf) {
+        uint32_t blk = lba(trk, sec);
+        if (blk < current->size)
+            current->read(blk, buf);
+    }
+
+    void write (uint32_t trk, uint32_t sec, void const* buf) {
+        uint32_t blk = lba(trk, sec);
+        if (blk < current->size)
+            current->write(blk, buf);
+    }
 };
 
 void listSdFiles () {
