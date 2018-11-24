@@ -52,6 +52,7 @@ struct VirtualDisk {
     virtual uint32_t skew (uint32_t /*trk*/, uint32_t sec) { return sec; }
 };
 
+static VirtualDisk noDisk;
 static FlashWear iflash;
 
 class OnChipDisk : public VirtualDisk {
@@ -67,7 +68,7 @@ public:
             if (totalSectors == 0)
                 totalSectors = iflash.init();
 
-            unsigned num = def[8] - '1';
+            unsigned num = def[8]-'1';
             offset = num * DISK_TINY;
             size = DISK_TINY;
             if (offset + size <= totalSectors)
@@ -79,13 +80,11 @@ public:
     }
 
     virtual void read (uint32_t pos, void* buf) {
-        if (pos < DISK_TINY)
-            iflash.readSector(offset + pos, buf);
+        iflash.readSector(offset + pos, buf);
     }
 
     virtual void write (uint32_t pos, void const* buf) {
-        if (pos < DISK_TINY)
-            iflash.writeSector(offset + pos, buf);
+        iflash.writeSector(offset + pos, buf);
     }
 };
 
@@ -97,7 +96,7 @@ public:
     virtual ~SpiFlashDisk () {}
 
     virtual bool init (char const def [11]) {
-        if (def[8] == '1' && def[9] >= '1' && def[10] == ' ') {
+        if (def[8] >= '1' && def[9] >= '1' && def[10] == ' ') {
             static uint32_t kbSize = 0;
             if (kbSize == 0) {
                 spi1.init();
@@ -105,27 +104,34 @@ public:
                 kbSize = spiFlash.size();
             }
 
-            unsigned num = def[9] - '1';
-
             //  2 MB = 2x 250.25 + 1x 1440 + 0x 8192
             //  4 MB = 2x 250.25 + 2x 1440 + 0x 8192
             //  8 MB = 2x 250.25 + 5x 1440 + 0x 8192
             // 16 MB = 2x 250.25 + 5x 1440 + 1x 8192
 
-            static uint32_t diskSizes [] = {
-                DISK_TINY, DISK_TINY,
-                DISK_NORM, DISK_NORM, DISK_NORM, DISK_NORM, DISK_NORM,
-                DISK_HUGE,
-            };
+            unsigned num = def[9]-'1';
+            size = 0;
 
-            if (num < sizeof diskSizes / sizeof *diskSizes) {
-                offset = 0;
-                for (unsigned i = 0; i < num; ++i)
-                    offset += diskSizes[i];
-                size = diskSizes[num];
-                if (offset + size <= kbSize * 1024 / BUFLEN)
-                    return true;
+            switch (def[8]) {
+                case '1':   // .11 to .12
+                    offset = 8 * (num*252);
+                    if (num < 2)
+                        size = DISK_TINY;
+                    break;
+                case '2':   // .21 to .25
+                    offset = 8 * (2*252 + num*1440);
+                    if (num < 5)
+                        size = DISK_NORM;
+                    break;
+                case '3':   // .31
+                    offset = 8 * (2*252 + 5*1440 + num*8192);
+                    if (num < 1)
+                        size = DISK_HUGE;
+                    break;
             }
+
+            if (size > 0 && offset + size <= kbSize*8)
+                return true;
         }
 
         size = 0;
@@ -133,13 +139,13 @@ public:
     }
 
     virtual void read (uint32_t pos, void* buf) {
-        if (pos < size)
-            spiWear.read128(offset + pos, buf);
+        pos += offset;
+        pos += (pos/(252*8)) * (4*8);  // this skips 4K every 252K
+        spiWear.read128(offset + pos, buf);
     }
 
     virtual void write (uint32_t pos, void const* buf) {
-        if (pos < size)
-            spiWear.write128(offset + pos, buf);
+        spiWear.write128(offset + pos, buf);
     }
 };
 
@@ -160,33 +166,30 @@ public:
     }
 
     virtual void read (uint32_t pos, void* buf) {
-        if (pos < limit) {
-            void* ptr = reBlock128(&diskMap, pos, false);
-            memcpy(buf, ptr, BUFLEN);
+        if (pos >= limit) {
+            memset(buf, 0xE5, BUFLEN);
+            return;
         }
+        void* ptr = reBlock128(&diskMap, pos, false);
+        memcpy(buf, ptr, BUFLEN);
     }
 
     virtual void write (uint32_t pos, void const* buf) {
         if (limit < size)
             return; // disk is read-only if it's not a full-size image
-        if (pos < limit) {
-            void* ptr = reBlock128(&diskMap, pos, true);
-            memcpy(ptr, buf, BUFLEN);
-        }
+        void* ptr = reBlock128(&diskMap, pos, true);
+        memcpy(ptr, buf, BUFLEN);
     }
 
     virtual uint32_t skew (uint32_t trk, uint32_t sec) {
         static const uint8_t skewMap [] = {
             0,6,12,18,24,4,10,16,22,2,8,14,20,1,7,13,19,25,5,11,17,23,3,9,15,21
         };
-
         if (size == DISK_TINY && trk >= 2)
             sec = skewMap[sec];
         return sec;
     }
 };
-
-static VirtualDisk noDisk;
 
 class Drive {
     OnChipDisk   onChipDisk;
