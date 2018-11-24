@@ -38,7 +38,7 @@ struct VirtualDisk {
     static constexpr uint32_t BUFLEN = 128;
     static constexpr uint32_t DISK_TINY = 77*26*1;   // 8" SSSD
     static constexpr uint32_t DISK_NORM = 160*8*4;   // 3.5" HD
-    static constexpr uint32_t DISK_HUGE = 255*256*1; // 8 MB hd
+    static constexpr uint32_t DISK_HUGE = 256*256*1; // 8 MB hd
 
     uint32_t size = 0;
 
@@ -113,12 +113,12 @@ public:
 
             unsigned num = def[9] - '1';
 
-            //  2 MB = 2x 252 + 1x 1440 + 0x 8160
-            //  4 MB = 2x 252 + 2x 1440 + 0x 8160
-            //  8 MB = 2x 252 + 5x 1440 + 0x 8160
-            // 16 MB = 2x 252 + 5x 1440 + 1x 8160
+            //  2 MB = 2x 250.25 + 1x 1440 + 0x 8192
+            //  4 MB = 2x 250.25 + 2x 1440 + 0x 8192
+            //  8 MB = 2x 250.25 + 5x 1440 + 0x 8192
+            // 16 MB = 2x 250.25 + 5x 1440 + 1x 8192
 
-            static uint16_t diskSizes [] = {
+            static uint32_t diskSizes [] = {
                 DISK_TINY, DISK_TINY,
                 DISK_NORM, DISK_NORM, DISK_NORM, DISK_NORM, DISK_NORM,
                 DISK_HUGE,
@@ -129,7 +129,7 @@ public:
                 for (unsigned i = 0; i < num; ++i)
                     offset += diskSizes[i];
                 size = diskSizes[num];
-                if (size <= kbSize * 1024 / BUFLEN)
+                if (offset + size <= kbSize * 1024 / BUFLEN)
                     return true;
             }
         }
