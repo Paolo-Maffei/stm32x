@@ -9,6 +9,7 @@ int printf(const char* fmt, ...) {
 	return 0;
 }
 
+PinD<15> button;
 PinE<0> led;
 
 int main() {
@@ -20,10 +21,11 @@ int main() {
     printf("h/w id %08x %08x %08x\n",
         MMIO32(0x1FFF7A10), MMIO32(0x1FFF7A14), MMIO32(0x1FFF7A18));
 
+    button.mode(Pinmode::in_pullup);
     led.mode(Pinmode::out);
 
     while (1) {
-        printf("%d\n", ticks);
+        printf("%d %d\n", ticks, (int) button);
         led = 0;
         wait_ms(100);
         led = 1;
