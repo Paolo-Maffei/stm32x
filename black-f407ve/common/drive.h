@@ -95,7 +95,7 @@ public:
     virtual ~SpiFlashDisk () {}
 
     virtual bool init (char const def [11]) {
-        if (def[8] == '0' && def[9] >= '1' && def[10] == ' ') {
+        if (def[8] == '1' && def[9] >= '1' && def[10] == ' ') {
             static uint32_t kbSize = 0;
             if (kbSize == 0) {
                 spi1.init();
@@ -168,12 +168,13 @@ public:
     }
 };
 
-struct Drive {
+class Drive {
     OnChipDisk   onChipDisk;
     SpiFlashDisk spiFlashDisk;
     SdCardDisk   sdCardDisk;
     VirtualDisk* current = 0;
 
+public:
     Drive () {}
 
     int assign (char const name [11]) {
@@ -187,8 +188,7 @@ struct Drive {
             current = 0;
             return -1;
         }
-
-        printf("current %08x size %d\n", current, current->size);
+        //printf("current %08x size %d\n", current, current->size);
         return current->size;
     }
 
@@ -209,8 +209,9 @@ void listSdFiles () {
         if (off == 0)
             sdCard.read512(fatFs.rdir + i/16, fatFs.buf);
         int length = *(int32_t*) (fatFs.buf+off+28);
-        if (length >= 0 && '!' < fatFs.buf[off] &&
-                fatFs.buf[off] <= '~' && fatFs.buf[off+6] != '~') {
+        if (length >= 0 &&
+                '!' < fatFs.buf[off] && fatFs.buf[off] < '~' &&
+                fatFs.buf[off+5] != '~' && fatFs.buf[off+6] != '~') {
             uint8_t attr = fatFs.buf[off+11];
             printf("   %s\t", attr & 8 ? "vol:" : attr & 16 ? "dir:" : "");
             for (int j = 0; j < 11; ++j) {

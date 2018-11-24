@@ -108,7 +108,7 @@ void SystemCall (Context* z, int req) {
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
             //printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d\n",
             //        context.bank, HL, out, cnt, dsk, trk, sec);
-            if (0 < dsk && dsk < 4 && dsk != 2)
+            if (0 <= dsk && dsk < 4 && dsk != 1 && dsk != 2 && trk >= 2)
                 sec = skewMap[sec]-1;
             // TODO hard-coded for now, should use value in DPB
             int spt = dsk < 4 ? 26 : dsk < 5 ? 72 : 256;
@@ -210,11 +210,12 @@ int main() {
 #endif
         listSdFiles();
 
-        drives[0].assign("        01 "); // A:
-        drives[1].assign("CPMA    CPM"); // B:
+        drives[0].assign("CPMA    F  "); // A:
+        drives[1].assign("        11 "); // B:
         drives[2].assign("        1  "); // C:
-        drives[3].assign("T1      DSK"); // D:
-        drives[4].assign("T2      DSK"); // E:
+      //drives[3].assign("DISK    A  "); // D:
+        drives[3].assign("T1      F  "); // D:
+        drives[4].assign("T2      FD "); // E:
         drives[5].assign("T3      DSK"); // F:
         drives[6].assign("T4      DSK"); // G:
         drives[7].assign("T5      DSK"); // H:
@@ -231,13 +232,13 @@ int main() {
         spiFlash.wipe();
     }
 
-    if (!key1) { // set up system tracks on disk 1
+    if (!key1) { // set up system tracks on A:
         printf("[updating system tracks] ");
         for (uint32_t i = 0; i < sizeof rom; i += 128)
             drives[0].write(i / 128, rom + i);
     }
 
-    if (!key0) { // set up empty directory blocks on disk 1
+    if (!key0) { // set up empty directory blocks on A:
         printf("[clearing boot directory] ");
         uint8_t buf [128];
         memset(buf, 0xE5, sizeof buf);
