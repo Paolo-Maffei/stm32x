@@ -48,6 +48,14 @@ struct VirtualDisk {
     virtual bool init (char const [11]) =0;
     virtual void read (uint32_t pos, void* buf) =0;
     virtual void write (uint32_t pos, void const* buf) =0;
+
+    virtual uint32_t skew (uint32_t /*trk*/, uint32_t sec) { return sec; }
+
+    uint32_t lba (uint32_t trk, uint32_t sec) {
+        uint32_t spt = size == DISK_TINY ? 26 :
+                       size == DISK_NORM ? 72 : 256;
+        return trk * spt + skew(trk, sec);
+    }
 };
 
 static FlashWear iflash;
@@ -143,28 +151,44 @@ public:
 
 class SdCardDisk : public VirtualDisk {
     DiskMap diskMap;
+    uint32_t limit;
 
 public:
     SdCardDisk () : diskMap (fatFs) {}
     virtual ~SdCardDisk () {}
 
     virtual bool init (char const def [11]) {
-        size = diskMap.open(def) / BUFLEN;
+        size = def[9] == ' ' ? DISK_TINY :
+              def[10] == ' ' ? DISK_NORM : DISK_HUGE;
+
+        limit = diskMap.open(def) / BUFLEN;
         return true;
     }
 
     virtual void read (uint32_t pos, void* buf) {
-        if (pos < size) {
+        if (pos < limit) {
             void* ptr = reBlock128(&diskMap, pos, false);
             memcpy(buf, ptr, BUFLEN);
         }
     }
 
     virtual void write (uint32_t pos, void const* buf) {
-        if (pos < size) {
+        if (limit < size)
+            return; // disk is read-only if it's not a full-size image
+        if (pos < limit) {
             void* ptr = reBlock128(&diskMap, pos, true);
             memcpy(ptr, buf, BUFLEN);
         }
+    }
+
+    virtual uint32_t skew (uint32_t trk, uint32_t sec) {
+        static const uint8_t skewMap [] = {
+            0,6,12,18,24,4,10,16,22,2,8,14,20,1,7,13,19,25,5,11,17,23,3,9,15,21
+        };
+
+        if (size == DISK_TINY && trk >= 2)
+            sec = skewMap[sec];
+        return sec;
     }
 };
 
@@ -192,15 +216,7 @@ public:
         return current->size;
     }
 
-    void read (uint32_t pos, void* buf) {
-        if (current != 0)
-            current->read(pos, buf);
-    }
-
-    void write (uint32_t pos, void const* buf) {
-        if (current != 0)
-            current->write(pos, buf);
-    }
+    VirtualDisk* operator-> () { return current; }
 };
 
 void listSdFiles () {

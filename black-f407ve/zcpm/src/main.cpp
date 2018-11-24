@@ -77,10 +77,6 @@ static void initFsmcLcd () {
 }
 
 void SystemCall (Context* z, int req) {
-    static const uint8_t skewMap [] = {
-        1,7,13,19,25,5,11,17,23,3,9,15,21,2,8,14,20,26,6,12,18,24,4,10,16,22
-    };
-
     Z80_STATE* state = &(z->state);
     //printf("req %d A %d\n", req, A);
     switch (req) {
@@ -106,22 +102,21 @@ void SystemCall (Context* z, int req) {
             //  ret
             bool out = (B & 0x80) != 0;
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
-            //printf("\nrw128: b%d a%04x o%d n%d d%d t%d s%d\n",
-            //        context.bank, HL, out, cnt, dsk, trk, sec);
-            if (0 <= dsk && dsk < 4 && dsk != 1 && dsk != 2 && trk >= 2)
-                sec = skewMap[sec]-1;
-            // TODO hard-coded for now, should use value in DPB
-            int spt = dsk < 4 ? 26 : dsk < 5 ? 72 : 256;
-            int blk = trk * spt + sec;
+
+            // FIXME oops!!! this is wrong when counts >1 if skew is applied
+            //  doesn't happen so far: multi-sector call is only on sys tracks
+            //  simplest would be to drop multi-sector handling here ...
+            //  ... and let the boot loader iterate over sectors and tracks
+            uint32_t blk = drives[dsk]->lba(trk, sec);
 
             A = 0;
             for (int i = 0; i < cnt; ++i) {
                 // TODO careful with wrapping across paged memory boundary!!!
                 void* mem = mapMem(&context, HL + 128 * i);
                 if (out)
-                    drives[dsk].write(blk + i, mem);
+                    drives[dsk]->write(blk + i, mem);
                 else
-                    drives[dsk].read(blk + i, mem);
+                    drives[dsk]->read(blk + i, mem);
             }
             break;
         }
@@ -235,7 +230,7 @@ int main() {
     if (!key1) { // set up system tracks on A:
         printf("[updating system tracks] ");
         for (uint32_t i = 0; i < sizeof rom; i += 128)
-            drives[0].write(i / 128, rom + i);
+            drives[0]->write(i / 128, rom + i);
     }
 
     if (!key0) { // set up empty directory blocks on A:
@@ -243,7 +238,7 @@ int main() {
         uint8_t buf [128];
         memset(buf, 0xE5, sizeof buf);
         for (int i = 0; i < 16; ++i)
-            drives[0].write(2*26 + i, buf);
+            drives[0]->write(2*26 + i, buf);
     }
 
     // wait for both keys to be released
@@ -251,7 +246,7 @@ int main() {
         wait_ms(100); // debounce
 
     // emulate a boot loader which loads the first block of A: at 0x0000
-    drives[0].read(0, mapMem(&context, 0));
+    drives[0]->read(0, mapMem(&context, 0));
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
     memcpy(mapMem(&context, 0x0100), ram, sizeof ram);
 
