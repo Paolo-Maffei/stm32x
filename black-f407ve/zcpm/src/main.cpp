@@ -205,9 +205,9 @@ int main() {
 #endif
         listSdFiles();
 
-        drives[0].assign("CPMA    F  "); // A:
+        drives[0].assign("        1  "); // A:
         drives[1].assign("        11 "); // B:
-        drives[2].assign("        1  "); // C:
+        drives[2].assign("CPMA    F  "); // C:
       //drives[3].assign("DISK    A  "); // D:
         drives[3].assign("T1      F  "); // D:
         drives[4].assign("T2      FD "); // E:
