@@ -194,6 +194,9 @@ int main() {
         }
     }
 
+    drives[0].assign("        1  "); // A:
+    drives[1].assign("        11 "); // B:
+
     spi2.init();
     if (sdCard.init()) {
         //printf("[sd card: sdhc %d]\n", sdCard.sdhc);
@@ -205,8 +208,6 @@ int main() {
 #endif
         listSdFiles();
 
-        drives[0].assign("        1  "); // A:
-        drives[1].assign("        11 "); // B:
         drives[2].assign("CPMA    F  "); // C:
       //drives[3].assign("DISK    A  "); // D:
         drives[3].assign("T1      F  "); // D:
