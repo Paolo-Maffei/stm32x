@@ -25,9 +25,9 @@ void diskCopy (int from, int to, int kb) {
     uint8_t buf [8][128];
     for (int i = 0; i < kb; ++i) {
         for (int j = 0; j < 8; ++j)
-            drives[from].read(8*i + j, buf[j]);
+            drives[from].read(0, 8*i + j, buf[j]);
         for (int j = 0; j < 8; ++j)
-            drives[to].write(8*i + j, buf[j]);
+            drives[to].write(0, 8*i + j, buf[j]);
     }
     reBlock128(); // flush
 
