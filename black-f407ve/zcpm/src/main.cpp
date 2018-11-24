@@ -103,20 +103,16 @@ void SystemCall (Context* z, int req) {
             bool out = (B & 0x80) != 0;
             uint8_t sec = DE, trk = DE >> 8, dsk = A, cnt = B & 0x7F;
 
-            // FIXME oops!!! this is wrong when counts >1 if skew is applied
-            //  doesn't happen so far: multi-sector call is only on sys tracks
-            //  simplest would be to drop multi-sector handling here ...
-            //  ... and let the boot loader iterate over sectors and tracks
-            uint32_t blk = drives[dsk]->lba(trk, sec);
-
             A = 0;
             for (int i = 0; i < cnt; ++i) {
+                // this is ok even with "overflowing" sector numbers, see lba()
+                uint32_t blk = drives[dsk]->lba(trk, sec + i);
                 // TODO careful with wrapping across paged memory boundary!!!
                 void* mem = mapMem(&context, HL + 128 * i);
                 if (out)
-                    drives[dsk]->write(blk + i, mem);
+                    drives[dsk]->write(blk, mem);
                 else
-                    drives[dsk]->read(blk + i, mem);
+                    drives[dsk]->read(blk, mem);
             }
             break;
         }
@@ -247,7 +243,8 @@ int main() {
         uint8_t buf [128];
         memset(buf, 0xE5, sizeof buf);
         for (int i = 0; i < 16; ++i)
-            drives[0]->write(2*26 + i, buf);
+            // TODO start track depends on disk parameters
+            drives[0]->write(drives[0]->lba(2, i), buf);
     }
 
     // wait for both keys to be released

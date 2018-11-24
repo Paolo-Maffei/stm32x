@@ -54,7 +54,8 @@ struct VirtualDisk {
     uint32_t lba (uint32_t trk, uint32_t sec) {
         uint32_t spt = size == DISK_TINY ? 26 :
                        size == DISK_NORM ? 72 : 256;
-        return trk * spt + skew(trk, sec);
+        trk += sec / spt;
+        return trk * spt + skew(trk, sec % spt);
     }
 };
 
