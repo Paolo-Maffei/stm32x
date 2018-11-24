@@ -187,15 +187,27 @@ int main() {
 
     if (0) { // set up empty directory blocks
         printf("clearing iflash directory");
-        for (int i = 0; i < 16; ++i) {
+        for (int i = 0; i < 16; ++i) { // TODO depends on disk params
             uint8_t buf [128];
             memset(buf, 0xE5, sizeof buf);
             iflash.writeSector(2*26 + i, buf);
         }
     }
 
-    drives[0].assign("        1  "); // A:
-    drives[1].assign("        11 "); // B:
+    static char names [][12] = {
+        "        1  ",
+        "        11 ",
+        "CPMA    F  ",
+        "T1      D  ",
+        "T2      FD ",
+        "T3      DSK",
+        "T4      DSK",
+        "T5      DSK",
+    };
+
+    for (int i = 0; i < 8; ++i)
+        if (names[i][0] == ' ')
+            drives[i].assign(names[i]);
 
     spi2.init();
     if (sdCard.init()) {
@@ -208,13 +220,9 @@ int main() {
 #endif
         listSdFiles();
 
-        drives[2].assign("CPMA    F  "); // C:
-      //drives[3].assign("DISK    A  "); // D:
-        drives[3].assign("T1      F  "); // D:
-        drives[4].assign("T2      FD "); // E:
-        drives[5].assign("T3      DSK"); // F:
-        drives[6].assign("T4      DSK"); // G:
-        drives[7].assign("T5      DSK"); // H:
+        for (int i = 0; i < 8; ++i)
+            if (names[i][0] != ' ')
+                drives[i].assign(names[i]);
     }
 
     // The "K0" and "K1" buttons are checked on power-up and reset:
