@@ -188,10 +188,17 @@ int main() {
         }
     }
 
+    bool emptyFlash = ! iflash.valid();
+
     static char names [][12] = {
         "        1  ",
+#if 0
         "        11 ",
         "CPMA    F  ",
+#else
+        "        2  ",
+        "        3  ",
+#endif
         "T1      D  ",
         "T2      FD ",
         "T3      DSK",
@@ -203,8 +210,27 @@ int main() {
         if (names[i][0] == ' ')
             drives[i].assign(names[i]);
 
+    // TODO deal with different internal flash memory sizes
+    // static uint32_t memSizeKb = MMIO16(0x1FFF7A22); // TODO F407-specific?
+
+    if (emptyFlash) {
+        printf("[init internal flash] ");
+        // copy system rom to system tracks
+        for (uint32_t i = 0; i < sizeof rom; i += 128)
+            drives[0].write(0, i / 128, rom + i);
+        // reformat drives to clear all directories
+        uint8_t buf [128];
+        memset(buf, 0xE5, sizeof buf);
+        for (int i = 0; i < 16; ++i)
+            drives[0].write(2, i, buf);
+        for (int i = 0; i < 16; ++i)
+            drives[1].write(2, i, buf);
+        for (int i = 0; i < 16; ++i)
+            drives[2].write(2, i, buf);
+    }
+
     spi2.init();
-    if (sdCard.init()) {
+    if (0 && sdCard.init()) {
         //printf("[sd card: sdhc %d]\n", sdCard.sdhc);
         fatFs.init();
 #if 0

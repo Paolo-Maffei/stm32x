@@ -10,8 +10,8 @@ class FlashWear {
     typedef struct {
         uint16_t map [NUM_MODS];
         uint8_t flags [NUM_MODS];
-        uint8_t phys [16];
-        uint8_t spare [20];
+        uint8_t phys [SEGSUSED];
+        uint8_t spare [36-SEGSUSED];
         uint8_t sectors [NUM_MODS][SECLEN];
     } ModPage;
 
@@ -109,11 +109,18 @@ class FlashWear {
     }
 
 public:
+    static bool valid () {
+        for (int i = 0; i < SEGSUSED; ++i)
+            if (mods.phys[0] <= 0 || mods.phys[0] > SEGSUSED+1)
+                return false;
+        return true;
+    }
+
     static int init (bool erase =false) {
         if (DEBUG)
             printf("FlashWear %d, ModPage %d, Segment %d\n",
                     sizeof (FlashWear), sizeof (ModPage), sizeof (Segment));
-        if (erase || mods.phys[0] > SEGSUSED+1) {
+        if (erase || !valid()) {
             printf("initialising internal flash\n");
             Flash::erasePage(&mods);
             for (int i = 0; i < SEGSUSED; ++i)
