@@ -214,7 +214,7 @@ int main() {
     // static uint32_t memSizeKb = MMIO16(0x1FFF7A22); // TODO F407-specific?
 
     if (emptyFlash) {
-        printf("[init internal flash] ");
+        printf("set up system tracks and directories\n");
         // copy system rom to system tracks
         for (uint32_t i = 0; i < sizeof rom; i += 128)
             drives[0].write(0, i / 128, rom + i);
