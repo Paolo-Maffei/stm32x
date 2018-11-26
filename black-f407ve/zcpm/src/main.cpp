@@ -30,8 +30,10 @@ TextLcd< decltype(lcd) > text;
 Font5x7< decltype(text) > screen;
 
 UartDev< PinA<9>, PinA<10> > console;
+
 PinE<4> key0;
 PinE<3> key1;
+PinB<1> backlight;
 
 static void putcBoth (int c) {
     console.putc(c);
@@ -176,6 +178,7 @@ int main() {
 
     key0.mode(Pinmode::in_pullup); // inverted logic
     key1.mode(Pinmode::in_pullup); // inverted logic
+    backlight.mode(Pinmode::out);
 
     rtc.init();
 
@@ -230,7 +233,7 @@ int main() {
     }
 
     spi2.init();
-    if (0 && sdCard.init()) {
+    if (sdCard.init()) {
         //printf("[sd card: sdhc %d]\n", sdCard.sdhc);
         fatFs.init();
 #if 0
@@ -279,6 +282,10 @@ int main() {
     drives[0].read(0, 0, mapMem(&context, 0));
     // and leave a copy of HEXSAVE.COM in the TPA for saving in CP/M
     memcpy(mapMem(&context, 0x0100), ram, sizeof ram);
+
+    lcd.clear();
+    wait_ms(20); // avoids screen flash
+    backlight = 1;
 
     Z80Reset(&context.state);
 
