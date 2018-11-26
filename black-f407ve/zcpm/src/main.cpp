@@ -195,7 +195,7 @@ int main() {
 
     static char names [][12] = {
         "        1  ",
-#if 0
+#if 1
         "        11 ",
         "CPMA    F  ",
 #else

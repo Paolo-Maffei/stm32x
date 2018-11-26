@@ -141,11 +141,13 @@ public:
     virtual void read (uint32_t pos, void* buf) {
         pos += offset;
         pos += (pos/(252*8)) * (4*8);  // this skips 4K every 252K
-        spiWear.read128(offset + pos, buf);
+        spiWear.read128(pos, buf);
     }
 
     virtual void write (uint32_t pos, void const* buf) {
-        spiWear.write128(offset + pos, buf);
+        pos += offset;
+        pos += (pos/(252*8)) * (4*8);  // this skips 4K every 252K
+        spiWear.write128(pos, buf);
     }
 };
 
