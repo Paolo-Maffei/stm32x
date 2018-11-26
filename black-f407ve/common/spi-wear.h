@@ -1,10 +1,9 @@
 // Simple wear-leveling wrapper around the SPI-flash driver.
 //
 // This still has some hot spots, but it consderably reduces rewrite activity.
-// Basic idea is to collect 128-bytye block writes up in a dedicated page,
+// Basic idea is to collect 128-byte block writes up in a dedicated page,
 // and then rewrite the other pages once that special "remap page" fills up.
-// Assumes 4 KB erase segments and groups flash into 256 KB virtual disks.
-// For the Black F407, this translates to eight emulated 8" SSSD drives.
+// Assumes 4 KB erase segments and groups flash into 252 KB virtual disks.
 
 template< typename SPIF, typename LED >
 class SpiWear {
@@ -16,7 +15,7 @@ class SpiWear {
     constexpr static uint32_t pageBlocks  = pageSize / blockSize;
 
     int mapBase = -1;
-    uint16_t map [blockSize/2];  // only [1..pageSize] entries actually used
+    uint16_t map [blockSize/2];  // only [1..pageSize) entries actually used
     uint8_t flushBuf [pageSize];
 
     void loadMap (int blk) {

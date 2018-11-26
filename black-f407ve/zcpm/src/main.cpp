@@ -167,6 +167,8 @@ void SystemCall (Context* z, int req) {
 }
 
 int main() {
+    backlight.mode(Pinmode::out); // turn backlight off as soon as possible
+
     console.init();
     console.baud(115200, fullSpeedClock()/2);
 
@@ -174,39 +176,30 @@ int main() {
     lcd.init();
     lcd.clear();
 
-    printf("\r\n");
+    printf("\r\n"); // this goes to lcd as well as serial
 
     key0.mode(Pinmode::in_pullup); // inverted logic
     key1.mode(Pinmode::in_pullup); // inverted logic
-    backlight.mode(Pinmode::out);
 
     rtc.init();
 
-    if (0) { // set up empty directory blocks
-        printf("clearing iflash directory");
-        for (int i = 0; i < 16; ++i) { // TODO depends on disk params
-            uint8_t buf [128];
-            memset(buf, 0xE5, sizeof buf);
-            iflash.writeSector(2*26 + i, buf);
-        }
-    }
-
-    bool emptyFlash = ! iflash.valid();
+    // check internal flash before it gets inited (by Drive::assign() below)
+    bool flashIsEmpty = ! iflash.valid();
 
     static char names [][12] = {
-        "        1  ",
+        "        1  ",  // A:
 #if 1
-        "        11 ",
-        "CPMA    F  ",
+        "        11 ",  // B:
+        "CPMA    F  ",  // C:
 #else
-        "        2  ",
-        "        3  ",
+        "        2  ",  // B:
+        "        3  ",  // C:
 #endif
-        "T1      D  ",
-        "T2      FD ",
-        "T3      DSK",
-        "T4      DSK",
-        "T5      DSK",
+        "T1      F  ",  // D:
+        "T2      FD ",  // E:
+        "T3      DSK",  // F:
+        "T4      DSK",  // G:
+        "T5      DSK",  // H:
     };
 
     for (int i = 0; i < 8; ++i)
@@ -216,7 +209,7 @@ int main() {
     // TODO deal with different internal flash memory sizes
     // static uint32_t memSizeKb = MMIO16(0x1FFF7A22); // TODO F407-specific?
 
-    if (emptyFlash) {
+    if (flashIsEmpty) {
         printf("set up system tracks and directories\n");
         // copy system rom to system tracks
         for (uint32_t i = 0; i < sizeof rom; i += 128)
