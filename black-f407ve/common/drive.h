@@ -11,9 +11,9 @@ FatFS< decltype(sdCard) > fatFs;
 
 // 8M = 256 fat entries x 32K
 typedef FileMap< decltype(fatFs), 257 > DiskMap;
-DiskMap* currDisk;
 
 static void* reBlock128 (DiskMap* dmp =0, int blk =0, bool dirty =false) {
+    static DiskMap* currDisk;
     static int currSect;
     static bool currDirty;
     static uint8_t currBuf [512];

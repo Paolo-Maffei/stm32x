@@ -29,7 +29,7 @@ ILI9341<0x60080000> lcd;
 TextLcd< decltype(lcd) > text;
 Font5x7< decltype(text) > screen;
 
-UartDev< PinA<9>, PinA<10> > console;
+UartBufDev< PinA<9>, PinA<10> > console;
 
 PinE<4> key0;
 PinE<3> key1;
