@@ -65,8 +65,10 @@ public:
     virtual bool init (char const def [11]) {
         if (def[8] >= '1' && def[9] == ' ') {
             static uint32_t totalSectors = 0;
-            if (totalSectors == 0)
+            if (totalSectors == 0) {
                 totalSectors = iflash.init();
+                //printf("iflash: %d sectors\n", totalSectors);
+            }
 
             unsigned num = def[8]-'1';
             offset = num * DISK_TINY;

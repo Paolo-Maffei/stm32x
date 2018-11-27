@@ -135,7 +135,8 @@ public:
                 printf(" %d", mods.phys[i]);
             printf("\n");
         }
-        return (SEGSUSED) * SEC_PER_SEG;
+        uint32_t memSizeKb = MMIO16(0x1FFF7A22); // TODO F407-specific?
+        return (memSizeKb/256-1) * (256*8); // 512 = 1 disk, 1024 = 3 disks
     }
 
     static void readSector (int pos, void* buf) {

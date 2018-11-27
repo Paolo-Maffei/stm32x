@@ -206,9 +206,6 @@ int main() {
         if (names[i][0] == ' ')
             drives[i].assign(names[i]);
 
-    // TODO deal with different internal flash memory sizes
-    // static uint32_t memSizeKb = MMIO16(0x1FFF7A22); // TODO F407-specific?
-
     if (flashIsEmpty) {
         printf("set up system tracks and directories\n");
         // copy system rom to system tracks
