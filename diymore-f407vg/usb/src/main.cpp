@@ -26,11 +26,13 @@ namespace USB {
     constexpr uint32_t GRXFSIZ   = base + 0x024;  // p.1288
     constexpr uint32_t DIEPTXF0  = base + 0x028;  // p.1289
     constexpr uint32_t GCCFG     = base + 0x038;  // p.1290
+    constexpr uint32_t DIEPTXF1  = base + 0x104;  // p.1292
     constexpr uint32_t DCFG      = base + 0x800;  // p.1303
     constexpr uint32_t DCTL      = base + 0x804;  // p.1304
     constexpr uint32_t DSTS      = base + 0x808;  // p.1305
     constexpr uint32_t DAINT     = base + 0x818;  // p.1305
     constexpr uint32_t DIEPCTL0  = base + 0x900;  // p.1310
+    constexpr uint32_t DIEPINT0  = base + 0x908;  // p.1319
     constexpr uint32_t DIEPTSIZ0 = base + 0x910;  // p.1321
     constexpr uint32_t DOEPCTL0  = base + 0xB00;  // p.1316
     constexpr uint32_t DOEPTSIZ0 = base + 0xB10;  // p.1323
@@ -42,7 +44,7 @@ namespace USB {
         0, 2, 0, 0, 0, 1,
     };
 
-    const uint8_t confDesc [] = { // total length = 67 bytes
+    const uint8_t cnfDesc [] = { // total length = 67 bytes
         9, 2, 67, 0, 2, 1, 0, 192, 50, // USB Configuration
         9, 4, 0, 0, 1, 2, 2, 1, 0,     // Interface
         5, 36, 0, 16, 1,               // Header Functional
@@ -54,6 +56,27 @@ namespace USB {
         7, 5, 3, 2, 64, 0, 0,          // Endpoint 3
         7, 5, 129, 2, 64, 0, 0,        // Endpoint 1
     };
+
+    union {
+        struct { uint8_t typ, req; uint16_t val, idx, len; };
+        uint32_t buf [2];
+    } setupPkt;
+
+    volatile uint32_t& fifo (int ep) {
+        return MMIO32(base + (ep+1) * 0x1000);
+    }
+
+    void sendEp0 (void const* ptr, uint32_t len) {
+        if (len > setupPkt.len)
+            len = setupPkt.len;
+
+        MMIO32(DIEPTSIZ0) = len;
+        MMIO32(DIEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
+
+        uint32_t const* wptr = (uint32_t const*) ptr;
+        for (uint32_t i = 0; i < len; i += 4)
+            fifo(0) = *wptr++;
+    }
 
     void init () {
         PinA<12> usbPin;
@@ -73,15 +96,6 @@ namespace USB {
 
         printf("10 GINTSTS %08x DSTS %08x DCTL %08x\n",
                 MMIO32(GINTSTS), MMIO32(DSTS), MMIO32(DCTL));
-    }
-
-    void sendEp0 (void const* ptr, uint32_t len) {
-        MMIO32(DIEPTSIZ0) = len;
-        MMIO32(DIEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
-
-        uint32_t const* wptr = (uint32_t const*) ptr;
-        for (uint32_t i = 0; i < len; i += 4)
-            MMIO32(base + 0x1000) = *wptr++;
     }
 
     void poll () {
@@ -111,17 +125,40 @@ namespace USB {
             MMIO32(DOEPCTL0 + 0x40) |= (1<<27);  // SNAK ep2
             MMIO32(DOEPCTL0 + 0x60) |= (1<<27);  // SNAK ep3
 
-            //MMIO32(DIEPTSIZ0) = 64;
-            //MMIO32(DIEPCTL0) |= (1<<31) | (1<<27);  // EPENA, SNAK
-
             MMIO32(DOEPTSIZ0) = (3<<29) | (1<<19) | 64;  // STUPCNT, PKTCNT
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<27);  // EPENA, SNAK
 
-            MMIO32(GRXFSIZ) = 512/4;  // 512b for receive FIFO
-            MMIO32(DIEPTXF0) = (96/4<<16) | 512/4;  // then 96b for TX0
+            MMIO32(GRXFSIZ)    = 512/4;                      // 512b for RX all
+            MMIO32(DIEPTXF0)   = (128/4<<16) | 512/4;        // 128b for TX ep0
 
-            return;
+            MMIO32(DOEPTSIZ0 + 0x20) = 64;  // accept 64b on RX ep1
+            MMIO32(DOEPTSIZ0 + 0x40) = 64;  // accept 64b on RX ep2
+            MMIO32(DOEPTSIZ0 + 0x60) = 64;  // accept 64b on RX ep3
+
+            MMIO32(DIEPTXF1+0) = (128/4<<16) | (512+128)/4;  // 128b for TX ep1
+            MMIO32(DIEPTXF1+4) = (128/4<<16) | (512+256)/4;  // 128b for TX ep2
+            MMIO32(DIEPTXF1+8) = (128/4<<16) | (512+384)/4;  // 128b for TX ep3
+
+            MMIO32(DOEPCTL0 + 0x20) |= (1<<31) | (2<<18) | 64;  // ena bulk ep1
+            MMIO32(DOEPCTL0 + 0x40) |= (1<<31) | (3<<18) | 64;  // ena intr ep2
+            MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (2<<18) | 64;  // ena bulk ep3
         }
+
+        if (irq & (1<<12)) {  // IEPINT
+            printf("iepint DAINT %08x\n", MMIO32(DAINT));
+        }
+
+        const char* sep = "";
+        for (int i = 0; i < 4; ++i) {
+            uint32_t v = MMIO32(DIEPINT0 + 0x20*i);
+            if (v & 1) {
+                if (*sep == 0)
+                    printf("DIEPINT0");
+                printf("   %d %08x", i, v);
+                sep = "\n";
+            }
+        }
+        printf(sep);
 
         if (irq & (1<<4)) {
             //printf("rx GINTSTS %08x DSTS %08x\n",
@@ -129,48 +166,40 @@ namespace USB {
             int rx = MMIO32(GRXSTSP), typ = (rx>>17) & 0xF, ep = rx & 0x0F;
             printf("rx %08x typ %d ep %d\n", rx, typ, ep);
 
-            static union {
-                struct { uint8_t typ, req; uint16_t val, idx, len; };
-                uint32_t buf [2];
-            } setup;
-    
             switch (typ) {
                 case 0b0110:  // SETUP
-                    setup.buf[0] = MMIO32(base + 0x1000);
-                    setup.buf[1] = MMIO32(base + 0x1000);
-                    printf("setup %08x %08x\n", setup.buf[0], setup.buf[1]);
+                    setupPkt.buf[0] = fifo(0);
+                    setupPkt.buf[1] = fifo(0);
+                    //printf("setup %08x %08x\n",
+                    //        setupPkt.buf[0], setupPkt.buf[1]);
                     break;
                 case 0b0100:  // SETUP complete
                     printf("setup complete t %d r %d v %d i %d l %d\n",
-                        setup.typ, setup.req, setup.val, setup.idx, setup.len);
-                    switch (setup.req) {
+                                setupPkt.typ, setupPkt.req,
+                                setupPkt.val, setupPkt.idx, setupPkt.len);
+                    switch (setupPkt.req) {
+#if 0
                         case 0:  // get status
                             printf("get status\n");
                             sendEp0("\0\0", 2);
                             break;
+#endif
                         case 5:  // set address
-                            printf("set address %d\n", setup.val);
-                            MMIO32(DCFG) |= (setup.val<<4);
+                            printf("set address %d\n", setupPkt.val);
+                            MMIO32(DCFG) &= ~(0x7F<<4);  // clear DAD
+                            MMIO32(DCFG) |= (setupPkt.val<<4);
                             sendEp0(0, 0);
                             break;
                         case 6:  // get descriptor
                             printf("get descriptor v %04x i %d #%d\n",
-                                    setup.val, setup.len, setup.len);
-                            switch (setup.val) {
-                                case 0x100: {  // device desc
-                                    uint32_t n = sizeof devDesc;
-                                    if (n > setup.len)
-                                        n = setup.len;
+                                    setupPkt.val, setupPkt.len, setupPkt.len);
+                            switch (setupPkt.val) {
+                                case 0x100:  // device desc
                                     sendEp0(devDesc, sizeof devDesc);
                                     break;
-                                }
-                                case 0x200: {  // configuration desc
-                                    uint32_t n = sizeof confDesc;
-                                    if (n > setup.len)
-                                        n = setup.len;
-                                    sendEp0(confDesc, n);
+                                case 0x200:  // configuration desc
+                                    sendEp0(cnfDesc, sizeof cnfDesc);
                                     break;
-                                }
                                 default:
                                     sendEp0(0, 0);
                                     break;
