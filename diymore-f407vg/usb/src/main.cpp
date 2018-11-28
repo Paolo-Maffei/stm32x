@@ -277,6 +277,11 @@ namespace USB {
                                     break;
                             }
                             break;
+                        case 9:  // set configuration
+                        //case 32:  // set line coding
+            MMIO32(DIEPTSIZ0) = 0;
+            MMIO32(DIEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
+                            break;
                     }
                     break;
             }
@@ -284,10 +289,6 @@ namespace USB {
             //MMIO32(DOEPTSIZ0) = 64;
             MMIO32(DOEPTSIZ0) = (3<<29) | (1<<19) | 64;  // STUPCNT, PKTCNT
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
-
-            static int i = 100;
-            if (--i <= 0)
-                while (1) {}
         }
     }
 };
