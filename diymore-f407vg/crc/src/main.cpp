@@ -1,4 +1,4 @@
-// Simple on-board LED blink demo, with periodic messages to the serial port.
+// Try out the F4's CRC-32 hardware calculation unit.
 
 #include <jee.h>
 
