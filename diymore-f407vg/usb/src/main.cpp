@@ -126,9 +126,8 @@ namespace USB {
         if (irq & (1<<4)) {
             //printf("rx GINTSTS %08x DSTS %08x\n",
             //        MMIO32(GINTSTS), MMIO32(DSTS));
-            uint32_t rx = MMIO32(GRXSTSP);
-            uint32_t typ = (rx>>17) & 0xF;
-            printf("rx %08x typ %x\n", rx, typ);
+            int rx = MMIO32(GRXSTSP), typ = (rx>>17) & 0xF, ep = rx & 0x0F;
+            printf("rx %08x typ %d ep %d\n", rx, typ, ep);
 
             static union {
                 struct { uint8_t typ, req; uint16_t val, idx, len; };
@@ -178,7 +177,8 @@ namespace USB {
                             }
                             break;
                         case 9:  // set configuration
-                        //case 32:  // set line coding
+                        case 32:  // set line coding
+                        case 34:  // set control line state
                             sendEp0(0, 0);
                             break;
                     }
