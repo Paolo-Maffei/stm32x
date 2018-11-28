@@ -194,7 +194,7 @@ namespace USB {
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<27);  // EPENA, SNAK
 
             MMIO32(GRXFSIZ) = 512/4;  // 512b for receive FIFO
-            MMIO32(DIEPTXF0) = (64/4<<16) | 512;  // then 64b for TX0
+            MMIO32(DIEPTXF0) = (96/4<<16) | 512;  // then 96b for TX0
 
             return;
         }
@@ -258,6 +258,19 @@ namespace USB {
             for (uint32_t i = 0; i < sizeof devDesc; i += 4)
                 MMIO32(base + 0x1000) = ((uint32_t*) &devDesc)[i/4];
                                     break;
+                                case 0x200:  // configuration desc
+                                    if (setup.len == 9) {
+            MMIO32(DIEPTSIZ0) = 9;
+            MMIO32(DIEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
+            for (uint32_t i = 0; i < 9; i += 4)
+                MMIO32(base + 0x1000) = ((uint32_t*) confDesc)[i/4];
+                                    } else {
+            MMIO32(DIEPTSIZ0) = sizeof confDesc;
+            MMIO32(DIEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
+            for (uint32_t i = 0; i < sizeof confDesc; i += 4)
+                MMIO32(base + 0x1000) = ((uint32_t*) confDesc)[i/4];
+                                    }
+                                    break;
                                 default:
             MMIO32(DIEPTSIZ0) = 0;
             MMIO32(DIEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
@@ -272,7 +285,7 @@ namespace USB {
             MMIO32(DOEPTSIZ0) = (3<<29) | (1<<19) | 64;  // STUPCNT, PKTCNT
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
 
-            static int i = 50;
+            static int i = 100;
             if (--i <= 0)
                 while (1) {}
         }
