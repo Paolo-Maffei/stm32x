@@ -56,8 +56,9 @@ namespace USB {
     };
 
     void init () {
-        PinA<12> usbPin; usbPin.mode(Pinmode::out_od);
-        usbPin = 0; wait_ms(5); usbPin = 1; wait_ms(5);
+        PinA<12> usbPin;
+        usbPin.mode(Pinmode::out_od);
+        wait_ms(3);
 
         Port<'A'>::modeMap(0b0001100000000000, Pinmode::alt_out, 10);
 
@@ -196,7 +197,6 @@ int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
     printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-    wait_ms(1000);
 
     init();
 
