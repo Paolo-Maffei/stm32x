@@ -36,24 +36,10 @@ namespace USB {
     constexpr uint32_t DOEPTSIZ0 = base + 0xB10;  // p.1323
     constexpr uint32_t PCGCCTL   = base + 0xE00;  // p.1326
 
-    struct EndPointBase {
-        static uint16_t limit;
-
-        
-    };
-
-    uint16_t EndPointBase::limit;
-
-    static struct {
-        uint8_t len, typ; uint16_t usb;
-        uint8_t dclass, dsub, proto, size;
-        uint16_t vendor, product, device;
-        uint8_t smfct, sprod, serial, confs;
-    } devDesc = {
-        sizeof devDesc, 1, 0x0200,
-        2, 0, 0, 64,
-        0x0483, 0x5740, 0x0200,
-        0, 0, 0, 1,
+    const uint8_t devDesc [] = {
+        18, 1, 0, 2, 2, 0, 0, 64,
+        /* vendor: */ 0x83, 0x04, /* product: */ 0x40, 0x57,
+        0, 2, 0, 0, 0, 1,
     };
 
     const uint8_t confDesc [] = { // total length = 67 bytes
@@ -175,7 +161,7 @@ namespace USB {
                                     uint32_t n = sizeof devDesc;
                                     if (n > setup.len)
                                         n = setup.len;
-                                    sendEp0(&devDesc, sizeof devDesc);
+                                    sendEp0(devDesc, sizeof devDesc);
                                     break;
                                 }
                                 case 0x200: {  // configuration desc
