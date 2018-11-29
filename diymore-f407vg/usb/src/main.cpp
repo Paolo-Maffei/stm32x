@@ -119,9 +119,9 @@ namespace USB {
 
     void poll () {
         uint32_t irq = MMIO32(GINTSTS) & ~0x04008028;
+        if (irq)
+            printf("irq %08x\n", irq);
         MMIO32(GINTSTS) = irq;  // clear all interrupts
-        //if (irq)
-        //    printf("irq %08x\n", irq);
 
         if (irq & (1<<2)) { //  needed?
             printf("GOTGINT %08x\n", MMIO32(GOTGINT));
@@ -152,16 +152,17 @@ namespace USB {
             MMIO32(DIEPTXF0)   = (128/4<<16) | 512;  // 128b for TX ep0
         }
 
-        if (irq & (1<<12)) {  // IEPINT
+        if (irq & (1<<18))  // IEPINT
             printf("iepint DAINT %08x\n", MMIO32(DAINT));
-        }
+        if (irq & (1<<19))  // OEPINT
+            printf("oepint DAINT %08x\n", MMIO32(DAINT));
 
         const char* isep = "";
         for (int i = 0; i < 4; ++i) {
             uint32_t v = MMIO32(DIEPINT0 + 0x20*i);
             if (v & 1) {
                 if (*isep == 0)
-                    printf("DIEPINT0");
+                    printf("DIEPINT0:");
                 printf("   %d %08x", i, v);
                 isep = "\n";
                 MMIO32(DIEPINT0 + 0x20*i) = v;
@@ -174,7 +175,7 @@ namespace USB {
             uint32_t v = MMIO32(DOEPINT0 + 0x20*i);
             if (v & 1) {
                 if (*osep == 0)
-                    printf("DOEPINT0");
+                    printf("DOEPINT0:");
                 printf("   %d %08x", i, v);
                 osep = "\n";
                 MMIO32(DOEPINT0 + 0x20*i) = v;
@@ -235,8 +236,9 @@ namespace USB {
                             break;
                         case 9:  // set configuration
                             setConfig();
-                        case 32:  // set line coding
                         case 34:  // set control line state
+                            printf("rts/dtr %02b\n", setupPkt.val);
+                        case 32:  // set line coding
                         //default:
                             sendEp0(0, 0);
                             break;
