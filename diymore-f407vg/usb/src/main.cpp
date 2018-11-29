@@ -193,7 +193,6 @@ namespace USB {
                 ep = rx & 0x0F, cnt = (rx>>4) & 0x7FF;
             printf("rx %08x typ %d cnt %d ep %d\n", rx, typ, cnt, ep);
 
-        if (ep == 0)
             switch (typ) {
                 case 0b0010:  // OUT
                     printf("out %d\n", ep);
