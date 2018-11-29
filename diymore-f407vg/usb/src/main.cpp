@@ -35,6 +35,7 @@ namespace USB {
     constexpr uint32_t DIEPINT0  = base + 0x908;  // p.1319
     constexpr uint32_t DIEPTSIZ0 = base + 0x910;  // p.1321
     constexpr uint32_t DOEPCTL0  = base + 0xB00;  // p.1316
+    constexpr uint32_t DOEPINT0  = base + 0xB08;  // p.1319
     constexpr uint32_t DOEPTSIZ0 = base + 0xB10;  // p.1323
     constexpr uint32_t PCGCCTL   = base + 0xE00;  // p.1326
 
@@ -78,6 +79,28 @@ namespace USB {
             fifo(0) = *wptr++;
     }
 
+    void setConfig () {
+        MMIO32(DOEPTSIZ0 + 0x20) = 64;  // accept 64b on RX ep1
+        MMIO32(DOEPTSIZ0 + 0x40) = 64;  // accept 64b on RX ep2
+        MMIO32(DOEPTSIZ0 + 0x60) = 64;  // accept 64b on RX ep3
+
+        MMIO32(DIEPTXF1 + 0) = (128/4<<16) | (512+128)/4;  // 128b for TX ep1
+        MMIO32(DIEPTXF1 + 4) = (128/4<<16) | (512+256)/4;  // 128b for TX ep2
+        MMIO32(DIEPTXF1 + 8) = (128/4<<16) | (512+384)/4;  // 128b for TX ep3
+
+        MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<22)| (3<<18) | (1<<15) | 64;
+        MMIO32(DIEPCTL0 + 0x40) |= (1<<31) | (2<<22)| (2<<18) | (1<<15) | 64;
+        MMIO32(DIEPCTL0 + 0x60) |= (1<<31) | (3<<22)| (3<<18) | (1<<15) | 64;
+
+        MMIO32(DOEPCTL0 + 0x20) |= (3<<18) | (1<<15) | 64;
+        MMIO32(DOEPCTL0 + 0x40) |= (2<<18) | (1<<15) | 64;
+        MMIO32(DOEPCTL0 + 0x60) |= (3<<18) | (1<<15) | 64;
+
+        MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
+        MMIO32(DIEPCTL0 + 0x40) |= (1<<31) | (1<<26);  // EPENA, CNAK
+        MMIO32(DIEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK
+    }
+
     void init () {
         PinA<12> usbPin;
         usbPin.mode(Pinmode::out_od);
@@ -114,8 +137,9 @@ namespace USB {
 
         if (irq & (1<<13)) {  // ENUMDNE
             printf("enumdne\n");
-            //printf("11 GINTSTS %08x DSTS %08x DCTL %08x\n",
-            //        MMIO32(GINTSTS), MMIO32(DSTS), MMIO32(DCTL));
+            printf("11 GINTSTS %08x DSTS %08x DCTL %08x DOEPINT0 %08x\n",
+                    MMIO32(GINTSTS), MMIO32(DSTS),
+                    MMIO32(DCTL), MMIO32(DOEPINT0));
 
             // see p.1354
             MMIO32(DIEPCTL0) = 0;
@@ -130,46 +154,56 @@ namespace USB {
 
             MMIO32(GRXFSIZ)    = 512/4;                      // 512b for RX all
             MMIO32(DIEPTXF0)   = (128/4<<16) | 512/4;        // 128b for TX ep0
-
-            MMIO32(DOEPTSIZ0 + 0x20) = 64;  // accept 64b on RX ep1
-            MMIO32(DOEPTSIZ0 + 0x40) = 64;  // accept 64b on RX ep2
-            MMIO32(DOEPTSIZ0 + 0x60) = 64;  // accept 64b on RX ep3
-
-            MMIO32(DIEPTXF1+0) = (128/4<<16) | (512+128)/4;  // 128b for TX ep1
-            MMIO32(DIEPTXF1+4) = (128/4<<16) | (512+256)/4;  // 128b for TX ep2
-            MMIO32(DIEPTXF1+8) = (128/4<<16) | (512+384)/4;  // 128b for TX ep3
-
-            MMIO32(DOEPCTL0 + 0x20) |= (1<<31) | (2<<18) | 64;  // ena bulk ep1
-            MMIO32(DOEPCTL0 + 0x40) |= (1<<31) | (3<<18) | 64;  // ena intr ep2
-            MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (2<<18) | 64;  // ena bulk ep3
         }
 
         if (irq & (1<<12)) {  // IEPINT
             printf("iepint DAINT %08x\n", MMIO32(DAINT));
         }
 
-        const char* sep = "";
+        const char* isep = "";
         for (int i = 0; i < 4; ++i) {
             uint32_t v = MMIO32(DIEPINT0 + 0x20*i);
             if (v & 1) {
-                if (*sep == 0)
+                if (*isep == 0)
                     printf("DIEPINT0");
                 printf("   %d %08x", i, v);
-                sep = "\n";
+                isep = "\n";
+                MMIO32(DIEPINT0 + 0x20*i) = v;
             }
         }
-        printf(sep);
+        printf(isep);
+
+        const char* osep = "";
+        for (int i = 0; i < 4; ++i) {
+            uint32_t v = MMIO32(DOEPINT0 + 0x20*i);
+            if (v & 1) {
+                if (*osep == 0)
+                    printf("DOEPINT0");
+                printf("   %d %08x", i, v);
+                osep = "\n";
+                MMIO32(DOEPINT0 + 0x20*i) = v;
+            }
+        }
+        printf(osep);
 
         if (irq & (1<<4)) {
             //printf("rx GINTSTS %08x DSTS %08x\n",
             //        MMIO32(GINTSTS), MMIO32(DSTS));
-            int rx = MMIO32(GRXSTSP), typ = (rx>>17) & 0xF, ep = rx & 0x0F;
-            printf("rx %08x typ %d ep %d\n", rx, typ, ep);
+            int rx = MMIO32(GRXSTSP), typ = (rx>>17) & 0xF,
+                ep = rx & 0x0F, cnt = (rx>>4) & 0x7FF;
+            printf("rx %08x typ %d cnt %d ep %d\n", rx, typ, cnt, ep);
 
             switch (typ) {
+                case 0b0010:  // OUT
+                    printf("out %d\n", ep);
+                    break;
+                case 0b0011:  // OUT complete
+                    printf("out complete %d\n", ep);
+                    break;
                 case 0b0110:  // SETUP
                     setupPkt.buf[0] = fifo(0);
                     setupPkt.buf[1] = fifo(0);
+                    cnt -= 8;
                     //printf("setup %08x %08x\n",
                     //        setupPkt.buf[0], setupPkt.buf[1]);
                     break;
@@ -178,12 +212,6 @@ namespace USB {
                                 setupPkt.typ, setupPkt.req,
                                 setupPkt.val, setupPkt.idx, setupPkt.len);
                     switch (setupPkt.req) {
-#if 0
-                        case 0:  // get status
-                            printf("get status\n");
-                            sendEp0("\0\0", 2);
-                            break;
-#endif
                         case 5:  // set address
                             printf("set address %d\n", setupPkt.val);
                             MMIO32(DCFG) &= ~(0x7F<<4);  // clear DAD
@@ -206,13 +234,20 @@ namespace USB {
                             }
                             break;
                         case 9:  // set configuration
+                            setConfig();
                         case 32:  // set line coding
                         case 34:  // set control line state
+                        //default:
+                            //for (int i = 0; i < setupPkt.len; i += 4)
+                            //    printf("drop %d %08x\n", i, fifo(0));
                             sendEp0(0, 0);
                             break;
                     }
                     break;
             }
+
+            for (int i = 0; i < cnt; i += 4)
+                printf("drop %d %08x\n", i, fifo(0));
 
             MMIO32(DOEPTSIZ0) = (3<<29) | (1<<19) | 64;  // STUPCNT, PKTCNT
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
@@ -233,5 +268,13 @@ int main() {
     while (1) {
         led = (ticks/100) % 10; // 100 ms on, 900 ms off, inverted logic
         poll();
+
+        if (console.readable()) {
+            printf("got %d\n", console.getc());
+
+            MMIO32(DIEPTSIZ0 + 0x20) = (1<<19) | 4;
+            MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
+            fifo(1) = 0x41424344;
+        }
     }
 }
