@@ -54,8 +54,8 @@ namespace USB {
         5, 36, 6, 0, 1,                // Union Functional
         7, 5, 130, 3, 8, 0, 255,       // Endpoint 2
         9, 4, 1, 0, 2, 10, 0, 0, 0,    // Data class interface
-        7, 5, 3, 2, 64, 0, 0,          // Endpoint 3
-        7, 5, 129, 2, 64, 0, 0,        // Endpoint 1
+        7, 5, 1, 2, 64, 0, 0,          // Endpoint 1 out
+        7, 5, 129, 2, 64, 0, 0,        // Endpoint 1 in
     };
 
     union {
@@ -80,17 +80,17 @@ namespace USB {
     }
 
     void setConfig () {
+        MMIO32(DOEPTSIZ0 + 0x20) = 64;  // accept 64b on RX ep1
         MMIO32(DOEPTSIZ0 + 0x40) = 64;  // accept 64b on RX ep2
-        MMIO32(DOEPTSIZ0 + 0x60) = 64;  // accept 64b on RX ep3
 
         MMIO32(DIEPTXF1 + 0) = (256/4<<16) | (512+128);  // 256b for TX ep1
         MMIO32(DIEPTXF1 + 4) = (256/4<<16) | (512+384);  // 256b for TX ep2
 
+        MMIO32(DOEPCTL0 + 0x20) |= (3<<18) | (1<<15) | 64;
         MMIO32(DOEPCTL0 + 0x40) |= (2<<18) | (1<<15) | 64;
-        MMIO32(DOEPCTL0 + 0x60) |= (3<<18) | (1<<15) | 64;
 
+        MMIO32(DOEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK ep1
         MMIO32(DOEPCTL0 + 0x40) |= (1<<31) | (1<<26);  // EPENA, CNAK ep2
-        MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK ep2
     }
 
     void init () {
@@ -144,7 +144,6 @@ namespace USB {
 
             MMIO32(DOEPCTL0 + 0x20) |= (1<<27);  // SNAK ep1
             MMIO32(DOEPCTL0 + 0x40) |= (1<<27);  // SNAK ep2
-            MMIO32(DOEPCTL0 + 0x60) |= (1<<27);  // SNAK ep3
 
             MMIO32(DOEPTSIZ0) = (3<<29) | 64;  // STUPCNT, XFRSIZ
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<27);  // EPENA, SNAK
@@ -182,8 +181,8 @@ namespace USB {
                 MMIO32(DOEPINT0 + 0x20*i) = v;
 
                 // FIXME hard-coded hack, to restart accepting out packets
-                MMIO32(DOEPCTL0 + 0x60) |= (3<<18) | (1<<15) | 64;
-                MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK
+                MMIO32(DOEPCTL0 + 0x20) |= (3<<18) | (1<<15) | 64;
+                MMIO32(DOEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
             }
         }
         printf(osep);
