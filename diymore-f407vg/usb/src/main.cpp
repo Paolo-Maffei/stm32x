@@ -80,21 +80,17 @@ namespace USB {
     }
 
     void setConfig () {
-        MMIO32(DOEPTSIZ0 + 0x20) = 64;  // accept 64b on RX ep1
         MMIO32(DOEPTSIZ0 + 0x40) = 64;  // accept 64b on RX ep2
         MMIO32(DOEPTSIZ0 + 0x60) = 64;  // accept 64b on RX ep3
 
-        MMIO32(DIEPTXF1 + 0) = (128/4<<16) | (512+128);  // 128b for TX ep1
-        MMIO32(DIEPTXF1 + 4) = (128/4<<16) | (512+256);  // 128b for TX ep2
-        MMIO32(DIEPTXF1 + 8) = (128/4<<16) | (512+384);  // 128b for TX ep3
+        MMIO32(DIEPTXF1 + 0) = (256/4<<16) | (512+128);  // 256b for TX ep1
+        MMIO32(DIEPTXF1 + 4) = (256/4<<16) | (512+384);  // 256b for TX ep2
 
-        MMIO32(DOEPCTL0 + 0x20) |= (3<<18) | (1<<15) | 64;
         MMIO32(DOEPCTL0 + 0x40) |= (2<<18) | (1<<15) | 64;
         MMIO32(DOEPCTL0 + 0x60) |= (3<<18) | (1<<15) | 64;
 
-        MMIO32(DOEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
-        MMIO32(DOEPCTL0 + 0x40) |= (1<<31) | (1<<26);  // EPENA, CNAK
-        MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK
+        MMIO32(DOEPCTL0 + 0x40) |= (1<<31) | (1<<26);  // EPENA, CNAK ep2
+        MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK ep2
     }
 
     void init () {
@@ -123,7 +119,12 @@ namespace USB {
             printf("irq %08x\n", irq);
         MMIO32(GINTSTS) = irq;  // clear all interrupts
 
-        if (irq & (1<<2)) { //  needed?
+        if (irq & (1<<7)) {  // GONAKEFF
+            printf("GONAKEFF: DCTL %08x\n", MMIO32(DCTL));
+            MMIO32(DCTL) |= (1<<10);  // CGONAK
+        }
+
+        if (irq & (1<<2)) {  // needed?
             printf("GOTGINT %08x\n", MMIO32(GOTGINT));
             MMIO32(GOTGINT) = MMIO32(GOTGINT);
         }
@@ -138,14 +139,14 @@ namespace USB {
                     MMIO32(DCTL), MMIO32(DOEPINT0));
 
             // see p.1354
-            MMIO32(DIEPCTL0) = 0;
+            MMIO32(DIEPCTL0 + 0x20) = (1<<22)| (3<<18) | (1<<15) | 64;
             MMIO32(DOEPCTL0) = (1<<15);  // USBAEP
 
             MMIO32(DOEPCTL0 + 0x20) |= (1<<27);  // SNAK ep1
             MMIO32(DOEPCTL0 + 0x40) |= (1<<27);  // SNAK ep2
             MMIO32(DOEPCTL0 + 0x60) |= (1<<27);  // SNAK ep3
 
-            MMIO32(DOEPTSIZ0) = (3<<29) | (1<<19) | 64;  // STUPCNT, PKTCNT
+            MMIO32(DOEPTSIZ0) = (3<<29) | 64;  // STUPCNT, XFRSIZ
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<27);  // EPENA, SNAK
 
             MMIO32(GRXFSIZ)    = 512/4;              // 512b for RX all
@@ -249,7 +250,7 @@ namespace USB {
             for (int i = 0; i < cnt; i += 4)
                 printf("drop %d %08x\n", i, fifo(0));
 
-            MMIO32(DOEPTSIZ0) = (3<<29) | (1<<19) | 64;  // STUPCNT, PKTCNT
+            MMIO32(DOEPTSIZ0) = (3<<29) | 64;  // STUPCNT, XFRSIZ
             MMIO32(DOEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
         }
     }
@@ -272,10 +273,10 @@ int main() {
         if (console.readable()) {
             printf("got %d\n", console.getc());
 
-            MMIO32(DIEPTSIZ0 + 0x20) = (1<<19) | 4;
-            MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<22)| (3<<18) | (1<<15) | 64;
-            //MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
+            MMIO32(DIEPTSIZ0 + 0x20) = 4;
+            MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
             fifo(1) = 0x41424344;
+            printf("DIEPTSIZ0 %08x\n", MMIO32(DIEPTSIZ0));
         }
     }
 }
