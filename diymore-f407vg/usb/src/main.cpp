@@ -114,8 +114,8 @@ namespace USB {
     }
 
     void poll () {
-        uint32_t irq = MMIO32(GINTSTS) & ~0x04008028;
-        if (irq)
+        uint32_t irq = MMIO32(GINTSTS);
+        if (irq & ~0x04008028)
             printf("irq %08x\n", irq);
         MMIO32(GINTSTS) = irq;  // clear all interrupts
 
@@ -124,7 +124,7 @@ namespace USB {
             MMIO32(DCTL) |= (1<<10);  // CGONAK
         }
 
-        if (irq & (1<<2)) {  // needed?
+        if (irq & (1<<2)) {  // OTGINT, needed?
             printf("GOTGINT %08x\n", MMIO32(GOTGINT));
             MMIO32(GOTGINT) = MMIO32(GOTGINT);
         }
@@ -231,6 +231,8 @@ namespace USB {
                                     sendEp0(cnfDesc, sizeof cnfDesc);
                                     break;
                                 default:
+                                    // TODO makes no difference?
+                                    MMIO32(DIEPCTL0) |= (1<<21);  // STALL
                                     sendEp0(0, 0);
                                     break;
                             }
