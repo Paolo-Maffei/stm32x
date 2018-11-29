@@ -47,7 +47,7 @@ namespace USB {
 
     const uint8_t cnfDesc [] = { // total length = 67 bytes
         9, 2, 67, 0, 2, 1, 0, 192, 50, // USB Configuration
-        9, 4, 0, 0, 1, 2, 2, 1, 0,     // Interface
+        9, 4, 0, 0, 1, 2, 2, 0, 0,     // Interface
         5, 36, 0, 16, 1,               // Header Functional
         5, 36, 1, 0, 1,                // Call Management Functional
         4, 36, 2, 2,                   // ACM Functional
