@@ -182,6 +182,10 @@ namespace USB {
                 printf("   %d %08x", i, v);
                 osep = "\n";
                 MMIO32(DOEPINT0 + 0x20*i) = v;
+
+                // FIXME hard-coded hack, to restart accepting out packets
+                MMIO32(DOEPCTL0 + 0x60) |= (3<<18) | (1<<15) | 64;
+                MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK
             }
         }
         printf(osep);
