@@ -96,9 +96,9 @@ namespace USB {
         MMIO32(DOEPCTL0 + 0x40) |= (2<<18) | (1<<15) | 64;
         MMIO32(DOEPCTL0 + 0x60) |= (3<<18) | (1<<15) | 64;
 
-        MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
-        MMIO32(DIEPCTL0 + 0x40) |= (1<<31) | (1<<26);  // EPENA, CNAK
-        MMIO32(DIEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK
+        MMIO32(DOEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
+        MMIO32(DOEPCTL0 + 0x40) |= (1<<31) | (1<<26);  // EPENA, CNAK
+        MMIO32(DOEPCTL0 + 0x60) |= (1<<31) | (1<<26);  // EPENA, CNAK
     }
 
     void init () {
@@ -193,6 +193,7 @@ namespace USB {
                 ep = rx & 0x0F, cnt = (rx>>4) & 0x7FF;
             printf("rx %08x typ %d cnt %d ep %d\n", rx, typ, cnt, ep);
 
+        if (ep == 0)
             switch (typ) {
                 case 0b0010:  // OUT
                     printf("out %d\n", ep);
@@ -238,8 +239,6 @@ namespace USB {
                         case 32:  // set line coding
                         case 34:  // set control line state
                         //default:
-                            //for (int i = 0; i < setupPkt.len; i += 4)
-                            //    printf("drop %d %08x\n", i, fifo(0));
                             sendEp0(0, 0);
                             break;
                     }
