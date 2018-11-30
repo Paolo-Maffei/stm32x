@@ -146,8 +146,8 @@ namespace USB {
 
             MMIO32(GRXFSIZ)    = 512/4;                     // 512b for RX all
             MMIO32(DIEPTXF0)   = (128/4<<16) | 512;         // 128b for TX ep0
-            MMIO32(DIEPTXF1 + 0) = (256/4<<16) | (512+128); // 256b for TX ep1
-            MMIO32(DIEPTXF1 + 4) = (64/4<<16) | (512+384);  // 64b for TX ep2
+            MMIO32(DIEPTXF1 + 0) = (512/4<<16) | (512+128); // 512b for TX ep1
+            MMIO32(DIEPTXF1 + 4) = (128/4<<16) | (512+640); // 128b for TX ep2
         }
 
         if (irq & (1<<18))  // IEPINT
