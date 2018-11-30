@@ -2,14 +2,14 @@
 
 #include <jee.h>
 
-UartBufDev< PinA<9>, PinA<10>, 50 > console;
+UartBufDev< PinA<9>, PinA<10>, 5000 > console;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
 	return 0;
 }
 
-#define printf(...)
+//#define printf(...)
 
 namespace Periph {
     constexpr uint32_t usb   = 0x50000000;
@@ -40,7 +40,8 @@ namespace USB {
     constexpr uint32_t DOEPTSIZ0 = base + 0xB10;  // p.1323
     constexpr uint32_t PCGCCTL   = base + 0xE00;  // p.1326
 
-    RingBuffer<65> inBuf;
+    uint32_t inPending = 0, inReady = 0, inData;
+    bool dtr = false;  // only true when there is an active serial session
 
     const uint8_t devDesc [] = {
         18, 1, 0, 2, 2, 0, 0, 64,
@@ -89,7 +90,7 @@ namespace USB {
 
         MMIO32(DOEPTSIZ0+0x40) = 64;  // accept 64b on RX ep2
         MMIO32(DOEPCTL0+0x40) = (2<<18) | (1<<15) | 64  // INTR ep2
-                              | (1<<31) | (1<<27);      // EPENA, SNAK
+                              | (1<<31) | (1<<26);      // EPENA, CNAK
     }
 
     void init () {
@@ -147,14 +148,14 @@ namespace USB {
             MMIO32(DIEPCTL0+0x40) = (2<<22)| (3<<18) | (1<<15) | 64; // fifo2
 
             MMIO32(DOEPTSIZ0) = (3<<29) | 64;               // STUPCNT, XFRSIZ
-            MMIO32(DOEPCTL0) = (1<<31) | (1<<15) | (1<<27); // EPENA, SNAK
+            MMIO32(DOEPCTL0) = (1<<31) | (1<<15) | (1<<26); // EPENA, CNAK
         }
 
         if (irq & (1<<18))  // IEPINT
             printf("iepint DAINT %08x\n", MMIO32(DAINT));
         if (irq & (1<<19))  // OEPINT
             printf("oepint DAINT %08x\n", MMIO32(DAINT));
-
+#if 0
         const char* isep = "";
         for (int i = 0; i < 4; ++i) {
             uint32_t v = MMIO32(DIEPINT0+0x20*i);
@@ -167,7 +168,6 @@ namespace USB {
             }
         }
         printf(isep);
-
         const char* osep = "";
         for (int i = 0; i < 4; ++i) {
             uint32_t v = MMIO32(DOEPINT0+0x20*i);
@@ -180,81 +180,81 @@ namespace USB {
             }
         }
         printf(osep);
-
-        if (irq & (1<<4)) {
+#endif
+        if ((irq & (1<<4)) && inPending == 0) {
             //printf("rx GINTSTS %08x DSTS %08x\n",
             //        MMIO32(GINTSTS), MMIO32(DSTS));
             int rx = MMIO32(GRXSTSP), typ = (rx>>17) & 0xF,
                 ep = rx & 0x0F, cnt = (rx>>4) & 0x7FF;
-            printf("rx %08x typ %d cnt %d ep %d\n", rx, typ, cnt, ep);
+            //printf("rx %08x typ %d cnt %d ep %d\n", rx, typ, cnt, ep);
 
             switch (typ) {
                 case 0b0010:  // OUT
-                    printf("out %d #%d\n", ep, cnt);
-                    if (ep == 1 && cnt > 0) {
-                        uint32_t w = 0;
-                        for (int i = 0; i < cnt; ++i) {
-                            if (i%4 == 0)
-                                w = fifo(1);
-                            inBuf.put(w);
-                            w >>= 8;
-                        }
-                        MMIO32(DOEPCTL0+0x20) |= (1<<27); // SNAK
-                    } else
+                    printf("out ep %d cnt %d len %d\n", ep, cnt, setupPkt.len);
+                    if (ep == 1)
+                        inPending = cnt;
+                    else {
                         for (int i = 0; i < cnt; i += 4) {
                             uint32_t x = fifo(0);
-                            printf("drop %d %08x\n", i, x);
+                            if (ep == 0 && setupPkt.req == 32 && i == 0)
+                                printf("baudrate %d\n", x);
+                            else
+                                printf("drop %d %08x\n", i, x);
                         }
+                        if (ep == 0) {
+                            setupPkt.len -= cnt;
+                            if (setupPkt.len == 0)
+                                sendEp0(0, 0);
+                        }
+                    }
                     break;
                 case 0b0011:  // OUT complete
-                    MMIO32(DOEPCTL0+0x20) |= (1<<26);  // CNAK
+                    MMIO32(DOEPCTL0+0x20*ep) |= (1<<26);  // CNAK
                     printf("out complete %d\n", ep);
                     break;
                 case 0b0110:  // SETUP
                     setupPkt.buf[0] = fifo(0);
                     setupPkt.buf[1] = fifo(0);
-                    //printf("setup %d %08x %08x\n",
-                    //        ep, setupPkt.buf[0], setupPkt.buf[1]);
                     break;
-                case 0b0100:  // SETUP complete
+                case 0b0100: {  // SETUP complete
                     MMIO32(DOEPCTL0) |= (1<<26);  // CNAK
                     printf("setup complete %d t %d r %d v %d i %d l %d\n",
                                 ep, setupPkt.typ, setupPkt.req,
                                 setupPkt.val, setupPkt.idx, setupPkt.len);
+                    const void* replyPtr = 0;
+                    uint32_t replyLen = 0;
                     switch (setupPkt.req) {
                         case 5:  // set address
-                            //printf("set address %d\n", setupPkt.val);
                             MMIO32(DCFG) &= ~(0x7F<<4);  // clear DAD
                             MMIO32(DCFG) |= (setupPkt.val<<4);
                             sendEp0(0, 0);
                             break;
                         case 6:  // get descriptor
                             printf("get descriptor v %04x i %d #%d\n",
-                                    setupPkt.val, setupPkt.len, setupPkt.len);
+                                    setupPkt.val, setupPkt.idx, setupPkt.len);
                             switch (setupPkt.val) {
                                 case 0x100:  // device desc
-                                    sendEp0(devDesc, sizeof devDesc);
+                                    replyPtr = devDesc;
+                                    replyLen = sizeof devDesc;
                                     break;
                                 case 0x200:  // configuration desc
-                                    sendEp0(cnfDesc, sizeof cnfDesc);
-                                    break;
-                                default:
-                                    // TODO makes no difference?
-                                    MMIO32(DIEPCTL0) |= (1<<21);  // STALL
-                                    sendEp0(0, 0);
+                                    replyPtr = cnfDesc;
+                                    replyLen = sizeof cnfDesc;
                                     break;
                             }
                             break;
                         case 9:  // set configuration
                             setConfig();
+                            break;
                         case 34:  // set control line state
                             printf("rts/dtr %02b\n", setupPkt.val);
-                        case 32:  // set line coding
-                        //default:
-                            sendEp0(0, 0);
+                            dtr = setupPkt.val & 1;
                             break;
                     }
+                    if (setupPkt.len == 0 || (setupPkt.typ & 0x80))
+                        sendEp0(replyPtr, replyLen);
                     break;
+                }
             }
         }
     }
@@ -270,13 +270,19 @@ int main() {
     init();
 
     while (1) {
-        poll();
-
-        if (inBuf.avail()) {
-            console.putc(inBuf.get());
-            if (inBuf.avail() == 0)
-                MMIO32(DOEPCTL0+0x20) |= (1<<26);  // CNAK
+        if (inReady == 0 && inPending > 0) {
+            inReady = inPending;
+            if (inReady > 4)
+                inReady = 4;
+            inData = fifo(1);
+            inPending -= inReady;
         }
+        if (inReady > 0) {
+            --inReady;
+            console.putc(inData);
+            inData >>= 8;
+        } else
+            poll();
 
         if (console.readable()) {
             while ((uint16_t) MMIO32(DTXFSTS0+0x20) < 1) {}
