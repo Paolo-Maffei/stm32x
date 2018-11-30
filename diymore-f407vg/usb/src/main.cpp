@@ -11,10 +11,6 @@ int printf(const char* fmt, ...) {
 
 #define printf(...)
 
-namespace Periph {
-    constexpr uint32_t usb   = 0x50000000;
-}
-
 namespace USB {
     constexpr uint32_t base      = 0x50000000;
     constexpr uint32_t GOTGINT   = base + 0x004;  // p.1273
@@ -45,7 +41,8 @@ namespace USB {
 
     const uint8_t devDesc [] = {
         18, 1, 0, 2, 2, 0, 0, 64,
-        /* vendor: */ 0x83, 0x04, /* product: */ 0x40, 0x57,
+        0x83, 0x04,  // vendor
+        0x40, 0x57,  // product
         0, 2, 0, 0, 0, 1,
     };
 
@@ -94,23 +91,19 @@ namespace USB {
     }
 
     void init () {
+        printf("usb init\n");
+
+        MMIO32(Periph::rcc+0x34) |= (1<<7);  // OTGFSEN
+
         PinA<12> usbPin;
         usbPin.mode(Pinmode::out_od);
         wait_ms(3);
 
         Port<'A'>::modeMap(0b0001100000000000, Pinmode::alt_out, 10);
 
-        MMIO32(Periph::rcc+0x34) |= (1<<7);  // OTGFSEN
-        wait_ms(2); // added, because otherwise GINTSTS is still zero
-        printf("00 GINTSTS %08x\n", MMIO32(GINTSTS));
-
         MMIO32(GCCFG) |= (1<<21) | (1<<16);  // NOVBUSSENS, PWRDWN
         MMIO32(GUSBCFG) |= (1<<30);  // FDMOD
-        MMIO32(DCFG) &= ~(0x7F<<4);  // clear DAD
         MMIO32(DCFG) |= (3<<0);  // DSPD
-
-        printf("10 GINTSTS %08x DSTS %08x DCTL %08x\n",
-                MMIO32(GINTSTS), MMIO32(DSTS), MMIO32(DCTL));
     }
 
     void poll () {
@@ -134,9 +127,6 @@ namespace USB {
 
         if (irq & (1<<13)) {  // ENUMDNE
             printf("enumdne\n");
-            //printf("11 GINTSTS %08x DSTS %08x DCTL %08x DOEPINT0 %08x\n",
-            //        MMIO32(GINTSTS), MMIO32(DSTS),
-            //        MMIO32(DCTL), MMIO32(DOEPINT0));
 
             MMIO32(GRXFSIZ)  = 512/4;                   // 512b for RX all
             MMIO32(DIEPTXF0) = (128/4<<16) | 512;       // 128b for TX ep0
@@ -182,8 +172,6 @@ namespace USB {
         printf(osep);
 #endif
         if ((irq & (1<<4)) && inPending == 0) {
-            //printf("rx GINTSTS %08x DSTS %08x\n",
-            //        MMIO32(GINTSTS), MMIO32(DSTS));
             int rx = MMIO32(GRXSTSP), typ = (rx>>17) & 0xF,
                 ep = rx & 0x0F, cnt = (rx>>4) & 0x7FF;
             //printf("rx %08x typ %d cnt %d ep %d\n", rx, typ, cnt, ep);
