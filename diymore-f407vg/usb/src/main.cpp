@@ -9,7 +9,7 @@ int printf(const char* fmt, ...) {
         return 0;
 }
 
-#define printf(...)
+//#define printf(...)
 
 namespace USB {
     constexpr uint32_t base      = 0x50000000;
@@ -105,9 +105,6 @@ namespace USB {
         //    printf("irq %08x\n", irq);
         MMIO32(GINTSTS) = irq;  // clear all interrupts
 
-        if (irq & (1<<12))  // USBRST
-            printf("usbrst\n");
-
         if (irq & (1<<13)) {  // ENUMDNE
             printf("enumdne\n");
 
@@ -159,7 +156,7 @@ namespace USB {
                     break;
                 case 0b0100: {  // SETUP complete
                     MMIO32(DOEPCTL0) |= (1<<26);  // CNAK
-                    printf("setup complete %d t %d r %d v %d i %d l %d\n",
+                    printf("setup complete %d t %2x r %d v %04x i %04x l %d\n",
                                 ep, setupPkt.typ, setupPkt.req,
                                 setupPkt.val, setupPkt.idx, setupPkt.len);
                     const void* replyPtr = 0;
@@ -170,8 +167,6 @@ namespace USB {
                             MMIO32(DCFG) |= (setupPkt.val<<4);
                             break;
                         case 6:  // get descriptor
-                            printf("get descriptor v %04x i %d #%d\n",
-                                    setupPkt.val, setupPkt.idx, setupPkt.len);
                             switch (setupPkt.val) {
                                 case 0x100:  // device desc
                                     replyPtr = devDesc;
