@@ -2,16 +2,14 @@
 
 #include <jee.h>
 
-UartBufDev< PinA<9>, PinA<10>, 5000 > console;
+UartBufDev< PinA<9>, PinA<10>, 50 > console;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
 	return 0;
 }
 
-//#define printf(...)
-
-PinE<0> led;
+#define printf(...)
 
 namespace Periph {
     constexpr uint32_t usb   = 0x50000000;
@@ -41,6 +39,8 @@ namespace USB {
     constexpr uint32_t DOEPINT0  = base + 0xB08;  // p.1319
     constexpr uint32_t DOEPTSIZ0 = base + 0xB10;  // p.1323
     constexpr uint32_t PCGCCTL   = base + 0xE00;  // p.1326
+
+    RingBuffer<65> inBuf;
 
     const uint8_t devDesc [] = {
         18, 1, 0, 2, 2, 0, 0, 64,
@@ -83,13 +83,13 @@ namespace USB {
     }
 
     void setConfig () {
-        MMIO32(DOEPTSIZ0 + 0x20) = 64;  // accept 64b on RX ep1
-        MMIO32(DOEPTSIZ0 + 0x40) = 64;  // accept 64b on RX ep2
+        MMIO32(DOEPTSIZ0+0x20) = 64;  // accept 64b on RX ep1
+        MMIO32(DOEPCTL0+0x20) = (3<<18) | (1<<15) | 64  // BULK ep1
+                              | (1<<31) | (1<<26);      // EPENA, CNAK
 
-        MMIO32(DOEPCTL0 + 0x20) = (3<<18) | (1<<15) | 64  // BULK ep1
-                                | (1<<31) | (1<<26);      // EPENA, CNAK
-        MMIO32(DOEPCTL0 + 0x40) = (2<<18) | (1<<15) | 64  // INTR ep2
-                                | (1<<31) | (1<<27);      // EPENA, SNAK
+        MMIO32(DOEPTSIZ0+0x40) = 64;  // accept 64b on RX ep2
+        MMIO32(DOEPCTL0+0x40) = (2<<18) | (1<<15) | 64  // INTR ep2
+                              | (1<<31) | (1<<27);      // EPENA, SNAK
     }
 
     void init () {
@@ -99,7 +99,7 @@ namespace USB {
 
         Port<'A'>::modeMap(0b0001100000000000, Pinmode::alt_out, 10);
 
-        MMIO32(Periph::rcc + 0x34) |= (1<<7);  // OTGFSEN
+        MMIO32(Periph::rcc+0x34) |= (1<<7);  // OTGFSEN
         wait_ms(2); // added, because otherwise GINTSTS is still zero
         printf("00 GINTSTS %08x\n", MMIO32(GINTSTS));
 
@@ -114,8 +114,8 @@ namespace USB {
 
     void poll () {
         uint32_t irq = MMIO32(GINTSTS);
-        if (irq & ~0x04008028)
-            printf("irq %08x\n", irq);
+        //if (irq & ~0x04008028)
+        //    printf("irq %08x\n", irq);
         MMIO32(GINTSTS) = irq;  // clear all interrupts
 
         if (irq & (1<<7)) {  // GONAKEFF
@@ -133,21 +133,21 @@ namespace USB {
 
         if (irq & (1<<13)) {  // ENUMDNE
             printf("enumdne\n");
-            printf("11 GINTSTS %08x DSTS %08x DCTL %08x DOEPINT0 %08x\n",
-                    MMIO32(GINTSTS), MMIO32(DSTS),
-                    MMIO32(DCTL), MMIO32(DOEPINT0));
+            //printf("11 GINTSTS %08x DSTS %08x DCTL %08x DOEPINT0 %08x\n",
+            //        MMIO32(GINTSTS), MMIO32(DSTS),
+            //        MMIO32(DCTL), MMIO32(DOEPINT0));
+
+            MMIO32(GRXFSIZ)  = 512/4;                   // 512b for RX all
+            MMIO32(DIEPTXF0) = (128/4<<16) | 512;       // 128b for TX ep0
+            MMIO32(DIEPTXF1) = (512/4<<16) | (512+128); // 512b for TX ep1
 
             // see p.1354
-            MMIO32(DIEPCTL0 + 0x20) = (1<<22)| (2<<18) | (1<<15) | 64 // fifo1
-                                    | (1<<31) | (1<<26);  // EPENA, CNAK
-            MMIO32(DIEPCTL0 + 0x40) = (2<<22)| (3<<18) | (1<<15) | 64; // fifo2
+            MMIO32(DIEPCTL0+0x20) = (1<<22)| (2<<18) | (1<<15) | 64 // fifo1
+                                  | (1<<31) | (1<<26);  // EPENA, CNAK
+            MMIO32(DIEPCTL0+0x40) = (2<<22)| (3<<18) | (1<<15) | 64; // fifo2
 
             MMIO32(DOEPTSIZ0) = (3<<29) | 64;               // STUPCNT, XFRSIZ
             MMIO32(DOEPCTL0) = (1<<31) | (1<<15) | (1<<27); // EPENA, SNAK
-
-            MMIO32(GRXFSIZ)    = 512/4;                     // 512b for RX all
-            MMIO32(DIEPTXF0)   = (128/4<<16) | 512;         // 128b for TX ep0
-            MMIO32(DIEPTXF1 + 0) = (512/4<<16) | (512+128); // 512b for TX ep1
         }
 
         if (irq & (1<<18))  // IEPINT
@@ -157,30 +157,26 @@ namespace USB {
 
         const char* isep = "";
         for (int i = 0; i < 4; ++i) {
-            uint32_t v = MMIO32(DIEPINT0 + 0x20*i);
+            uint32_t v = MMIO32(DIEPINT0+0x20*i);
             if (v & 1) {
                 if (*isep == 0)
                     printf("DIEPINT0:");
                 printf("   %d %08x", i, v);
                 isep = "\n";
-                MMIO32(DIEPINT0 + 0x20*i) = v;
+                MMIO32(DIEPINT0+0x20*i) = v;
             }
         }
         printf(isep);
 
         const char* osep = "";
         for (int i = 0; i < 4; ++i) {
-            uint32_t v = MMIO32(DOEPINT0 + 0x20*i);
+            uint32_t v = MMIO32(DOEPINT0+0x20*i);
             if (v & 1) {
                 if (*osep == 0)
                     printf("DOEPINT0:");
                 printf("   %d %08x", i, v);
                 osep = "\n";
-                MMIO32(DOEPINT0 + 0x20*i) = v;
-
-                // FIXME hard-coded hack, to restart accepting out packets
-                MMIO32(DOEPCTL0 + 0x20) |= (3<<18) | (1<<15) | 64;
-                MMIO32(DOEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
+                MMIO32(DOEPINT0+0x20*i) = v;
             }
         }
         printf(osep);
@@ -194,25 +190,40 @@ namespace USB {
 
             switch (typ) {
                 case 0b0010:  // OUT
-                    printf("out %d\n", ep);
+                    printf("out %d #%d\n", ep, cnt);
+                    if (ep == 1 && cnt > 0) {
+                        uint32_t w = 0;
+                        for (int i = 0; i < cnt; ++i) {
+                            if (i%4 == 0)
+                                w = fifo(1);
+                            inBuf.put(w);
+                            w >>= 8;
+                        }
+                        MMIO32(DOEPCTL0+0x20) |= (1<<27); // SNAK
+                    } else
+                        for (int i = 0; i < cnt; i += 4) {
+                            uint32_t x = fifo(0);
+                            printf("drop %d %08x\n", i, x);
+                        }
                     break;
                 case 0b0011:  // OUT complete
+                    MMIO32(DOEPCTL0+0x20) |= (1<<26);  // CNAK
                     printf("out complete %d\n", ep);
                     break;
                 case 0b0110:  // SETUP
                     setupPkt.buf[0] = fifo(0);
                     setupPkt.buf[1] = fifo(0);
-                    cnt -= 8;
-                    //printf("setup %08x %08x\n",
-                    //        setupPkt.buf[0], setupPkt.buf[1]);
+                    //printf("setup %d %08x %08x\n",
+                    //        ep, setupPkt.buf[0], setupPkt.buf[1]);
                     break;
                 case 0b0100:  // SETUP complete
-                    printf("setup complete t %d r %d v %d i %d l %d\n",
-                                setupPkt.typ, setupPkt.req,
+                    MMIO32(DOEPCTL0) |= (1<<26);  // CNAK
+                    printf("setup complete %d t %d r %d v %d i %d l %d\n",
+                                ep, setupPkt.typ, setupPkt.req,
                                 setupPkt.val, setupPkt.idx, setupPkt.len);
                     switch (setupPkt.req) {
                         case 5:  // set address
-                            printf("set address %d\n", setupPkt.val);
+                            //printf("set address %d\n", setupPkt.val);
                             MMIO32(DCFG) &= ~(0x7F<<4);  // clear DAD
                             MMIO32(DCFG) |= (setupPkt.val<<4);
                             sendEp0(0, 0);
@@ -245,21 +256,6 @@ namespace USB {
                     }
                     break;
             }
-
-            for (int i = 0; i < cnt; i += 4) {
-                uint32_t x = fifo(0);
-                if (ep == 1 && typ == 2)  // OUT on ep1 is real serial data
-                    for (int j = 0; j < 4; ++j)
-                        if (j+i < cnt) {
-                            console.putc(x);
-                            x >>= 8;
-                        }
-                else
-                    printf("drop %d %08x\n", i, x);
-            }
-
-            MMIO32(DOEPTSIZ0) = (3<<29) | 64;  // STUPCNT, XFRSIZ
-            MMIO32(DOEPCTL0) |= (1<<31) | (1<<26);  // EPENA, CNAK
         }
     }
 };
@@ -273,14 +269,18 @@ int main() {
 
     init();
 
-    led.mode(Pinmode::out);
     while (1) {
-        led = (ticks/100) % 10; // 100 ms on, 900 ms off, inverted logic
         poll();
 
+        if (inBuf.avail()) {
+            console.putc(inBuf.get());
+            if (inBuf.avail() == 0)
+                MMIO32(DOEPCTL0+0x20) |= (1<<26);  // CNAK
+        }
+
         if (console.readable()) {
-            while ((uint16_t) MMIO32(DTXFSTS0 + 0x20) < 1) {}
-            MMIO32(DIEPTSIZ0 + 0x20) = 1;
+            while ((uint16_t) MMIO32(DTXFSTS0+0x20) < 1) {}
+            MMIO32(DIEPTSIZ0+0x20) = 1;
             fifo(1) = console.getc();
         }
     }
