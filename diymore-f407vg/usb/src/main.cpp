@@ -36,6 +36,7 @@ namespace USB {
     constexpr uint32_t DIEPCTL0  = base + 0x900;  // p.1310
     constexpr uint32_t DIEPINT0  = base + 0x908;  // p.1319
     constexpr uint32_t DIEPTSIZ0 = base + 0x910;  // p.1321
+    constexpr uint32_t DTXFSTS0  = base + 0x918;  // p.1325
     constexpr uint32_t DOEPCTL0  = base + 0xB00;  // p.1316
     constexpr uint32_t DOEPINT0  = base + 0xB08;  // p.1319
     constexpr uint32_t DOEPTSIZ0 = base + 0xB10;  // p.1323
@@ -88,7 +89,7 @@ namespace USB {
         MMIO32(DOEPCTL0 + 0x20) = (3<<18) | (1<<15) | 64  // BULK ep1
                                 | (1<<31) | (1<<26);      // EPENA, CNAK
         MMIO32(DOEPCTL0 + 0x40) = (2<<18) | (1<<15) | 64  // INTR ep2
-                                | (1<<31) | (1<<26);      // EPENA, CNAK
+                                | (1<<31) | (1<<27);      // EPENA, SNAK
     }
 
     void init () {
@@ -137,17 +138,16 @@ namespace USB {
                     MMIO32(DCTL), MMIO32(DOEPINT0));
 
             // see p.1354
-            MMIO32(DIEPCTL0 + 0x20) = (1<<22)| (3<<18) | (1<<15) | 64;
-            MMIO32(DOEPCTL0 + 0x20) |= (1<<27);     // SNAK ep1
-            MMIO32(DOEPCTL0 + 0x40) |= (1<<27);     // SNAK ep2
+            MMIO32(DIEPCTL0 + 0x20) = (1<<22)| (2<<18) | (1<<15) | 64 // fifo1
+                                    | (1<<31) | (1<<26);  // EPENA, CNAK
+            MMIO32(DIEPCTL0 + 0x40) = (2<<22)| (3<<18) | (1<<15) | 64; // fifo2
 
-            MMIO32(DOEPTSIZ0) = (3<<29) | 64;       // STUPCNT, XFRSIZ
+            MMIO32(DOEPTSIZ0) = (3<<29) | 64;               // STUPCNT, XFRSIZ
             MMIO32(DOEPCTL0) = (1<<31) | (1<<15) | (1<<27); // EPENA, SNAK
 
             MMIO32(GRXFSIZ)    = 512/4;                     // 512b for RX all
             MMIO32(DIEPTXF0)   = (128/4<<16) | 512;         // 128b for TX ep0
             MMIO32(DIEPTXF1 + 0) = (512/4<<16) | (512+128); // 512b for TX ep1
-            MMIO32(DIEPTXF1 + 4) = (128/4<<16) | (512+640); // 128b for TX ep2
         }
 
         if (irq & (1<<18))  // IEPINT
@@ -268,7 +268,7 @@ using namespace USB;
 
 int main() {
     console.init();
-    console.baud(115200, fullSpeedClock()/2);
+    console.baud(921600, fullSpeedClock()/2);
     printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
     init();
@@ -279,13 +279,9 @@ int main() {
         poll();
 
         if (console.readable()) {
-            int c = console.getc();
-            printf("got %d\n", c);
-
+            while ((uint16_t) MMIO32(DTXFSTS0 + 0x20) < 1) {}
             MMIO32(DIEPTSIZ0 + 0x20) = 1;
-            MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
-            fifo(1) = c;
-            printf("DIEPTSIZ0 %08x\n", MMIO32(DIEPTSIZ0));
+            fifo(1) = console.getc();
         }
     }
 }
