@@ -1,15 +1,15 @@
-// My feeble attempt to get USB going on F4 ...
+// My attempt to get a lean and mean serial USB driver going on F4 ...
 
 #include <jee.h>
 
-UartBufDev< PinA<9>, PinA<10>, 5000 > console;
+UartBufDev< PinA<9>, PinA<10>, 25000 > console;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
 	return 0;
 }
 
-//#define printf(...)
+#define printf(...)
 
 namespace Periph {
     constexpr uint32_t usb   = 0x50000000;
@@ -270,6 +270,7 @@ int main() {
     init();
 
     while (1) {
+        // get 4 chars from the USB fifo, as needed
         if (inReady == 0 && inPending > 0) {
             inReady = inPending;
             if (inReady > 4)
@@ -277,6 +278,7 @@ int main() {
             inData = fifo(1);
             inPending -= inReady;
         }
+        // consume each of those 4 chars first
         if (inReady > 0) {
             --inReady;
             console.putc(inData);
@@ -284,8 +286,8 @@ int main() {
         } else
             poll();
 
-        if (console.readable()) {
-            while ((uint16_t) MMIO32(DTXFSTS0+0x20) < 1) {}
+        // send incoming serial data out to USB
+        if (console.readable() && (uint16_t) MMIO32(DTXFSTS0+0x20) > 0) {
             MMIO32(DIEPTSIZ0+0x20) = 1;
             fifo(1) = console.getc();
         }
