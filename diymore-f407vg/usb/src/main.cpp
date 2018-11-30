@@ -248,8 +248,14 @@ namespace USB {
 
             for (int i = 0; i < cnt; i += 4) {
                 uint32_t x = fifo(0);
-                printf("drop %d %08x\n", i, x);
-                //console.putc('?');
+                if (ep == 1 && typ == 2)  // OUT on ep1 is real serial data
+                    for (int j = 0; j < 4; ++j)
+                        if (j+i < cnt) {
+                            console.putc(x);
+                            x >>= 8;
+                        }
+                else
+                    printf("drop %d %08x\n", i, x);
             }
 
             MMIO32(DOEPTSIZ0) = (3<<29) | 64;  // STUPCNT, XFRSIZ
@@ -276,9 +282,9 @@ int main() {
             int c = console.getc();
             printf("got %d\n", c);
 
-            MMIO32(DIEPTSIZ0 + 0x20) = 4;
+            MMIO32(DIEPTSIZ0 + 0x20) = 1;
             MMIO32(DIEPCTL0 + 0x20) |= (1<<31) | (1<<26);  // EPENA, CNAK
-            fifo(1) = 0x41424344;
+            fifo(1) = c;
             printf("DIEPTSIZ0 %08x\n", MMIO32(DIEPTSIZ0));
         }
     }
