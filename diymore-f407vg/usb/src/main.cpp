@@ -13,28 +13,21 @@ int printf(const char* fmt, ...) {
 
 namespace USB {
     constexpr uint32_t base      = 0x50000000;
-    constexpr uint32_t GOTGINT   = base + 0x004;  // p.1273
     constexpr uint32_t GAHBCFG   = base + 0x008;  // p.1275
     constexpr uint32_t GUSBCFG   = base + 0x00C;  // p.1276
     constexpr uint32_t GINTSTS   = base + 0x014;  // p.1280
-    constexpr uint32_t GINTMSK   = base + 0x018;  // p.1284
     constexpr uint32_t GRXSTSP   = base + 0x020;  // p.1287
     constexpr uint32_t GRXFSIZ   = base + 0x024;  // p.1288
     constexpr uint32_t DIEPTXF0  = base + 0x028;  // p.1289
     constexpr uint32_t GCCFG     = base + 0x038;  // p.1290
     constexpr uint32_t DIEPTXF1  = base + 0x104;  // p.1292
     constexpr uint32_t DCFG      = base + 0x800;  // p.1303
-    constexpr uint32_t DCTL      = base + 0x804;  // p.1304
     constexpr uint32_t DSTS      = base + 0x808;  // p.1305
-    constexpr uint32_t DAINT     = base + 0x818;  // p.1305
     constexpr uint32_t DIEPCTL0  = base + 0x900;  // p.1310
-    constexpr uint32_t DIEPINT0  = base + 0x908;  // p.1319
     constexpr uint32_t DIEPTSIZ0 = base + 0x910;  // p.1321
     constexpr uint32_t DTXFSTS0  = base + 0x918;  // p.1325
     constexpr uint32_t DOEPCTL0  = base + 0xB00;  // p.1316
-    constexpr uint32_t DOEPINT0  = base + 0xB08;  // p.1319
     constexpr uint32_t DOEPTSIZ0 = base + 0xB10;  // p.1323
-    constexpr uint32_t PCGCCTL   = base + 0xE00;  // p.1326
 
     uint32_t inPending = 0, inReady = 0, inData;
     bool dtr = false;  // only true when there is an active serial session
@@ -112,16 +105,6 @@ namespace USB {
         //    printf("irq %08x\n", irq);
         MMIO32(GINTSTS) = irq;  // clear all interrupts
 
-        if (irq & (1<<7)) {  // GONAKEFF
-            printf("GONAKEFF: DCTL %08x\n", MMIO32(DCTL));
-            MMIO32(DCTL) |= (1<<10);  // CGONAK
-        }
-
-        if (irq & (1<<2)) {  // OTGINT, needed?
-            printf("GOTGINT %08x\n", MMIO32(GOTGINT));
-            MMIO32(GOTGINT) = MMIO32(GOTGINT);
-        }
-
         if (irq & (1<<12))  // USBRST
             printf("usbrst\n");
 
@@ -141,36 +124,6 @@ namespace USB {
             MMIO32(DOEPCTL0) = (1<<31) | (1<<15) | (1<<26); // EPENA, CNAK
         }
 
-        if (irq & (1<<18))  // IEPINT
-            printf("iepint DAINT %08x\n", MMIO32(DAINT));
-        if (irq & (1<<19))  // OEPINT
-            printf("oepint DAINT %08x\n", MMIO32(DAINT));
-#if 0
-        const char* isep = "";
-        for (int i = 0; i < 4; ++i) {
-            uint32_t v = MMIO32(DIEPINT0+0x20*i);
-            if (v & 1) {
-                if (*isep == 0)
-                    printf("DIEPINT0:");
-                printf("   %d %08x", i, v);
-                isep = "\n";
-                MMIO32(DIEPINT0+0x20*i) = v;
-            }
-        }
-        printf(isep);
-        const char* osep = "";
-        for (int i = 0; i < 4; ++i) {
-            uint32_t v = MMIO32(DOEPINT0+0x20*i);
-            if (v & 1) {
-                if (*osep == 0)
-                    printf("DOEPINT0:");
-                printf("   %d %08x", i, v);
-                osep = "\n";
-                MMIO32(DOEPINT0+0x20*i) = v;
-            }
-        }
-        printf(osep);
-#endif
         if ((irq & (1<<4)) && inPending == 0) {
             int rx = MMIO32(GRXSTSP), typ = (rx>>17) & 0xF,
                 ep = rx & 0x0F, cnt = (rx>>4) & 0x7FF;
@@ -215,7 +168,6 @@ namespace USB {
                         case 5:  // set address
                             MMIO32(DCFG) &= ~(0x7F<<4);  // clear DAD
                             MMIO32(DCFG) |= (setupPkt.val<<4);
-                            sendEp0(0, 0);
                             break;
                         case 6:  // get descriptor
                             printf("get descriptor v %04x i %d #%d\n",
