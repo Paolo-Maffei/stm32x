@@ -2,11 +2,11 @@
 
 #include <jee.h>
 
-UartBufDev< PinA<9>, PinA<10>, 25000 > console;
+UartBufDev< PinA<9>, PinA<10> > console;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
-	return 0;
+        return 0;
 }
 
 #define printf(...)
@@ -195,7 +195,7 @@ namespace USB {
                         inPending = cnt;
                     else {
                         for (int i = 0; i < cnt; i += 4) {
-                            uint32_t x = fifo(0);
+                            volatile uint32_t x = fifo(0);
                             if (ep == 0 && setupPkt.req == 32 && i == 0)
                                 printf("baudrate %d\n", x);
                             else
@@ -287,9 +287,20 @@ int main() {
             poll();
 
         // send incoming serial data out to USB
-        if (console.readable() && (uint16_t) MMIO32(DTXFSTS0+0x20) > 0) {
-            MMIO32(DIEPTSIZ0+0x20) = 1;
-            fifo(1) = console.getc();
+        // ... and send as much in one packet as possible
+        if (console.readable()) {
+            int todo = console.recv.avail();
+            if (todo > 500)
+                todo = 500; // ep1 h/w buffer can hold 512 chars
+            while ((uint16_t) MMIO32(DTXFSTS0+0x20) <= todo/4) {}
+            MMIO32(DIEPTSIZ0+0x20) = todo;
+            for (int i = 0; i < todo; i += 4) {
+                uint32_t w = 0;
+                for (int j = 0; j < 4; ++j)
+                    if (i+j < todo)
+                        w |= console.getc() << 8*j;
+                fifo(1) = w;
+            }
         }
     }
 }
