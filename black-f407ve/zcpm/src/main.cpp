@@ -1,6 +1,7 @@
 // Launch CP/M, with virtual disks on SPI flash and SD card.
 
 #include <jee.h>
+#include <jee/usb.h>
 #include <jee/spi-flash.h>
 #include <jee/spi-sdcard.h>
 #include <jee/mem-ili9341.h>
@@ -29,7 +30,8 @@ ILI9341<0x60080000> lcd;
 TextLcd< decltype(lcd) > text;
 Font5x7< decltype(text) > screen;
 
-UartBufDev< PinA<9>, PinA<10> > console;
+//UartBufDev< PinA<9>, PinA<10> > console;
+UsbDev console;
 
 PinE<4> key0;
 PinE<3> key1;
@@ -169,8 +171,9 @@ void SystemCall (Context* z, int req) {
 int main() {
     backlight.mode(Pinmode::out); // turn backlight off as soon as possible
 
+    fullSpeedClock();
     console.init();
-    console.baud(115200, fullSpeedClock()/2);
+    //console.baud(115200, fullSpeedClock()/2);
 
     initFsmcLcd();
     lcd.init();
