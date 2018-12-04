@@ -13,7 +13,7 @@ int main() {
     console.init();
     printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
-    MMIO32(Periph::rcc + 0x30) |= (1<<12);  // CRCEN, p.181
+    Periph::bit(Periph::rcc+0x30, 12) = 1;  // CRCEN, p.181
     constexpr uint32_t crc = 0x40023000;
 
     MMIO32(crc+0x08) = 1; // reset
