@@ -3,29 +3,50 @@
 #include <jee.h>
 
 int main() {
-    fullSpeedClock();
+    //fullSpeedClock();
 
-    PinB<13> pin;
-    Pinmode m = (Pinmode) ((int)Pinmode::out + (int)Pinmode::ospeed_very_high);
-    pin.mode(m);
+    MMIO32(Periph::flash+0x00) |= 0b111<<8;
 
-    while (1) {
-        pin = 1;
-        pin = 0;
-        pin = 1;
-        pin = 0;
-        pin = 1;
-        pin = 0;
-        pin = 1;
-        pin = 0;
-        pin = 1;
-        pin = 0;
-        pin = 1;
-        pin = 0;
-        pin = 1;
-        pin = 0;
-        pin = 1;
-        pin = 0;
-        for (int i = 0; i < 1000; ++i) __asm("");
+    PinB<13> led;
+    led.mode(Pinmode::out_100mhz);
+
+    while (false)
+        led.toggle();
+
+    while (false) {
+        led.toggle();
+        led.toggle();
+        led.toggle();
+        led.toggle();
+        led.toggle();
+        led.toggle();
+        led.toggle();
+        led.toggle();
+    }
+
+    while (false) {
+        led = 0;
+        led = 1;
+    }
+
+    while (true) {
+        led = 1;
+        led = 0;
+        led = 1;
+        led = 0;
+        led = 1;
+        led = 0;
+        led = 1;
+        led = 0;
+        led = 1;
+        led = 0;
+        led = 1;
+        led = 0;
+        led = 1;
+        led = 0;
+        led = 1;
+        led = 0;
+
+        //for (int i = 0; i < 1000; ++i) __asm("");
     }
 }
