@@ -9,10 +9,10 @@ CanDev<1> can2;
 
 int main() {
     console.init();
-	constexpr uint32_t hz = 180000000;
-	enableClkAt180MHz();
+    constexpr uint32_t hz = 180000000;
+    enableClkAt180MHz();
     console.baud(115200, hz/2); // APB2 is /2 to stay within 90 MHz max
-	enableSysTick(hz/1000);
+    enableSysTick(hz/1000);
 
     printf("hello!\n");
 
