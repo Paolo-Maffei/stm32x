@@ -14,8 +14,7 @@ int main() {
     console.baud(115200, fullSpeedClock()/2);
     printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
-    MMIO32(Periph::rcc + 0x34) |= (1<<6);  // RNGEN, p.244
-    constexpr uint32_t crc = 0x40023000;
+    Periph::bit(Periph::rcc+0x34, 6) = 1;  // RNGEN, p.244
     constexpr uint32_t rng = 0x50060800;
 
     MMIO32(rng+0x0) = (1<<2); // RNGEN
