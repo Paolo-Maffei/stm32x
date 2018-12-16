@@ -16,6 +16,15 @@ int main() {
 
     printf("hello!\n");
 
+#if 0
+    // generate a 1 MHz signal on PA0 for eye diagram use
+    PinA<0> clock;
+    clock.mode(Pinmode::alt_out, 1);
+    Timer<2> timer;
+    timer.init(90);
+    timer.pwm(45);
+#endif
+
     can1.init();
     can2.init();
 
