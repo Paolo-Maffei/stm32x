@@ -12,10 +12,9 @@ PinB<3> led;
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock());
-
     led.mode(Pinmode::out);
 
-    while (1) {
+    while (true) {
         printf("%d\n", ticks);
         led = 1;
         wait_ms(100);
