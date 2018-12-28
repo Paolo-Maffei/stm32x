@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 #
-# use as: ./gensine.py >src/sine.h
+# use as: ./gensine.py | fold -s -w 80 >src/sine.h
 
 import math
 
-N = 2500
-R = 1920
-O = 2048
+N = 2500    # number of entries in wave table
+R = 1920    # range of values, +/- around the offset
+O = 2048    # offset, set to mid-range of the DAC
 
 L = []
 for i in range(N):

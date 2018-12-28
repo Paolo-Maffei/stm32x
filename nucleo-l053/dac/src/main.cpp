@@ -1,6 +1,6 @@
 #include <jee.h>
 
-// sine table, with 2500 entries and a swing of +/- 1920 around 2048
+// sine table: has 2500 entries with a swing of +/- 1920 around 2048
 // when sampled at 125 kHz, this will produce a pure 50 Hz sine wave
 const uint16_t sine [] = {
 #include "sine.h"
