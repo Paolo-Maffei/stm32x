@@ -6,29 +6,15 @@ const uint16_t sine [] = {
 #include "sine.h"
 };
 
-struct DAC {
-    constexpr static uint32_t base    = 0x40007400;
-    constexpr static uint32_t cr      = base + 0x00;
-    constexpr static uint32_t dhr12r1 = base + 0x08;
-
-    static void init () {
-        PinA<4>::mode(Pinmode::in_analog);
-        MMIO32(Periph::rcc+0x38) |= (1<<29);  // enable DAC
-        MMIO32(cr) = (1<<0);  // EN1
-    }
-
-    static void write (uint32_t val) {
-        MMIO32(dhr12r1) = val;
-    }
-};
-
 DAC dac;
 
 int main() {
     enableClkAt32mhz();
+
+    PinA<4>::mode(Pinmode::in_analog);
     dac.init();
 
-    uint32_t i = 0;
-    while (true)
-        dac.write(sine[i++ % 2500]);
+    dac.dmaWave(sine, 2500, 256); // 32 MHz / 256 = 125 kHz
+
+    while (true) {}
 }
