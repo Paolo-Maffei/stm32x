@@ -14,7 +14,7 @@ int main() {
     PinA<4>::mode(Pinmode::in_analog);
     dac.init();
 
-    dac.dmaWave(sine, 2500, 256); // 32 MHz / 256 = 125 kHz
+    dac.dmaWave(sine, 2500, 256); // 32 MHz / 256 = 125 ksps = 50 Hz
 
     while (true) {}
 }
