@@ -7,21 +7,41 @@
 
 #include <jee.h>
 
+#if LOMEM
+UartBufDev< PinA<9>, PinA<10> > console;
+
+int printf(const char* fmt, ...) {
+    va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
+	return 0;
+}
+
 PinB<9> led;
 
 int main() {
-#if LOMEM
+    console.init();
+    enableSysTick();
     led.mode(Pinmode::out);
 
     const uint32_t* himem = (const uint32_t*) 0x08004000;
     void (*start)() = (void (*)()) himem[1];
     start();
+}
+
 #else
+
+PinB<9> led;
+
+int main() {
     while (true) {
         led = 0;
         for (int i = 0; i < 1000000; ++i) __asm("");
         led = 1;
         for (int i = 0; i < 1000000; ++i) __asm("");
     }
-#endif
 }
+
+// disabling SystemInit() allows interrupts in lomem to continue working
+// see https://arm-software.github.io/CMSIS_5/Core_A/html/group__system__init__gr.html
+extern "C" void SystemInit () {}
+
+#endif
