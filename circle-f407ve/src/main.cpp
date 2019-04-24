@@ -7,6 +7,8 @@
 
 #include <jee.h>
 
+void(**linkArea)() = (void(**)()) 0x10004000;
+
 #if LOMEM
 UartBufDev< PinA<9>, PinA<10> > console;
 
@@ -17,10 +19,16 @@ int printf(const char* fmt, ...) {
 
 PinB<9> led;
 
+static void toggleLed () {
+    led.toggle();
+}
+
 int main() {
     console.init();
     enableSysTick();
     led.mode(Pinmode::out);
+
+    *linkArea = toggleLed;
 
     const uint32_t* himem = (const uint32_t*) 0x08004000;
     void (*start)() = (void (*)()) himem[1];
@@ -29,13 +37,10 @@ int main() {
 
 #else
 
-PinB<9> led;
-
+// this code calls back into lomem to toggle the LED
 int main() {
     while (true) {
-        led = 0;
-        for (int i = 0; i < 1000000; ++i) __asm("");
-        led = 1;
+        (*linkArea)(); // led.toggle()
         for (int i = 0; i < 1000000; ++i) __asm("");
     }
 }
