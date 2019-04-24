@@ -10,9 +10,9 @@
 PinB<9> led;
 
 int main() {
+#if LOMEM
     led.mode(Pinmode::out);
 
-#if LOMEM
     const uint32_t* himem = (const uint32_t*) 0x08004000;
     void (*start)() = (void (*)()) himem[1];
     start();
