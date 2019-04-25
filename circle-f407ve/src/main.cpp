@@ -8,7 +8,13 @@
 #include <jee.h>
 #include <setjmp.h>
 
-void(**linkArea)() = (void(**)()) 0x10004000;
+typedef struct {
+    void (*toggleLed)();
+    int (*printf)(const char* fmt, ...);
+    void (*jumpInfo)();
+} LowCalls;
+
+LowCalls*& linkArea = *(LowCalls**) 0x10004000;
 
 #if LOMEM
 UartBufDev< PinA<9>, PinA<10> > console;
@@ -70,14 +76,21 @@ void jumpInfo () {
     printf("sizeof (jmp_buf) = %d bytes\n", sizeof (jmp_buf));
 }
 
+LowCalls lowCalls = {
+    toggleLed,
+    printf,
+    jumpInfo,
+};
+
 int main() {
     console.init();
     enableSysTick();
     led.mode(Pinmode::out);
 
+    wait_ms(500);
     jumpInfo();
 
-    *linkArea = toggleLed;
+    linkArea = &lowCalls;
 
     const uint32_t* himem = (const uint32_t*) 0x08004000;
     void (*start)() = (void (*)()) himem[1];
@@ -86,11 +99,19 @@ int main() {
 
 #else
 
+#define toggleLed   linkArea->toggleLed
+#define printf      linkArea->printf
+#define jumpInfo    linkArea->jumpInfo
+
 // this code calls back into lomem to toggle the LED
 int main() {
+    printf("control transferred to himem\n");
+    jumpInfo();
+    int n = 0;
     while (true) {
-        (*linkArea)(); // led.toggle()
+        toggleLed(); // led.toggle()
         for (int i = 0; i < 1000000; ++i) __asm("");
+        printf("%d\n", ++n);
     }
 }
 
