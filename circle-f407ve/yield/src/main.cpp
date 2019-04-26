@@ -15,22 +15,19 @@ PinB<9> led;
 
 // scheduler
 
-jmp_buf jbSys;
-
-void yield (jmp_buf jb) {
-    if (setjmp(jb) == 0)
-        longjmp(jbSys, 1);
-}
-
-void resume (jmp_buf jb) {
-    if (setjmp(jbSys) == 0)
-        longjmp(jb, 1);
-}
+jmp_buf jbSys, *jbCurr = &jbSys;
 
 void launch (void (*proc)(), uint32_t* stack, jmp_buf jb) {
     memset(jb, 0, sizeof jb);
     ((uint32_t*) jb)[8] = (uint32_t) (stack + 100);
     ((uint32_t*) jb)[9] = (uint32_t) proc;
+}
+
+void yield (jmp_buf& jb) {
+    if (setjmp(*jbCurr) == 0) {
+        jbCurr = &jb;
+        longjmp(jb, 1);
+    }
 }
 
 // tasks
@@ -44,7 +41,7 @@ void taskOne () {
         led = 0;
         wait_ms(100);
         printf("yield 1 call\n");
-        yield(jbOne);
+        yield(jbSys);
         printf("yield 1 return\n");
     }
 }
@@ -55,7 +52,7 @@ void taskTwo () {
         led = 1;
         wait_ms(400);
         printf("yield 2 call\n");
-        yield(jbTwo);
+        yield(jbSys);
         printf("yield 2 return\n");
     }
 }
@@ -72,7 +69,7 @@ int main() {
 
     while (true) {
         printf("t = %d\n", ticks);
-        resume(jbOne);
-        resume(jbTwo);
+        yield(jbOne);
+        yield(jbTwo);
     }
 }
