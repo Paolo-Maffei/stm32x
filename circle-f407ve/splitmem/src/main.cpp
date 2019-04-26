@@ -1,8 +1,9 @@
 // splitting an app in two:
 //  - lomem loads at 0x08000000 with ram at 0x20000000 (same as usual)
-//  - himem loads at 0x08004000 with ram at 0x10000000 (lee himem.ld)
+//  - himem loads at 0x20010000 with ram at 0x20014000 (lee himem.ld)
 //  - both lomem.ld and himem.ld define memory sizes of only 10K each
 //  - that way, everything stays out of each other's way, including ram clear
+//  - there's a "link area pointer" at 0x2000FFF0 for himem to call lomem code
 // when started, the app in lomem jumps to the main entry of the app in himem
 
 #include <jee.h>
@@ -14,7 +15,7 @@ typedef struct {
     void (*jumpInfo)();
 } LowCalls;
 
-LowCalls*& linkArea = *(LowCalls**) 0x10004000;
+LowCalls*& linkArea = *(LowCalls**) 0x2000FFF0;
 
 #if LOMEM
 UartBufDev< PinA<9>, PinA<10> > console;
@@ -92,7 +93,10 @@ int main() {
 
     linkArea = &lowCalls;
 
-    const uint32_t* himem = (const uint32_t*) 0x08004000;
+    printf("jump to himem\n");
+    wait_ms(100);
+
+    const uint32_t* himem = (const uint32_t*) 0x20010000;
     void (*start)() = (void (*)()) himem[1];
     start();
 }
@@ -105,7 +109,7 @@ int main() {
 
 // this code calls back into lomem to toggle the LED
 int main() {
-    printf("control transferred to himem\n");
+    printf("now to himem\n");
     jumpInfo();
     int n = 0;
     while (true) {
