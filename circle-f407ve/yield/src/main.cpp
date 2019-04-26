@@ -15,10 +15,10 @@ PinB<9> led;
 
 // scheduler
 
-jmp_buf jbSys, *jbCurr = &jbSys;
+jmp_buf *jbCurr;
 
-void launch (void (*proc)(), uint32_t* stack, jmp_buf jb) {
-    memset(jb, 0, sizeof jb);
+void launch (void (*proc)(), uint32_t* stack, jmp_buf& jb) {
+    memset(&jb, 0, sizeof jb);
     ((uint32_t*) jb)[8] = (uint32_t) (stack + 100);
     ((uint32_t*) jb)[9] = (uint32_t) proc;
 }
@@ -32,7 +32,7 @@ void yield (jmp_buf& jb) {
 
 // tasks
 
-jmp_buf jbOne, jbTwo;
+jmp_buf jbSys, jbOne, jbTwo;
 uint32_t stackOne [100], stackTwo [100];
 
 void taskOne () {
@@ -63,6 +63,8 @@ int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
     led.mode(Pinmode::out);
+
+    jbCurr = &jbSys;
 
     launch(taskOne, stackOne, jbOne);
     launch(taskTwo, stackTwo, jbTwo);
