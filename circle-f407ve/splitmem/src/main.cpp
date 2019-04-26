@@ -11,7 +11,7 @@ typedef struct {
     int (*printf)(const char* fmt, ...);
 } LowCalls;
 
-LowCalls& linkArea = *(LowCalls*) 0x2000FFF0;
+LowCalls* linkArea = (LowCalls*) 0x2000FFF0;
 
 #if LOMEM
 #include <jee.h>
@@ -34,8 +34,8 @@ int main() {
     console.baud(115200, fullSpeedClock()/2);
     led.mode(Pinmode::out);
 
-    linkArea.toggleLed = toggleLed;
-    linkArea.printf = printf;
+    linkArea->toggleLed = toggleLed;
+    linkArea->printf = printf;
 
     const uint32_t* himem = (const uint32_t*) 0x20010000;
     void (*start)() = (void (*)()) himem[1];
@@ -46,12 +46,12 @@ int main() {
 
 #else
 
-#define toggleLed   linkArea.toggleLed
-#define printf      linkArea.printf
+#define toggleLed   linkArea->toggleLed
+#define printf      linkArea->printf
 
 // this code calls back into lomem to toggle the LED
 int main() {
-    printf("now to himem\n");
+    printf("now in himem\n");
     int n = 0;
     while (true) {
         toggleLed(); // led.toggle()
