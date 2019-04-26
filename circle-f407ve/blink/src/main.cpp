@@ -14,14 +14,6 @@ PinB<9> led;
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
-    printf("\r\n");
-
-#if 0
-    printf("flash %d kb\n", MMIO16(0x1FFF7A22));
-    printf("h/w id %08x %08x %08x\n",
-        MMIO32(0x1FFF7A10), MMIO32(0x1FFF7A14), MMIO32(0x1FFF7A18));
-#endif
-
     led.mode(Pinmode::out);
 
     while (1) {
