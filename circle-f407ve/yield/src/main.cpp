@@ -47,8 +47,6 @@ void launch (void (*proc)(), uint32_t* stack, jmp_buf jbp) {
     memset(jbp, 0, sizeof jbp);
     ((uint32_t*) jbp)[8] = (uint32_t) (stack + 100);
     ((uint32_t*) jbp)[9] = (uint32_t) proc;
-    if (setjmp(jbSys) == 0)
-        longjmp(jbp, 1);
 }
 
 int main() {
