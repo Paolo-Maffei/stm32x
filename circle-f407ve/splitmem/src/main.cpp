@@ -6,9 +6,6 @@
 //  - there's a "link area pointer" at 0x2000FFF0 for himem to call lomem code
 // when started, the app in lomem jumps to the main entry of the app in himem
 
-#include <jee.h>
-#include <setjmp.h>
-
 typedef struct {
     void (*toggleLed)();
     int (*printf)(const char* fmt, ...);
@@ -17,6 +14,8 @@ typedef struct {
 LowCalls*& linkArea = *(LowCalls**) 0x2000FFF0;
 
 #if LOMEM
+#include <jee.h>
+
 UartBufDev< PinA<9>, PinA<10> > console;
 
 int printf(const char* fmt, ...) {
