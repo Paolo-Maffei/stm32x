@@ -1,6 +1,6 @@
 // splitting an app in two:
 //  - lomem loads at 0x08000000 with ram at 0x20000000 (same as usual)
-//  - himem loads at 0x20010000 with ram at 0x20014000 (lee himem.ld)
+//  - himem loads at 0x20010000 with ram at 0x20014000 (see himem.ld)
 //  - both lomem.ld and himem.ld define memory sizes of only 10K each
 //  - that way, everything stays out of each other's way, including ram clear
 //  - there's a "link area pointer" at 0x2000FFF0 for himem to call lomem code
@@ -12,7 +12,6 @@
 typedef struct {
     void (*toggleLed)();
     int (*printf)(const char* fmt, ...);
-    void (*jumpInfo)();
 } LowCalls;
 
 LowCalls*& linkArea = *(LowCalls**) 0x2000FFF0;
@@ -31,56 +30,9 @@ static void toggleLed () {
     led.toggle();
 }
 
-// This code helps figure out how to re-use the setjmp/longjmp mechanism for
-// task switching - all we need are the offsets where SP and PC are stored.
-
-jmp_buf jb;
-
-void dumpJump (bool immediate) {
-    if (immediate) {
-        setjmp(jb); // fill in jb
-
-        uint32_t sp = (uint32_t) &immediate; // the real SP is slightly lower
-        uint32_t pc = (uint32_t) &dumpJump;  // the real PC is slightly higher
-        printf("'setjmp' layout guess: sp < %08x, pc > %08x:", sp, pc);
-
-        for (int i = 0; i < sizeof jb / 4; ++i) {
-            if (i % 8 == 0)
-                printf("\n%6d: ", i);
-            printf(" %08x", ((uint32_t*) &jb)[i]);
-        }
-        printf("\n");
-
-        // find the most plausible location of sp in the jb buffer
-        for (int i = 0; i < sizeof jb / 4; ++i)
-            if (sp - ((uint32_t*) &jb)[i] < 10)
-                printf("  best guess for SP is word #%d (%d off)\n",
-                        i, sp - ((uint32_t*) &jb)[i]);
-
-        // find the most plausible location of sp in the jb buffer
-        for (int i = 0; i < sizeof jb / 4; ++i)
-            if (((uint32_t*) &jb)[i] - pc < 30)
-                printf("  best guess for PC is word #%d (%d off)\n",
-                        i, ((uint32_t*) &jb)[i] - pc);
-        return;
-    }
-    
-    // else use recursion to add an extra stack frame
-    dumpJump(!immediate);
-}
-
-void jumpInfo () {
-    printf("FIRST ");
-    dumpJump(true);
-    printf("SECOND ");
-    dumpJump(false);
-    printf("sizeof (jmp_buf) = %d bytes\n", sizeof (jmp_buf));
-}
-
 LowCalls lowCalls = {
     toggleLed,
     printf,
-    jumpInfo,
 };
 
 int main() {
@@ -88,16 +40,12 @@ int main() {
     console.baud(115200, fullSpeedClock()/2);
     led.mode(Pinmode::out);
 
-    wait_ms(500);
-    jumpInfo();
-
     linkArea = &lowCalls;
-
-    printf("jump to himem\n");
-    wait_ms(100);
 
     const uint32_t* himem = (const uint32_t*) 0x20010000;
     void (*start)() = (void (*)()) himem[1];
+
+    printf("jump to himem\n");
     start();
 }
 
@@ -105,12 +53,10 @@ int main() {
 
 #define toggleLed   linkArea->toggleLed
 #define printf      linkArea->printf
-#define jumpInfo    linkArea->jumpInfo
 
 // this code calls back into lomem to toggle the LED
 int main() {
     printf("now to himem\n");
-    jumpInfo();
     int n = 0;
     while (true) {
         toggleLed(); // led.toggle()
