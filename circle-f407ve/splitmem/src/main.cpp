@@ -84,7 +84,7 @@ LowCalls lowCalls = {
 
 int main() {
     console.init();
-    enableSysTick();
+    console.baud(115200, fullSpeedClock()/2);
     led.mode(Pinmode::out);
 
     wait_ms(500);
@@ -110,7 +110,7 @@ int main() {
     int n = 0;
     while (true) {
         toggleLed(); // led.toggle()
-        for (int i = 0; i < 1000000; ++i) __asm("");
+        for (int i = 0; i < 10000000; ++i) __asm("");
         printf("%d\n", ++n);
     }
 }
