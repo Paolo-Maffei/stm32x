@@ -3,7 +3,7 @@
 //  - himem loads at 0x20010000 with ram at 0x20014000 (see himem.ld)
 //  - both lomem.ld and himem.ld define memory sizes of only 10K each
 //  - that way, everything stays out of each other's way, including ram clear
-//  - there's a "link area pointer" at 0x2000FFF0 for himem to call lomem code
+//  - there's a "link area" at 0x2000FFF0 for himem to call lomem code
 // when started, the app in lomem jumps to the main entry of the app in himem
 
 typedef struct {
@@ -11,7 +11,7 @@ typedef struct {
     int (*printf)(const char* fmt, ...);
 } LowCalls;
 
-LowCalls*& linkArea = *(LowCalls**) 0x2000FFF0;
+LowCalls& linkArea = *(LowCalls*) 0x2000FFF0;
 
 #if LOMEM
 #include <jee.h>
@@ -29,17 +29,13 @@ static void toggleLed () {
     led.toggle();
 }
 
-LowCalls lowCalls = {
-    toggleLed,
-    printf,
-};
-
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock()/2);
     led.mode(Pinmode::out);
 
-    linkArea = &lowCalls;
+    linkArea.toggleLed = toggleLed;
+    linkArea.printf = printf;
 
     const uint32_t* himem = (const uint32_t*) 0x20010000;
     void (*start)() = (void (*)()) himem[1];
@@ -50,8 +46,8 @@ int main() {
 
 #else
 
-#define toggleLed   linkArea->toggleLed
-#define printf      linkArea->printf
+#define toggleLed   linkArea.toggleLed
+#define printf      linkArea.printf
 
 // this code calls back into lomem to toggle the LED
 int main() {
