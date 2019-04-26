@@ -17,19 +17,24 @@ PinB<9> led;
 
 jmp_buf jbSys;
 
-void yield (jmp_buf jbp) {
-    if (setjmp(jbp) == 0)
+void yield (jmp_buf jb) {
+    if (setjmp(jb) == 0)
         longjmp(jbSys, 1);
 }
 
-void launch (void (*proc)(), uint32_t* stack, jmp_buf jbp) {
-    memset(jbp, 0, sizeof jbp);
-    ((uint32_t*) jbp)[8] = (uint32_t) (stack + 100);
-    ((uint32_t*) jbp)[9] = (uint32_t) proc;
+void resume (jmp_buf jb) {
+    if (setjmp(jbSys) == 0)
+        longjmp(jb, 1);
+}
+
+void launch (void (*proc)(), uint32_t* stack, jmp_buf jb) {
+    memset(jb, 0, sizeof jb);
+    ((uint32_t*) jb)[8] = (uint32_t) (stack + 100);
+    ((uint32_t*) jb)[9] = (uint32_t) proc;
 }
 
 // tasks
-//
+
 jmp_buf jbOne, jbTwo;
 uint32_t stackOne [100], stackTwo [100];
 
@@ -67,9 +72,7 @@ int main() {
 
     while (true) {
         printf("t = %d\n", ticks);
-        if (setjmp(jbSys) == 0)
-            longjmp(jbOne, 1);
-        if (setjmp(jbSys) == 0)
-            longjmp(jbTwo, 1);
+        resume(jbOne);
+        resume(jbTwo);
     }
 }
