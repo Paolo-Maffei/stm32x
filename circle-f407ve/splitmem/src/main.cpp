@@ -6,9 +6,12 @@
 //  - there's a "link area" at 0x2000FFF0 for himem to call lomem code
 // when started, the app in lomem jumps to the main entry of the app in himem
 
+#include <stdint.h>
+
 typedef struct {
     void (*toggleLed)();
     int (*printf)(const char* fmt, ...);
+    void (*wait_ms)(uint32_t);
 } LowCalls;
 
 LowCalls* linkArea = (LowCalls*) 0x2000FFF0;
@@ -36,28 +39,31 @@ int main() {
 
     linkArea->toggleLed = toggleLed;
     linkArea->printf = printf;
+    linkArea->wait_ms = wait_ms;
 
     const uint32_t* himem = (const uint32_t*) 0x20010000;
     void (*start)() = (void (*)()) himem[1];
 
     printf("jump to himem\n");
     start();
+    printf("returned ?\n");
 }
 
 #else
 
 #define toggleLed   linkArea->toggleLed
 #define printf      linkArea->printf
+#define wait_ms     linkArea->wait_ms
 
 // this code calls back into lomem to toggle the LED
-int main() {
+int main () {
     printf("now in himem\n");
-    int n = 0;
-    while (true) {
+    for (int n = 0; n < 5; ++n) {
         toggleLed(); // led.toggle()
-        for (int i = 0; i < 10000000; ++i) __asm("");
-        printf("%d\n", ++n);
+        wait_ms(500);
+        printf("%d\n", n);
     }
+    while (true) {}  // can't return
 }
 
 // disabling SystemInit() allows interrupts in lomem to continue working
