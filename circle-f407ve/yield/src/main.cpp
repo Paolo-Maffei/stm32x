@@ -13,13 +13,25 @@ int printf(const char* fmt, ...) {
 
 PinB<9> led;
 
-jmp_buf jbSys, jbOne, jbTwo;
-uint32_t stackOne [100], stackTwo [100];
+// scheduler
+
+jmp_buf jbSys;
 
 void yield (jmp_buf jbp) {
     if (setjmp(jbp) == 0)
         longjmp(jbSys, 1);
 }
+
+void launch (void (*proc)(), uint32_t* stack, jmp_buf jbp) {
+    memset(jbp, 0, sizeof jbp);
+    ((uint32_t*) jbp)[8] = (uint32_t) (stack + 100);
+    ((uint32_t*) jbp)[9] = (uint32_t) proc;
+}
+
+// tasks
+//
+jmp_buf jbOne, jbTwo;
+uint32_t stackOne [100], stackTwo [100];
 
 void taskOne () {
     printf("task 1 start\n");
@@ -43,11 +55,7 @@ void taskTwo () {
     }
 }
 
-void launch (void (*proc)(), uint32_t* stack, jmp_buf jbp) {
-    memset(jbp, 0, sizeof jbp);
-    ((uint32_t*) jbp)[8] = (uint32_t) (stack + 100);
-    ((uint32_t*) jbp)[9] = (uint32_t) proc;
-}
+// go!
 
 int main() {
     console.init();
