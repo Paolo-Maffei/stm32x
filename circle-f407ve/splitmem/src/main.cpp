@@ -58,7 +58,7 @@ int main() {
 // this code calls back into lomem to toggle the LED
 int main () {
     printf("now in himem\n");
-    for (int n = 0; n < 5; ++n) {
+    for (int n = 0; n < 10; ++n) {
         toggleLed(); // led.toggle()
         wait_ms(500);
         printf("%d\n", n);
