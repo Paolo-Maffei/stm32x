@@ -146,7 +146,7 @@ Discarded input sections
  .bss.led       0x0000000000000000        0x1 .pioenvs/lomem/src/main.o
  .data._pioenvs_himem_firmware_bin_len
                 0x0000000000000000        0x4 .pioenvs/lomem/src/main.o
- .text          0x0000000000000000       0x10 .pioenvs/lomem/src/startup_stm32f407xx.o
+ .text          0x0000000000000000        0x0 .pioenvs/lomem/src/startup_stm32f407xx.o
  .data          0x0000000000000000        0x0 .pioenvs/lomem/src/startup_stm32f407xx.o
  .bss           0x0000000000000000        0x0 .pioenvs/lomem/src/startup_stm32f407xx.o
  .text.Default_Handler

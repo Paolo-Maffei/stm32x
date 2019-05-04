@@ -129,7 +129,7 @@ Discarded input sections
  .text          0x0000000000000000        0x0 .pioenvs/himem/src/main.o
  .data          0x0000000000000000        0x0 .pioenvs/himem/src/main.o
  .bss           0x0000000000000000        0x0 .pioenvs/himem/src/main.o
- .text          0x0000000000000000       0x10 .pioenvs/himem/src/startup_stm32f407xx.o
+ .text          0x0000000000000000        0x0 .pioenvs/himem/src/startup_stm32f407xx.o
  .data          0x0000000000000000        0x0 .pioenvs/himem/src/startup_stm32f407xx.o
  .bss           0x0000000000000000        0x0 .pioenvs/himem/src/startup_stm32f407xx.o
  .text.Default_Handler
@@ -164,8 +164,6 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
 LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
 LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/crt0.o
                 0x0000000020016800                _estack = 0x20016800
-                0x0000000000000100                _Min_Heap_Size = 0x100
-                0x0000000000000200                _Min_Stack_Size = 0x200
 
 .isr_vector     0x0000000020014000        0x8
                 0x0000000020014000                . = ALIGN (0x4)
@@ -282,17 +280,6 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
                 0x0000000020014210                . = ALIGN (0x4)
                 0x0000000020014210                _ebss = .
                 0x0000000020014210                __bss_end__ = _ebss
-
-._user_heap_stack
-                0x0000000020014210      0x300
-                0x0000000020014210                . = ALIGN (0x4)
-                [!provide]                        PROVIDE (end, .)
-                [!provide]                        PROVIDE (_end, .)
-                0x0000000020014310                . = (. + _Min_Heap_Size)
- *fill*         0x0000000020014210      0x100 
-                0x0000000020014510                . = (. + _Min_Stack_Size)
- *fill*         0x0000000020014310      0x200 
-                0x0000000020014510                . = ALIGN (0x4)
 
 /DISCARD/
  libc.a(*)

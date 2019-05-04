@@ -6,15 +6,6 @@
 .global  g_pfnVectors
 .global  Default_Handler
 
-/* start address for the .data section. defined in linker script */  
-.word  _sdata
-/* end address for the .data section. defined in linker script */
-.word  _edata
-/* start address for the .bss section. defined in linker script */
-.word  _sbss
-/* end address for the .bss section. defined in linker script */
-.word  _ebss
-
     .section  .text.Reset_Handler
   .weak  Reset_Handler
   .type  Reset_Handler, %function
@@ -72,8 +63,7 @@ Infinite_Loop:
 
    .section  .isr_vector,"a",%progbits
   .type  g_pfnVectors, %object
-  .size  g_pfnVectors, .-g_pfnVectors
-    
 g_pfnVectors:
   .word  _estack
   .word  Reset_Handler
+  .size  g_pfnVectors, .-g_pfnVectors
