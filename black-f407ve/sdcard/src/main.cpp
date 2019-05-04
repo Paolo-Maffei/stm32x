@@ -64,6 +64,13 @@ int main() {
     }
     printf("\n");
 
+#if 1  // this WRITES to the SD card, disable if that's not acceptable
+    t = ticks;
+    for (int i = 1; i <= 1000; ++i)
+        sd.write512(120 * 1024 + i%10, fat.buf); // will wipe out above 60 MB!
+    printf("write: %d µs/blk\n\n", ticks - t);
+#endif
+
     while (1) {
         printf("%d", ticks % 10);
         led = 0;
