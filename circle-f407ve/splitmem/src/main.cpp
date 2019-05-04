@@ -80,4 +80,9 @@ int main () {
 // see https://arm-software.github.io/CMSIS_5/Core_A/html/group__system__init__gr.html
 //extern "C" void SystemInit () {}
 
+// remove the impure data from the executable, shaves over 1 KB off total size
+// see https://stackoverflow.com/questions/48711221
+// this also needs -Wl,--wrap=atexit in platformio.ini
+extern "C" int __wrap_atexit () { return -1; }
+
 #endif

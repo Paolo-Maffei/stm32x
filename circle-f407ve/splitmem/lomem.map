@@ -346,7 +346,7 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
                 0x0000000008000784                PROVIDE (__fini_array_end, .)
                 0x0000000008000784                _sidata = LOADADDR (.data)
 
-.data           0x0000000020000000      0xb08 load address 0x0000000008000784
+.data           0x0000000020000000      0x608 load address 0x0000000008000784
                 0x0000000020000000                . = ALIGN (0x4)
                 0x0000000020000000                _sdata = .
  *(.data)
@@ -357,67 +357,67 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
                 0x0000000020000428        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
                 0x0000000020000428                __atexit_recursive_mutex
  .data._pioenvs_himem_firmware_bin
-                0x000000002000042c      0x6d8 .pioenvs/lomem/src/main.o
+                0x000000002000042c      0x1d8 .pioenvs/lomem/src/main.o
                 0x000000002000042c                _pioenvs_himem_firmware_bin
  .data.linkArea
-                0x0000000020000b04        0x4 .pioenvs/lomem/src/main.o
-                0x0000000020000b04                linkArea
-                0x0000000020000b08                . = ALIGN (0x4)
-                0x0000000020000b08                _edata = .
+                0x0000000020000604        0x4 .pioenvs/lomem/src/main.o
+                0x0000000020000604                linkArea
+                0x0000000020000608                . = ALIGN (0x4)
+                0x0000000020000608                _edata = .
 
-.igot.plt       0x0000000020000b08        0x0 load address 0x000000000800128c
- .igot.plt      0x0000000020000b08        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x0000000020000b08                . = ALIGN (0x4)
+.igot.plt       0x0000000020000608        0x0 load address 0x0000000008000d8c
+ .igot.plt      0x0000000020000608        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+                0x0000000020000608                . = ALIGN (0x4)
 
-.bss            0x0000000020000c00      0x3d4 load address 0x000000000800128c
-                0x0000000020000c00                _sbss = .
-                0x0000000020000c00                __bss_start__ = _sbss
+.bss            0x0000000020000800      0x3d4 load address 0x0000000008000d8c
+                0x0000000020000800                _sbss = .
+                0x0000000020000800                __bss_start__ = _sbss
  *(.bss)
- .bss           0x0000000020000c00       0x1c /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .bss           0x0000000020000800       0x1c /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
  *(.bss*)
  .bss._ZGVN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4recvE
-                0x0000000020000c1c        0x4 .pioenvs/lomem/src/main.o
-                0x0000000020000c1c                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
+                0x000000002000081c        0x4 .pioenvs/lomem/src/main.o
+                0x000000002000081c                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
  .bss._ZGVN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4xmitE
-                0x0000000020000c20        0x4 .pioenvs/lomem/src/main.o
-                0x0000000020000c20                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
+                0x0000000020000820        0x4 .pioenvs/lomem/src/main.o
+                0x0000000020000820                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
  .bss._ZN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4recvE
-                0x0000000020000c24       0x36 .pioenvs/lomem/src/main.o
-                0x0000000020000c24                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
+                0x0000000020000824       0x36 .pioenvs/lomem/src/main.o
+                0x0000000020000824                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
  .bss._ZN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4xmitE
-                0x0000000020000c5a       0x36 .pioenvs/lomem/src/main.o
-                0x0000000020000c5a                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
- *fill*         0x0000000020000c90      0x170 
+                0x000000002000085a       0x36 .pioenvs/lomem/src/main.o
+                0x000000002000085a                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
+ *fill*         0x0000000020000890      0x170 
  .bss._ZZ9VTableRamvE6vtable
-                0x0000000020000e00      0x1ac .pioenvs/lomem/libcba/libjeeh.a(jee.o)
- .bss.ticks     0x0000000020000fac        0x4 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000020000fac                ticks
+                0x0000000020000a00      0x1ac .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+ .bss.ticks     0x0000000020000bac        0x4 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x0000000020000bac                ticks
  *(COMMON)
- COMMON         0x0000000020000fb0       0x21 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
-                0x0000000020000fb0                __lock___atexit_recursive_mutex
-                0x0000000020000fb4                __lock___arc4random_mutex
-                0x0000000020000fb8                __lock___env_recursive_mutex
-                0x0000000020000fbc                __lock___sinit_recursive_mutex
-                0x0000000020000fc0                __lock___malloc_recursive_mutex
-                0x0000000020000fc4                __lock___at_quick_exit_mutex
-                0x0000000020000fc8                __lock___dd_hash_mutex
-                0x0000000020000fcc                __lock___tz_mutex
-                0x0000000020000fd0                __lock___sfp_recursive_mutex
-                0x0000000020000fd4                . = ALIGN (0x4)
- *fill*         0x0000000020000fd1        0x3 
-                0x0000000020000fd4                _ebss = .
-                0x0000000020000fd4                __bss_end__ = _ebss
+ COMMON         0x0000000020000bb0       0x21 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
+                0x0000000020000bb0                __lock___atexit_recursive_mutex
+                0x0000000020000bb4                __lock___arc4random_mutex
+                0x0000000020000bb8                __lock___env_recursive_mutex
+                0x0000000020000bbc                __lock___sinit_recursive_mutex
+                0x0000000020000bc0                __lock___malloc_recursive_mutex
+                0x0000000020000bc4                __lock___at_quick_exit_mutex
+                0x0000000020000bc8                __lock___dd_hash_mutex
+                0x0000000020000bcc                __lock___tz_mutex
+                0x0000000020000bd0                __lock___sfp_recursive_mutex
+                0x0000000020000bd4                . = ALIGN (0x4)
+ *fill*         0x0000000020000bd1        0x3 
+                0x0000000020000bd4                _ebss = .
+                0x0000000020000bd4                __bss_end__ = _ebss
 
 ._user_heap_stack
-                0x0000000020000fd4      0x600 load address 0x000000000800128c
-                0x0000000020000fd4                . = ALIGN (0x4)
+                0x0000000020000bd4      0x600 load address 0x0000000008000d8c
+                0x0000000020000bd4                . = ALIGN (0x4)
                 [!provide]                        PROVIDE (end, .)
                 [!provide]                        PROVIDE (_end, .)
-                0x00000000200011d4                . = (. + _Min_Heap_Size)
- *fill*         0x0000000020000fd4      0x200 
-                0x00000000200015d4                . = (. + _Min_Stack_Size)
- *fill*         0x00000000200011d4      0x400 
-                0x00000000200015d4                . = ALIGN (0x4)
+                0x0000000020000dd4                . = (. + _Min_Heap_Size)
+ *fill*         0x0000000020000bd4      0x200 
+                0x00000000200011d4                . = (. + _Min_Stack_Size)
+ *fill*         0x0000000020000dd4      0x400 
+                0x00000000200011d4                . = ALIGN (0x4)
 
 /DISCARD/
  libc.a(*)
