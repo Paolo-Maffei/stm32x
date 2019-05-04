@@ -10,18 +10,16 @@ Archive member included to satisfy reference by file (symbol)
                               /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/crt0.o (memset)
 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
                               /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-exit.o) (__call_exitprocs)
-/Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
-                              /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o) (atexit)
 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
                               /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o) (__libc_fini_array)
 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
                               /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o) (__retarget_lock_acquire_recursive)
-/Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
-                              /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o) (__register_exitproc)
 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
                               .pioenvs/lomem/src/main.o (VTableRam())
 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
                               /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-exit.o) (_exit)
+.pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+                              .pioenvs/lomem/src/startup_stm32f407xx.o (SystemInit)
 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
                               .pioenvs/lomem/src/main.o (memcpy)
 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-strlen.o)
@@ -73,6 +71,10 @@ Discarded input sections
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
  .data._impure_ptr
                 0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
+ .data.impure_data
+                0x0000000000000000      0x428 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
+ .rodata._global_impure_ptr
+                0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
  .ARM.attributes
                 0x0000000000000000       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
  .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-init.o)
@@ -93,15 +95,11 @@ Discarded input sections
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
  .text.__call_exitprocs
                 0x0000000000000000       0xe8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
+ .data.__atexit_recursive_mutex
+                0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
  .debug_frame   0x0000000000000000       0x5c /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
  .ARM.attributes
                 0x0000000000000000       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
- .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
- .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
- .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
- .debug_frame   0x0000000000000000       0x20 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
- .ARM.attributes
-                0x0000000000000000       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
  .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
  .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
@@ -121,21 +119,20 @@ Discarded input sections
                 0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
  .text.__retarget_lock_acquire
                 0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
+ .text.__retarget_lock_acquire_recursive
+                0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
  .text.__retarget_lock_try_acquire
                 0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
  .text.__retarget_lock_try_acquire_recursive
                 0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
  .text.__retarget_lock_release
                 0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
+ .text.__retarget_lock_release_recursive
+                0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
  .debug_frame   0x0000000000000000       0xb0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
  .ARM.attributes
                 0x0000000000000000       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
- .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
- .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
- .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
- .debug_frame   0x0000000000000000       0x34 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
- .ARM.attributes
-                0x0000000000000000       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
+ COMMON         0x0000000000000000       0x21 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
  .group         0x0000000000000000        0xc .pioenvs/lomem/src/main.o
  .group         0x0000000000000000       0x14 .pioenvs/lomem/src/main.o
  .group         0x0000000000000000        0x8 .pioenvs/lomem/src/main.o
@@ -164,6 +161,17 @@ Discarded input sections
  .debug_frame   0x0000000000000000       0x20 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
  .ARM.attributes
                 0x0000000000000000       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
+ .text          0x0000000000000000        0x0 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+ .data          0x0000000000000000        0x0 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+ .bss           0x0000000000000000        0x0 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+ .text.SystemCoreClockUpdate
+                0x0000000000000000       0x74 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+ .data.SystemCoreClock
+                0x0000000000000000        0x4 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+ .rodata.AHBPrescTable
+                0x0000000000000000       0x10 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+ .rodata.APBPrescTable
+                0x0000000000000000        0x8 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
  .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
  .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
@@ -202,7 +210,7 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
                 0x0000000008000000                g_pfnVectors
                 0x0000000008000008                . = ALIGN (0x4)
 
-.text           0x0000000008000008      0x73c
+.text           0x0000000008000008      0x6d4
                 0x0000000008000008                . = ALIGN (0x4)
  *(.text)
  .text          0x0000000008000008       0x40 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
@@ -214,210 +222,187 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
                 0x0000000008000058                __libc_init_array
  .text.startup.register_fini
                 0x00000000080000a0       0x14 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
- .text.atexit   0x00000000080000b4        0xc /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
-                0x00000000080000b4                atexit
  .text.__libc_fini_array
-                0x00000000080000c0       0x34 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
-                0x00000000080000c0                __libc_fini_array
- .text.__retarget_lock_acquire_recursive
-                0x00000000080000f4        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
-                0x00000000080000f4                __retarget_lock_acquire_recursive
- .text.__retarget_lock_release_recursive
-                0x00000000080000f8        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
-                0x00000000080000f8                __retarget_lock_release_recursive
- .text.__register_exitproc
-                0x00000000080000fc       0xc0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
-                0x00000000080000fc                __register_exitproc
+                0x00000000080000b4       0x34 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
+                0x00000000080000b4                __libc_fini_array
  .text._ZL9toggleLedv
-                0x00000000080001bc       0x20 .pioenvs/lomem/src/main.o
+                0x00000000080000e8       0x20 .pioenvs/lomem/src/main.o
  .text._Z6printfPKcz
-                0x00000000080001dc       0x24 .pioenvs/lomem/src/main.o
-                0x00000000080001dc                printf(char const*, ...)
+                0x0000000008000108       0x24 .pioenvs/lomem/src/main.o
+                0x0000000008000108                printf(char const*, ...)
  .text._ZN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4putcEi
-                0x0000000008000200       0x3c .pioenvs/lomem/src/main.o
-                0x0000000008000200                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::putc(int)
+                0x000000000800012c       0x3c .pioenvs/lomem/src/main.o
+                0x000000000800012c                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::putc(int)
  .text.startup.main
-                0x000000000800023c      0x1e0 .pioenvs/lomem/src/main.o
-                0x000000000800023c                main
+                0x0000000008000168      0x1e0 .pioenvs/lomem/src/main.o
+                0x0000000008000168                main
+ .text.__wrap_atexit
+                0x0000000008000348        0x6 .pioenvs/lomem/src/main.o
+                0x0000000008000348                __wrap_atexit
+ *fill*         0x000000000800034e        0x2 
  .text._ZZN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4initEvENKUlvE_clEv
-                0x000000000800041c       0x94 .pioenvs/lomem/src/main.o
-                0x000000000800041c                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::init()::{lambda()#1}::operator()() const
+                0x0000000008000350       0x94 .pioenvs/lomem/src/main.o
+                0x0000000008000350                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::init()::{lambda()#1}::operator()() const
  .text._ZZN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4initEvENUlvE_4_FUNEv
-                0x00000000080004b0        0xa .pioenvs/lomem/src/main.o
-                0x00000000080004b0                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::init()::{lambda()#1}::_FUN()
- *fill*         0x00000000080004ba        0x2 
+                0x00000000080003e4        0xa .pioenvs/lomem/src/main.o
+                0x00000000080003e4                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::init()::{lambda()#1}::_FUN()
+ *fill*         0x00000000080003ee        0x2 
  .text.startup._GLOBAL__sub_I_linkArea
-                0x00000000080004bc       0x3c .pioenvs/lomem/src/main.o
+                0x00000000080003f0       0x3c .pioenvs/lomem/src/main.o
  .text.Reset_Handler
-                0x00000000080004f8       0x2c .pioenvs/lomem/src/startup_stm32f407xx.o
-                0x00000000080004f8                Reset_Handler
+                0x000000000800042c       0x50 .pioenvs/lomem/src/startup_stm32f407xx.o
+                0x000000000800042c                Reset_Handler
  .text._ZL9putFillerPFviEic
-                0x0000000008000524       0x14 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x000000000800047c       0x14 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
  .text._ZZ13enableSysTickmENUlvE_4_FUNEv
-                0x0000000008000538       0x10 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x0000000008000490       0x10 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
  .text._Z9VTableRamv
-                0x0000000008000548       0x28 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000008000548                VTableRam()
+                0x00000000080004a0       0x28 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x00000000080004a0                VTableRam()
  .text._Z13enableSysTickm
-                0x0000000008000570       0x28 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000008000570                enableSysTick(unsigned long)
+                0x00000000080004c8       0x28 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x00000000080004c8                enableSysTick(unsigned long)
  .text._Z7wait_msm
-                0x0000000008000598       0x18 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000008000598                wait_ms(unsigned long)
+                0x00000000080004f0       0x18 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x00000000080004f0                wait_ms(unsigned long)
  .text._Z6putIntPFviEiiic
-                0x00000000080005b0       0xa0 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x00000000080005b0                putInt(void (*)(int), int, int, int, char)
+                0x0000000008000508       0xa0 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x0000000008000508                putInt(void (*)(int), int, int, int, char)
  .text._Z8veprintfPFviEPKcSt9__va_list
-                0x0000000008000650       0xc4 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000008000650                veprintf(void (*)(int), char const*, std::__va_list)
- .text.memcpy   0x0000000008000714       0x16 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
-                0x0000000008000714                memcpy
+                0x00000000080005a8       0xc4 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x00000000080005a8                veprintf(void (*)(int), char const*, std::__va_list)
+ .text.SystemInit
+                0x000000000800066c       0x40 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
+                0x000000000800066c                SystemInit
+ .text.memcpy   0x00000000080006ac       0x16 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
+                0x00000000080006ac                memcpy
  *(.glue_7)
- .glue_7        0x000000000800072a        0x0 linker stubs
+ .glue_7        0x00000000080006c2        0x0 linker stubs
  *(.glue_7t)
- .glue_7t       0x000000000800072a        0x0 linker stubs
+ .glue_7t       0x00000000080006c2        0x0 linker stubs
  *(.eh_frame)
- *fill*         0x000000000800072a        0x2 
- .eh_frame      0x000000000800072c        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ *fill*         0x00000000080006c2        0x2 
+ .eh_frame      0x00000000080006c4        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
  *(.init)
- .init          0x000000000800072c        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
-                0x000000000800072c                _init
- .init          0x0000000008000730        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
+ .init          0x00000000080006c4        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
+                0x00000000080006c4                _init
+ .init          0x00000000080006c8        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
  *(.fini)
- .fini          0x0000000008000738        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
-                0x0000000008000738                _fini
- .fini          0x000000000800073c        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
-                0x0000000008000744                . = ALIGN (0x4)
-                0x0000000008000744                _etext = .
+ .fini          0x00000000080006d0        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
+                0x00000000080006d0                _fini
+ .fini          0x00000000080006d4        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
+                0x00000000080006dc                . = ALIGN (0x4)
+                0x00000000080006dc                _etext = .
 
-.vfp11_veneer   0x0000000008000744        0x0
- .vfp11_veneer  0x0000000008000744        0x0 linker stubs
+.vfp11_veneer   0x00000000080006dc        0x0
+ .vfp11_veneer  0x00000000080006dc        0x0 linker stubs
 
-.v4_bx          0x0000000008000744        0x0
- .v4_bx         0x0000000008000744        0x0 linker stubs
+.v4_bx          0x00000000080006dc        0x0
+ .v4_bx         0x00000000080006dc        0x0 linker stubs
 
-.iplt           0x0000000008000744        0x0
- .iplt          0x0000000008000744        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+.iplt           0x00000000080006dc        0x0
+ .iplt          0x00000000080006dc        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
 
-.rodata         0x0000000008000744       0x30
-                0x0000000008000744                . = ALIGN (0x4)
+.rodata         0x00000000080006dc       0x2c
+                0x00000000080006dc                . = ALIGN (0x4)
  *(.rodata)
  *(.rodata*)
- .rodata._global_impure_ptr
-                0x0000000008000744        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
-                0x0000000008000744                _global_impure_ptr
  .rodata.main.str1.1
-                0x0000000008000748       0x1b .pioenvs/lomem/src/main.o
+                0x00000000080006dc       0x1b .pioenvs/lomem/src/main.o
  .rodata._Z6putIntPFviEiiic.str1.1
-                0x0000000008000763       0x11 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000008000774                . = ALIGN (0x4)
+                0x00000000080006f7       0x11 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x0000000008000708                . = ALIGN (0x4)
 
-.rel.dyn        0x0000000008000774        0x0
- .rel.iplt      0x0000000008000774        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+.rel.dyn        0x0000000008000708        0x0
+ .rel.iplt      0x0000000008000708        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
 
 .ARM.extab
  *(.ARM.extab* .gnu.linkonce.armextab.*)
 
-.ARM            0x0000000008000774        0x0
-                0x0000000008000774                __exidx_start = .
+.ARM            0x0000000008000708        0x0
+                0x0000000008000708                __exidx_start = .
  *(.ARM.exidx*)
-                0x0000000008000774                __exidx_end = .
+                0x0000000008000708                __exidx_end = .
 
-.preinit_array  0x0000000008000774        0x0
-                0x0000000008000774                PROVIDE (__preinit_array_start, .)
+.preinit_array  0x0000000008000708        0x0
+                0x0000000008000708                PROVIDE (__preinit_array_start, .)
  *(.preinit_array*)
-                0x0000000008000774                PROVIDE (__preinit_array_end, .)
+                0x0000000008000708                PROVIDE (__preinit_array_end, .)
 
-.init_array     0x0000000008000774        0xc
-                0x0000000008000774                PROVIDE (__init_array_start, .)
+.init_array     0x0000000008000708        0xc
+                0x0000000008000708                PROVIDE (__init_array_start, .)
  *(SORT_BY_NAME(.init_array.*))
  .init_array.00000
-                0x0000000008000774        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
+                0x0000000008000708        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
  *(.init_array*)
- .init_array    0x0000000008000778        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
- .init_array    0x000000000800077c        0x4 .pioenvs/lomem/src/main.o
-                0x0000000008000780                PROVIDE (__init_array_end, .)
+ .init_array    0x000000000800070c        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .init_array    0x0000000008000710        0x4 .pioenvs/lomem/src/main.o
+                0x0000000008000714                PROVIDE (__init_array_end, .)
 
-.fini_array     0x0000000008000780        0x4
-                0x0000000008000780                PROVIDE (__fini_array_start, .)
+.fini_array     0x0000000008000714        0x4
+                0x0000000008000714                PROVIDE (__fini_array_start, .)
  *(SORT_BY_NAME(.fini_array.*))
  *(.fini_array*)
- .fini_array    0x0000000008000780        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x0000000008000784                PROVIDE (__fini_array_end, .)
-                0x0000000008000784                _sidata = LOADADDR (.data)
+ .fini_array    0x0000000008000714        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+                0x0000000008000718                PROVIDE (__fini_array_end, .)
+                0x0000000008000718                _sidata = LOADADDR (.data)
 
-.data           0x0000000020000000      0x608 load address 0x0000000008000784
+.data           0x0000000020000000      0x1dc load address 0x0000000008000718
                 0x0000000020000000                . = ALIGN (0x4)
                 0x0000000020000000                _sdata = .
  *(.data)
  *(.data*)
- .data.impure_data
-                0x0000000020000000      0x428 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
- .data.__atexit_recursive_mutex
-                0x0000000020000428        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
-                0x0000000020000428                __atexit_recursive_mutex
  .data._pioenvs_himem_firmware_bin
-                0x000000002000042c      0x1d8 .pioenvs/lomem/src/main.o
-                0x000000002000042c                _pioenvs_himem_firmware_bin
+                0x0000000020000000      0x1d8 .pioenvs/lomem/src/main.o
+                0x0000000020000000                _pioenvs_himem_firmware_bin
  .data.linkArea
-                0x0000000020000604        0x4 .pioenvs/lomem/src/main.o
-                0x0000000020000604                linkArea
-                0x0000000020000608                . = ALIGN (0x4)
-                0x0000000020000608                _edata = .
+                0x00000000200001d8        0x4 .pioenvs/lomem/src/main.o
+                0x00000000200001d8                linkArea
+                0x00000000200001dc                . = ALIGN (0x4)
+                0x00000000200001dc                _edata = .
 
-.igot.plt       0x0000000020000608        0x0 load address 0x0000000008000d8c
- .igot.plt      0x0000000020000608        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x0000000020000608                . = ALIGN (0x4)
+.igot.plt       0x00000000200001dc        0x0 load address 0x00000000080008f4
+ .igot.plt      0x00000000200001dc        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+                0x00000000200001dc                . = ALIGN (0x4)
 
-.bss            0x0000000020000800      0x3d4 load address 0x0000000008000d8c
-                0x0000000020000800                _sbss = .
-                0x0000000020000800                __bss_start__ = _sbss
+.bss            0x0000000020000200      0x3b0 load address 0x00000000080008f4
+                0x0000000020000200                _sbss = .
+                0x0000000020000200                __bss_start__ = _sbss
  *(.bss)
- .bss           0x0000000020000800       0x1c /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .bss           0x0000000020000200       0x1c /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
  *(.bss*)
  .bss._ZGVN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4recvE
-                0x000000002000081c        0x4 .pioenvs/lomem/src/main.o
-                0x000000002000081c                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
+                0x000000002000021c        0x4 .pioenvs/lomem/src/main.o
+                0x000000002000021c                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
  .bss._ZGVN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4xmitE
-                0x0000000020000820        0x4 .pioenvs/lomem/src/main.o
-                0x0000000020000820                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
+                0x0000000020000220        0x4 .pioenvs/lomem/src/main.o
+                0x0000000020000220                guard variable for UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
  .bss._ZN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4recvE
-                0x0000000020000824       0x36 .pioenvs/lomem/src/main.o
-                0x0000000020000824                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
+                0x0000000020000224       0x36 .pioenvs/lomem/src/main.o
+                0x0000000020000224                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::recv
  .bss._ZN10UartBufDevI3PinILc65ELi9EES0_ILc65ELi10EELi50EE4xmitE
-                0x000000002000085a       0x36 .pioenvs/lomem/src/main.o
-                0x000000002000085a                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
- *fill*         0x0000000020000890      0x170 
+                0x000000002000025a       0x36 .pioenvs/lomem/src/main.o
+                0x000000002000025a                UartBufDev<Pin<(char)65, 9>, Pin<(char)65, 10>, 50>::xmit
+ *fill*         0x0000000020000290      0x170 
  .bss._ZZ9VTableRamvE6vtable
-                0x0000000020000a00      0x1ac .pioenvs/lomem/libcba/libjeeh.a(jee.o)
- .bss.ticks     0x0000000020000bac        0x4 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000020000bac                ticks
+                0x0000000020000400      0x1ac .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+ .bss.ticks     0x00000000200005ac        0x4 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x00000000200005ac                ticks
  *(COMMON)
- COMMON         0x0000000020000bb0       0x21 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
-                0x0000000020000bb0                __lock___atexit_recursive_mutex
-                0x0000000020000bb4                __lock___arc4random_mutex
-                0x0000000020000bb8                __lock___env_recursive_mutex
-                0x0000000020000bbc                __lock___sinit_recursive_mutex
-                0x0000000020000bc0                __lock___malloc_recursive_mutex
-                0x0000000020000bc4                __lock___at_quick_exit_mutex
-                0x0000000020000bc8                __lock___dd_hash_mutex
-                0x0000000020000bcc                __lock___tz_mutex
-                0x0000000020000bd0                __lock___sfp_recursive_mutex
-                0x0000000020000bd4                . = ALIGN (0x4)
- *fill*         0x0000000020000bd1        0x3 
-                0x0000000020000bd4                _ebss = .
-                0x0000000020000bd4                __bss_end__ = _ebss
+                0x00000000200005b0                . = ALIGN (0x4)
+                0x00000000200005b0                _ebss = .
+                0x00000000200005b0                __bss_end__ = _ebss
 
 ._user_heap_stack
-                0x0000000020000bd4      0x600 load address 0x0000000008000d8c
-                0x0000000020000bd4                . = ALIGN (0x4)
+                0x00000000200005b0      0x600 load address 0x00000000080008f4
+                0x00000000200005b0                . = ALIGN (0x4)
                 [!provide]                        PROVIDE (end, .)
                 [!provide]                        PROVIDE (_end, .)
-                0x0000000020000dd4                . = (. + _Min_Heap_Size)
- *fill*         0x0000000020000bd4      0x200 
-                0x00000000200011d4                . = (. + _Min_Stack_Size)
- *fill*         0x0000000020000dd4      0x400 
-                0x00000000200011d4                . = ALIGN (0x4)
+                0x00000000200007b0                . = (. + _Min_Heap_Size)
+ *fill*         0x00000000200005b0      0x200 
+                0x0000000020000bb0                . = (. + _Min_Stack_Size)
+ *fill*         0x00000000200007b0      0x400 
+                0x0000000020000bb0                . = ALIGN (0x4)
 
 /DISCARD/
  libc.a(*)
@@ -438,11 +423,13 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
  .ARM.attributes
                 0x00000000000000a0       0x33 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
  .ARM.attributes
-                0x00000000000000d3       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
+                0x00000000000000d3       0x33 .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
  .ARM.attributes
-                0x0000000000000101       0x17 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-strlen.o)
+                0x0000000000000106       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
  .ARM.attributes
-                0x0000000000000118       0x1e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
+                0x0000000000000134       0x17 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-strlen.o)
+ .ARM.attributes
+                0x000000000000014b       0x1e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
 LOAD .pioenvs/lomem/src/main.o
 LOAD .pioenvs/lomem/src/startup_stm32f407xx.o
 START GROUP
@@ -478,6 +465,7 @@ OUTPUT(.pioenvs/lomem/firmware.elf elf32-littlearm)
  .comment       0x0000000000000000       0x7e .pioenvs/lomem/src/main.o
                                          0x7f (size before relaxing)
  .comment       0x000000000000007e       0x7f .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+ .comment       0x000000000000007e       0x7f .pioenvs/lomem/libFrameworkCMSISDevice.a(system_stm32f4xx.o)
 
 .debug_frame    0x0000000000000000       0x28
  .debug_frame   0x0000000000000000       0x28 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc_nano.a(lib_a-memcpy-stub.o)
