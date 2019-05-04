@@ -1,10 +1,5 @@
-// splitting an app in two:
-//  - lomem loads at 0x08000000 with ram at 0x20000000 (same as usual)
-//  - himem loads at 0x20010000 with ram at 0x20014000 (see himem.ld)
-//  - both lomem.ld and himem.ld define memory sizes of only 10K each
-//  - that way, everything stays out of each other's way, including ram clear
-//  - there's a "link area pointer" at 0x2000FFF0 for himem to call lomem code
-// when started, the app in lomem jumps to the main entry of the app in himem
+// This code helps figure out how to re-use the setjmp/longjmp mechanism for
+// task switching - all we need are the offsets where SP and PC are stored.
 
 #include <jee.h>
 #include <setjmp.h>
@@ -15,9 +10,6 @@ int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
 	return 0;
 }
-
-// This code helps figure out how to re-use the setjmp/longjmp mechanism for
-// task switching - all we need are the offsets where SP and PC are stored.
 
 jmp_buf jb;
 
