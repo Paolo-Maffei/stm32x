@@ -303,69 +303,69 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
 .iplt           0x00000000080006dc        0x0
  .iplt          0x00000000080006dc        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
 
-.rodata         0x00000000080006dc       0x2c
+.rodata         0x00000000080006dc       0x30
                 0x00000000080006dc                . = ALIGN (0x4)
  *(.rodata)
  *(.rodata*)
  .rodata.main.str1.1
-                0x00000000080006dc       0x1b .pioenvs/lomem/src/main.o
+                0x00000000080006dc       0x1f .pioenvs/lomem/src/main.o
  .rodata._Z6putIntPFviEiiic.str1.1
-                0x00000000080006f7       0x11 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
-                0x0000000008000708                . = ALIGN (0x4)
+                0x00000000080006fb       0x11 .pioenvs/lomem/libcba/libjeeh.a(jee.o)
+                0x000000000800070c                . = ALIGN (0x4)
 
-.rel.dyn        0x0000000008000708        0x0
- .rel.iplt      0x0000000008000708        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+.rel.dyn        0x000000000800070c        0x0
+ .rel.iplt      0x000000000800070c        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
 
 .ARM.extab
  *(.ARM.extab* .gnu.linkonce.armextab.*)
 
-.ARM            0x0000000008000708        0x0
-                0x0000000008000708                __exidx_start = .
+.ARM            0x000000000800070c        0x0
+                0x000000000800070c                __exidx_start = .
  *(.ARM.exidx*)
-                0x0000000008000708                __exidx_end = .
+                0x000000000800070c                __exidx_end = .
 
-.preinit_array  0x0000000008000708        0x0
-                0x0000000008000708                PROVIDE (__preinit_array_start, .)
+.preinit_array  0x000000000800070c        0x0
+                0x000000000800070c                PROVIDE (__preinit_array_start, .)
  *(.preinit_array*)
-                0x0000000008000708                PROVIDE (__preinit_array_end, .)
+                0x000000000800070c                PROVIDE (__preinit_array_end, .)
 
-.init_array     0x0000000008000708        0xc
-                0x0000000008000708                PROVIDE (__init_array_start, .)
+.init_array     0x000000000800070c        0xc
+                0x000000000800070c                PROVIDE (__init_array_start, .)
  *(SORT_BY_NAME(.init_array.*))
  .init_array.00000
-                0x0000000008000708        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
+                0x000000000800070c        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
  *(.init_array*)
- .init_array    0x000000000800070c        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
- .init_array    0x0000000008000710        0x4 .pioenvs/lomem/src/main.o
-                0x0000000008000714                PROVIDE (__init_array_end, .)
+ .init_array    0x0000000008000710        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .init_array    0x0000000008000714        0x4 .pioenvs/lomem/src/main.o
+                0x0000000008000718                PROVIDE (__init_array_end, .)
 
-.fini_array     0x0000000008000714        0x4
-                0x0000000008000714                PROVIDE (__fini_array_start, .)
+.fini_array     0x0000000008000718        0x4
+                0x0000000008000718                PROVIDE (__fini_array_start, .)
  *(SORT_BY_NAME(.fini_array.*))
  *(.fini_array*)
- .fini_array    0x0000000008000714        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x0000000008000718                PROVIDE (__fini_array_end, .)
-                0x0000000008000718                _sidata = LOADADDR (.data)
+ .fini_array    0x0000000008000718        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+                0x000000000800071c                PROVIDE (__fini_array_end, .)
+                0x000000000800071c                _sidata = LOADADDR (.data)
 
-.data           0x0000000020000000      0x1dc load address 0x0000000008000718
+.data           0x0000000020000000      0x1f8 load address 0x000000000800071c
                 0x0000000020000000                . = ALIGN (0x4)
                 0x0000000020000000                _sdata = .
  *(.data)
  *(.data*)
  .data._pioenvs_himem_firmware_bin
-                0x0000000020000000      0x1d8 .pioenvs/lomem/src/main.o
+                0x0000000020000000      0x1f4 .pioenvs/lomem/src/main.o
                 0x0000000020000000                _pioenvs_himem_firmware_bin
  .data.linkArea
-                0x00000000200001d8        0x4 .pioenvs/lomem/src/main.o
-                0x00000000200001d8                linkArea
-                0x00000000200001dc                . = ALIGN (0x4)
-                0x00000000200001dc                _edata = .
+                0x00000000200001f4        0x4 .pioenvs/lomem/src/main.o
+                0x00000000200001f4                linkArea
+                0x00000000200001f8                . = ALIGN (0x4)
+                0x00000000200001f8                _edata = .
 
-.igot.plt       0x00000000200001dc        0x0 load address 0x00000000080008f4
- .igot.plt      0x00000000200001dc        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x00000000200001dc                . = ALIGN (0x4)
+.igot.plt       0x00000000200001f8        0x0 load address 0x0000000008000914
+ .igot.plt      0x00000000200001f8        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+                0x00000000200001f8                . = ALIGN (0x4)
 
-.bss            0x0000000020000200      0x3b0 load address 0x00000000080008f4
+.bss            0x0000000020000200      0x3b0 load address 0x0000000008000914
                 0x0000000020000200                _sbss = .
                 0x0000000020000200                __bss_start__ = _sbss
  *(.bss)
@@ -394,7 +394,7 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
                 0x00000000200005b0                __bss_end__ = _ebss
 
 ._user_heap_stack
-                0x00000000200005b0      0x600 load address 0x00000000080008f4
+                0x00000000200005b0      0x600 load address 0x0000000008000914
                 0x00000000200005b0                . = ALIGN (0x4)
                 [!provide]                        PROVIDE (end, .)
                 [!provide]                        PROVIDE (_end, .)

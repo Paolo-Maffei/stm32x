@@ -51,7 +51,7 @@ int main() {
 
     printf("jump to himem\n");
     start();
-    printf("returned ?\n");
+    printf("back in lomem?\n");
 }
 
 #else
@@ -64,8 +64,9 @@ extern "C" int _etext [], _edata [], _ebss [], _estack [];
 
 // this code calls back into lomem to toggle the LED
 int main () {
+    wait_ms(500);
     printf("now in himem\n");
-    wait_ms(1000);
+
     printf("etext %08x edata %08x ebss %08x estack %08x\n",
             _etext, _edata, _ebss, _estack);
     for (int n = 0; n < 5; ++n) {
@@ -73,7 +74,9 @@ int main () {
         wait_ms(500);
         printf("%d\n", n);
     }
-    while (true) {}  // can't return
+    
+    printf("end of himem\n");
+    while (true) {}
 }
 
 // disabling SystemInit() allows interrupts in lomem to continue working
