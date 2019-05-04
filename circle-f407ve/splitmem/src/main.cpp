@@ -18,6 +18,8 @@ LowCalls* linkArea = (LowCalls*) 0x2000FFF0;
 
 #if LOMEM
 #include <jee.h>
+#include <string.h>
+#include "himem.h"
 
 UartBufDev< PinA<9>, PinA<10> > console;
 
@@ -41,7 +43,10 @@ int main() {
     linkArea->printf = printf;
     linkArea->wait_ms = wait_ms;
 
-    const uint32_t* himem = (const uint32_t*) 0x20010000;
+    memcpy((void*) 0x20014000, _pioenvs_himem_firmware_bin,
+                                sizeof _pioenvs_himem_firmware_bin);
+
+    const uint32_t* himem = (const uint32_t*) 0x20014000;
     void (*start)() = (void (*)()) himem[1];
 
     printf("jump to himem\n");
@@ -55,10 +60,15 @@ int main() {
 #define printf      linkArea->printf
 #define wait_ms     linkArea->wait_ms
 
+extern "C" int _etext [], _edata [], _ebss [], _estack [];
+
 // this code calls back into lomem to toggle the LED
 int main () {
     printf("now in himem\n");
-    for (int n = 0; n < 10; ++n) {
+    wait_ms(1000);
+    printf("etext %08x edata %08x ebss %08x estack %08x\n",
+            _etext, _edata, _ebss, _estack);
+    for (int n = 0; n < 5; ++n) {
         toggleLed(); // led.toggle()
         wait_ms(500);
         printf("%d\n", n);
@@ -68,6 +78,6 @@ int main () {
 
 // disabling SystemInit() allows interrupts in lomem to continue working
 // see https://arm-software.github.io/CMSIS_5/Core_A/html/group__system__init__gr.html
-extern "C" void SystemInit () {}
+//extern "C" void SystemInit () {}
 
 #endif

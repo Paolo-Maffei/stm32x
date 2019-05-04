@@ -20,8 +20,6 @@ Archive member included to satisfy reference by file (symbol)
                               /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o) (__register_exitproc)
 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
                               /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-exit.o) (_exit)
-.pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
-                              (Reset_Handler)
 
 Allocating common symbols
 Common symbol       size              file
@@ -50,6 +48,7 @@ Discarded input sections
  .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
  .data          0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .fini_array    0x0000000000000000        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
  .text          0x0000000000000000       0x74 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/crt0.o
  .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/crt0.o
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/crt0.o
@@ -135,6 +134,11 @@ Discarded input sections
  .text          0x0000000000000000        0x0 .pioenvs/himem/src/main.o
  .data          0x0000000000000000        0x0 .pioenvs/himem/src/main.o
  .bss           0x0000000000000000        0x0 .pioenvs/himem/src/main.o
+ .text          0x0000000000000000       0x10 .pioenvs/himem/src/startup_stm32f407xx.o
+ .data          0x0000000000000000        0x0 .pioenvs/himem/src/startup_stm32f407xx.o
+ .bss           0x0000000000000000        0x0 .pioenvs/himem/src/startup_stm32f407xx.o
+ .text.Default_Handler
+                0x0000000000000000        0x2 .pioenvs/himem/src/startup_stm32f407xx.o
  .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
  .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
@@ -142,9 +146,6 @@ Discarded input sections
  .debug_frame   0x0000000000000000       0x20 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
  .ARM.attributes
                 0x0000000000000000       0x2e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libnosys.a(_exit.o)
- .text          0x0000000000000000       0x14 .pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
- .data          0x0000000000000000        0x0 .pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
- .bss           0x0000000000000000        0x0 .pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
  .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtend.o
  .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtend.o
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtend.o
@@ -154,11 +155,11 @@ Discarded input sections
  .text          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
  .data          0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
  .bss           0x0000000000000000        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
+ .fini          0x0000000000000000        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
 
 Memory Configuration
 
 Name             Origin             Length             Attributes
-FLASH            0x0000000020010000 0x0000000000002800 xr
 RAM              0x0000000020014000 0x0000000000002800 xrw
 *default*        0x0000000000000000 0xffffffffffffffff
 
@@ -168,267 +169,161 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
 LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
 LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/crt0.o
                 0x0000000020016800                _estack = 0x20016800
-                0x0000000000000200                _Min_Heap_Size = 0x200
-                0x0000000000000400                _Min_Stack_Size = 0x400
+                0x0000000000000100                _Min_Heap_Size = 0x100
+                0x0000000000000200                _Min_Stack_Size = 0x200
 
-.isr_vector     0x0000000020010000      0x188
-                0x0000000020010000                . = ALIGN (0x4)
+.isr_vector     0x0000000020014000        0x8
+                0x0000000020014000                . = ALIGN (0x4)
  *(.isr_vector)
- .isr_vector    0x0000000020010000      0x188 .pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
-                0x0000000020010000                g_pfnVectors
-                0x0000000020010188                . = ALIGN (0x4)
+ .isr_vector    0x0000000020014000        0x8 .pioenvs/himem/src/startup_stm32f407xx.o
+                0x0000000020014000                g_pfnVectors
+                0x0000000020014008                . = ALIGN (0x4)
 
-.text           0x0000000020010188      0x254
-                0x0000000020010188                . = ALIGN (0x4)
+.text           0x0000000020014008      0x24c
+                0x0000000020014008                . = ALIGN (0x4)
  *(.text)
- .text          0x0000000020010188       0x40 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .text          0x0000000020014008       0x40 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
  *(.text*)
  .text.__libc_init_array
-                0x00000000200101c8       0x48 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-init.o)
-                0x00000000200101c8                __libc_init_array
+                0x0000000020014048       0x48 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-init.o)
+                0x0000000020014048                __libc_init_array
  .text.startup.register_fini
-                0x0000000020010210       0x14 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
- .text.atexit   0x0000000020010224        0xc /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
-                0x0000000020010224                atexit
+                0x0000000020014090       0x14 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
+ .text.atexit   0x00000000200140a4        0xc /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-atexit.o)
+                0x00000000200140a4                atexit
  .text.__libc_fini_array
-                0x0000000020010230       0x34 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
-                0x0000000020010230                __libc_fini_array
+                0x00000000200140b0       0x34 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-fini.o)
+                0x00000000200140b0                __libc_fini_array
  .text.__retarget_lock_acquire_recursive
-                0x0000000020010264        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
-                0x0000000020010264                __retarget_lock_acquire_recursive
+                0x00000000200140e4        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
+                0x00000000200140e4                __retarget_lock_acquire_recursive
  .text.__retarget_lock_release_recursive
-                0x0000000020010268        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
-                0x0000000020010268                __retarget_lock_release_recursive
+                0x00000000200140e8        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
+                0x00000000200140e8                __retarget_lock_release_recursive
  .text.__register_exitproc
-                0x000000002001026c       0xc0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
-                0x000000002001026c                __register_exitproc
+                0x00000000200140ec       0xc0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__atexit.o)
+                0x00000000200140ec                __register_exitproc
  .text.startup.main
-                0x000000002001032c       0x40 .pioenvs/himem/src/main.o
-                0x000000002001032c                main
- .text.SystemInit
-                0x000000002001036c        0x2 .pioenvs/himem/src/main.o
-                0x000000002001036c                SystemInit
- *fill*         0x000000002001036e        0x2 
+                0x00000000200141ac       0x70 .pioenvs/himem/src/main.o
+                0x00000000200141ac                main
  .text.Reset_Handler
-                0x0000000020010370       0x50 .pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
-                0x0000000020010370                Reset_Handler
- .text.Default_Handler
-                0x00000000200103c0        0x2 .pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
-                0x00000000200103c0                DMA1_Stream3_IRQHandler
-                0x00000000200103c0                HASH_RNG_IRQHandler
-                0x00000000200103c0                EXTI2_IRQHandler
-                0x00000000200103c0                TIM8_CC_IRQHandler
-                0x00000000200103c0                DebugMon_Handler
-                0x00000000200103c0                TIM1_CC_IRQHandler
-                0x00000000200103c0                DMA2_Stream5_IRQHandler
-                0x00000000200103c0                HardFault_Handler
-                0x00000000200103c0                DMA1_Stream5_IRQHandler
-                0x00000000200103c0                SysTick_Handler
-                0x00000000200103c0                PVD_IRQHandler
-                0x00000000200103c0                SDIO_IRQHandler
-                0x00000000200103c0                TAMP_STAMP_IRQHandler
-                0x00000000200103c0                PendSV_Handler
-                0x00000000200103c0                NMI_Handler
-                0x00000000200103c0                CAN2_RX1_IRQHandler
-                0x00000000200103c0                EXTI3_IRQHandler
-                0x00000000200103c0                TIM8_TRG_COM_TIM14_IRQHandler
-                0x00000000200103c0                TIM1_UP_TIM10_IRQHandler
-                0x00000000200103c0                TIM8_UP_TIM13_IRQHandler
-                0x00000000200103c0                I2C3_ER_IRQHandler
-                0x00000000200103c0                EXTI0_IRQHandler
-                0x00000000200103c0                I2C2_EV_IRQHandler
-                0x00000000200103c0                DMA1_Stream2_IRQHandler
-                0x00000000200103c0                CAN1_RX0_IRQHandler
-                0x00000000200103c0                FPU_IRQHandler
-                0x00000000200103c0                OTG_HS_WKUP_IRQHandler
-                0x00000000200103c0                UsageFault_Handler
-                0x00000000200103c0                CAN2_SCE_IRQHandler
-                0x00000000200103c0                DMA2_Stream2_IRQHandler
-                0x00000000200103c0                SPI1_IRQHandler
-                0x00000000200103c0                TIM6_DAC_IRQHandler
-                0x00000000200103c0                TIM1_BRK_TIM9_IRQHandler
-                0x00000000200103c0                DCMI_IRQHandler
-                0x00000000200103c0                CAN2_RX0_IRQHandler
-                0x00000000200103c0                DMA2_Stream3_IRQHandler
-                0x00000000200103c0                USART6_IRQHandler
-                0x00000000200103c0                USART3_IRQHandler
-                0x00000000200103c0                CAN1_RX1_IRQHandler
-                0x00000000200103c0                UART5_IRQHandler
-                0x00000000200103c0                DMA2_Stream0_IRQHandler
-                0x00000000200103c0                TIM4_IRQHandler
-                0x00000000200103c0                I2C1_EV_IRQHandler
-                0x00000000200103c0                DMA1_Stream6_IRQHandler
-                0x00000000200103c0                DMA1_Stream1_IRQHandler
-                0x00000000200103c0                UART4_IRQHandler
-                0x00000000200103c0                TIM3_IRQHandler
-                0x00000000200103c0                RCC_IRQHandler
-                0x00000000200103c0                TIM8_BRK_TIM12_IRQHandler
-                0x00000000200103c0                Default_Handler
-                0x00000000200103c0                EXTI15_10_IRQHandler
-                0x00000000200103c0                ADC_IRQHandler
-                0x00000000200103c0                DMA1_Stream7_IRQHandler
-                0x00000000200103c0                TIM7_IRQHandler
-                0x00000000200103c0                CAN2_TX_IRQHandler
-                0x00000000200103c0                TIM5_IRQHandler
-                0x00000000200103c0                DMA2_Stream7_IRQHandler
-                0x00000000200103c0                I2C3_EV_IRQHandler
-                0x00000000200103c0                EXTI9_5_IRQHandler
-                0x00000000200103c0                RTC_WKUP_IRQHandler
-                0x00000000200103c0                ETH_WKUP_IRQHandler
-                0x00000000200103c0                SPI2_IRQHandler
-                0x00000000200103c0                OTG_HS_EP1_IN_IRQHandler
-                0x00000000200103c0                MemManage_Handler
-                0x00000000200103c0                DMA1_Stream0_IRQHandler
-                0x00000000200103c0                CAN1_TX_IRQHandler
-                0x00000000200103c0                SVC_Handler
-                0x00000000200103c0                EXTI4_IRQHandler
-                0x00000000200103c0                FSMC_IRQHandler
-                0x00000000200103c0                ETH_IRQHandler
-                0x00000000200103c0                OTG_HS_EP1_OUT_IRQHandler
-                0x00000000200103c0                WWDG_IRQHandler
-                0x00000000200103c0                TIM2_IRQHandler
-                0x00000000200103c0                OTG_FS_WKUP_IRQHandler
-                0x00000000200103c0                TIM1_TRG_COM_TIM11_IRQHandler
-                0x00000000200103c0                OTG_HS_IRQHandler
-                0x00000000200103c0                EXTI1_IRQHandler
-                0x00000000200103c0                USART2_IRQHandler
-                0x00000000200103c0                I2C2_ER_IRQHandler
-                0x00000000200103c0                DMA2_Stream1_IRQHandler
-                0x00000000200103c0                CAN1_SCE_IRQHandler
-                0x00000000200103c0                FLASH_IRQHandler
-                0x00000000200103c0                DMA2_Stream4_IRQHandler
-                0x00000000200103c0                BusFault_Handler
-                0x00000000200103c0                USART1_IRQHandler
-                0x00000000200103c0                OTG_FS_IRQHandler
-                0x00000000200103c0                SPI3_IRQHandler
-                0x00000000200103c0                DMA1_Stream4_IRQHandler
-                0x00000000200103c0                I2C1_ER_IRQHandler
-                0x00000000200103c0                DMA2_Stream6_IRQHandler
-                0x00000000200103c0                RTC_Alarm_IRQHandler
+                0x000000002001421c       0x2c .pioenvs/himem/src/startup_stm32f407xx.o
+                0x000000002001421c                Reset_Handler
  *(.glue_7)
- .glue_7        0x00000000200103c2        0x0 linker stubs
+ .glue_7        0x0000000020014248        0x0 linker stubs
  *(.glue_7t)
- .glue_7t       0x00000000200103c2        0x0 linker stubs
+ .glue_7t       0x0000000020014248        0x0 linker stubs
  *(.eh_frame)
- *fill*         0x00000000200103c2        0x2 
- .eh_frame      0x00000000200103c4        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .eh_frame      0x0000000020014248        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
  *(.init)
- .init          0x00000000200103c4        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
-                0x00000000200103c4                _init
- .init          0x00000000200103c8        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
- *(.fini)
- .fini          0x00000000200103d0        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
-                0x00000000200103d0                _fini
- .fini          0x00000000200103d4        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
-                0x00000000200103dc                . = ALIGN (0x4)
-                0x00000000200103dc                _etext = .
+ .init          0x0000000020014248        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
+                0x0000000020014248                _init
+ .init          0x000000002001424c        0x8 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
+                0x0000000020014254                . = ALIGN (0x4)
+                0x0000000020014254                _etext = .
 
-.vfp11_veneer   0x00000000200103dc        0x0
- .vfp11_veneer  0x00000000200103dc        0x0 linker stubs
+.vfp11_veneer   0x0000000020014254        0x0
+ .vfp11_veneer  0x0000000020014254        0x0 linker stubs
 
-.v4_bx          0x00000000200103dc        0x0
- .v4_bx         0x00000000200103dc        0x0 linker stubs
+.v4_bx          0x0000000020014254        0x0
+ .v4_bx         0x0000000020014254        0x0 linker stubs
 
-.iplt           0x00000000200103dc        0x0
- .iplt          0x00000000200103dc        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+.fini           0x0000000020014254        0x4
+ .fini          0x0000000020014254        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crti.o
+                0x0000000020014254                _fini
 
-.rodata         0x00000000200103dc       0x18
-                0x00000000200103dc                . = ALIGN (0x4)
+.iplt           0x0000000020014258        0x0
+ .iplt          0x0000000020014258        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+
+.rodata         0x0000000020014258       0x44
+                0x0000000020014258                . = ALIGN (0x4)
  *(.rodata)
  *(.rodata*)
  .rodata._global_impure_ptr
-                0x00000000200103dc        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
-                0x00000000200103dc                _global_impure_ptr
+                0x0000000020014258        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
+                0x0000000020014258                _global_impure_ptr
  .rodata.main.str1.1
-                0x00000000200103e0       0x12 .pioenvs/himem/src/main.o
-                0x00000000200103f4                . = ALIGN (0x4)
- *fill*         0x00000000200103f2        0x2 
+                0x000000002001425c       0x3f .pioenvs/himem/src/main.o
+                0x000000002001429c                . = ALIGN (0x4)
+ *fill*         0x000000002001429b        0x1 
 
-.rel.dyn        0x00000000200103f4        0x0
- .rel.iplt      0x00000000200103f4        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+.rel.dyn        0x000000002001429c        0x0
+ .rel.iplt      0x000000002001429c        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
 
 .ARM.extab
  *(.ARM.extab* .gnu.linkonce.armextab.*)
 
-.ARM            0x00000000200103f4        0x0
-                0x00000000200103f4                __exidx_start = .
+.ARM            0x000000002001429c        0x0
+                0x000000002001429c                __exidx_start = .
  *(.ARM.exidx*)
-                0x00000000200103f4                __exidx_end = .
+                0x000000002001429c                __exidx_end = .
 
-.preinit_array  0x00000000200103f4        0x0
-                0x00000000200103f4                PROVIDE (__preinit_array_start, .)
+.preinit_array  0x000000002001429c        0x0
+                0x000000002001429c                PROVIDE (__preinit_array_start, .)
  *(.preinit_array*)
-                0x00000000200103f4                PROVIDE (__preinit_array_end, .)
+                0x000000002001429c                PROVIDE (__preinit_array_end, .)
 
-.init_array     0x00000000200103f4        0x8
-                0x00000000200103f4                PROVIDE (__init_array_start, .)
+.init_array     0x000000002001429c        0x8
+                0x000000002001429c                PROVIDE (__init_array_start, .)
  *(SORT_BY_NAME(.init_array.*))
  .init_array.00000
-                0x00000000200103f4        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
+                0x000000002001429c        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
  *(.init_array*)
- .init_array    0x00000000200103f8        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x00000000200103fc                PROVIDE (__init_array_end, .)
+ .init_array    0x00000000200142a0        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+                0x00000000200142a4                PROVIDE (__init_array_end, .)
 
-.fini_array     0x00000000200103fc        0x4
-                0x00000000200103fc                PROVIDE (__fini_array_start, .)
- *(SORT_BY_NAME(.fini_array.*))
- *(.fini_array*)
- .fini_array    0x00000000200103fc        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x0000000020010400                PROVIDE (__fini_array_end, .)
-                0x0000000020010400                _sidata = LOADADDR (.data)
-
-.data           0x0000000020014000      0x430 load address 0x0000000020010400
-                0x0000000020014000                . = ALIGN (0x4)
-                0x0000000020014000                _sdata = .
+.data           0x00000000200142a8      0x430
+                0x00000000200142a8                . = ALIGN (0x4)
+                0x00000000200142a8                _sdata = .
  *(.data)
  *(.data*)
  .data.impure_data
-                0x0000000020014000      0x428 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
+                0x00000000200142a8      0x428 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-impure.o)
  .data.__atexit_recursive_mutex
-                0x0000000020014428        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
-                0x0000000020014428                __atexit_recursive_mutex
+                0x00000000200146d0        0x4 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-__call_atexit.o)
+                0x00000000200146d0                __atexit_recursive_mutex
  .data.linkArea
-                0x000000002001442c        0x4 .pioenvs/himem/src/main.o
-                0x000000002001442c                linkArea
-                0x0000000020014430                . = ALIGN (0x4)
-                0x0000000020014430                _edata = .
+                0x00000000200146d4        0x4 .pioenvs/himem/src/main.o
+                0x00000000200146d4                linkArea
+                0x00000000200146d8                . = ALIGN (0x4)
+                0x00000000200146d8                _edata = .
 
-.igot.plt       0x0000000020014430        0x0 load address 0x0000000020010830
- .igot.plt      0x0000000020014430        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
-                0x0000000020014430                . = ALIGN (0x4)
+.igot.plt       0x00000000200146d8        0x0
+ .igot.plt      0x00000000200146d8        0x0 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+                0x00000000200146d8                . = ALIGN (0x4)
 
-.bss            0x0000000020014430       0x40 load address 0x0000000020010830
-                0x0000000020014430                _sbss = .
-                0x0000000020014430                __bss_start__ = _sbss
+.bss            0x00000000200146d8       0x40
+                0x00000000200146d8                _sbss = .
+                0x00000000200146d8                __bss_start__ = _sbss
  *(.bss)
- .bss           0x0000000020014430       0x1c /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
+ .bss           0x00000000200146d8       0x1c /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtbegin.o
  *(.bss*)
  *(COMMON)
- COMMON         0x000000002001444c       0x21 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
-                0x000000002001444c                __lock___atexit_recursive_mutex
-                0x0000000020014450                __lock___arc4random_mutex
-                0x0000000020014454                __lock___env_recursive_mutex
-                0x0000000020014458                __lock___sinit_recursive_mutex
-                0x000000002001445c                __lock___malloc_recursive_mutex
-                0x0000000020014460                __lock___at_quick_exit_mutex
-                0x0000000020014464                __lock___dd_hash_mutex
-                0x0000000020014468                __lock___tz_mutex
-                0x000000002001446c                __lock___sfp_recursive_mutex
-                0x0000000020014470                . = ALIGN (0x4)
- *fill*         0x000000002001446d        0x3 
-                0x0000000020014470                _ebss = .
-                0x0000000020014470                __bss_end__ = _ebss
+ COMMON         0x00000000200146f4       0x21 /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/../../../../arm-none-eabi/lib/thumb/v7e-m/libc.a(lib_a-lock.o)
+                0x00000000200146f4                __lock___atexit_recursive_mutex
+                0x00000000200146f8                __lock___arc4random_mutex
+                0x00000000200146fc                __lock___env_recursive_mutex
+                0x0000000020014700                __lock___sinit_recursive_mutex
+                0x0000000020014704                __lock___malloc_recursive_mutex
+                0x0000000020014708                __lock___at_quick_exit_mutex
+                0x000000002001470c                __lock___dd_hash_mutex
+                0x0000000020014710                __lock___tz_mutex
+                0x0000000020014714                __lock___sfp_recursive_mutex
+                0x0000000020014718                . = ALIGN (0x4)
+ *fill*         0x0000000020014715        0x3 
+                0x0000000020014718                _ebss = .
+                0x0000000020014718                __bss_end__ = _ebss
 
 ._user_heap_stack
-                0x0000000020014470      0x600 load address 0x0000000020010830
-                0x0000000020014470                . = ALIGN (0x4)
+                0x0000000020014718      0x300
+                0x0000000020014718                . = ALIGN (0x4)
                 [!provide]                        PROVIDE (end, .)
                 [!provide]                        PROVIDE (_end, .)
-                0x0000000020014670                . = (. + _Min_Heap_Size)
- *fill*         0x0000000020014470      0x200 
-                0x0000000020014a70                . = (. + _Min_Stack_Size)
- *fill*         0x0000000020014670      0x400 
-                0x0000000020014a70                . = ALIGN (0x4)
+                0x0000000020014818                . = (. + _Min_Heap_Size)
+ *fill*         0x0000000020014718      0x100 
+                0x0000000020014a18                . = (. + _Min_Stack_Size)
+ *fill*         0x0000000020014818      0x200 
+                0x0000000020014a18                . = ALIGN (0x4)
 
 /DISCARD/
  libc.a(*)
@@ -445,10 +340,11 @@ LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm
  .ARM.attributes
                 0x000000000000004c       0x33 .pioenvs/himem/src/main.o
  .ARM.attributes
-                0x000000000000007f       0x21 .pioenvs/himem/libFrameworkCMSISDevice.a(startup_stm32f407xx.o)
+                0x000000000000007f       0x21 .pioenvs/himem/src/startup_stm32f407xx.o
  .ARM.attributes
                 0x00000000000000a0       0x1e /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/crtn.o
 LOAD .pioenvs/himem/src/main.o
+LOAD .pioenvs/himem/src/startup_stm32f407xx.o
 START GROUP
 LOAD .pioenvs/himem/libcba/libjeeh.a
 LOAD /Users/jcw/.platformio/packages/toolchain-gccarmnoneeabi/bin/../lib/gcc/arm-none-eabi/7.2.1/thumb/v7e-m/libgcc.a
