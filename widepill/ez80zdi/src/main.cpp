@@ -18,7 +18,7 @@ void ezInit () {
     // initialise all the main control pins
     RST.mode(Pinmode::out_od);
     XIN.mode(Pinmode::alt_out); // XXX alt_out_50mhz
-    ZDA.mode(Pinmode::out_od);
+    ZDA.mode(Pinmode::out);
     ZCL.mode(Pinmode::out);
 
     // disable JTAG in AFIO-MAPR to release PB3, PB4, and PA15
@@ -40,7 +40,7 @@ void ezReset () {
 }
 
 void zclDelay () {
-    for (int i = 0; i < 5; ++i) __asm("");
+    for (int i = 0; i < 10; ++i) __asm("");
 }
 
 void zcl (int f) {
@@ -49,47 +49,13 @@ void zcl (int f) {
     zclDelay();
 }
 
-#if 0
-: zdi! ( f -- )  zcl-lo  ZDA io!  zcl-hi  ZDA ios! ;
-
-: zdi-start ( u -- )
-  ( zcl-hi ) ZDA ioc!
-  OMODE-PP ZDA io-mode!
-  7 0 do
-    dup $40 and zdi!  shl
-  loop  drop ;
-
-: zdi> ( addr -- val )
-  zdi-start  1 zdi!  1 zdi!
-  OMODE-OD ZDA io-mode!
-  0  8 0 do
-    zcl-lo  zcl-hi
-    shl  ZDA io@ 1 and or
-  loop
-  zcl-lo ZDA ios! zcl-hi ;
-
-: >zdi ( val addr -- )
-  zdi-start  0 zdi!  1 zdi!
-  8 0 do
-    dup $80 and zdi!  shl
-  loop  drop
-  zcl-lo ZDA ios! zcl-hi
-  OMODE-OD ZDA io-mode! ;
-
-: ins1 ( u1 -- )              $25 >zdi ;
-: ins2 ( u1 u2 -- )           $24 >zdi ins1 ;
-: ins3 ( u1 u2 u3 -- )        $23 >zdi ins2 ;
-: ins4 ( u1 u2 u3 u4 -- )     $22 >zdi ins3 ;
-: ins5 ( u1 u2 u3 u4 u5 -- )  $21 >zdi ins4 ;
-#endif
-
 void zdiSet (int f) {
     zcl(0); ZDA = f; zcl(1); ZDA = 1;
 }
 
 void zdiStart (uint8_t b, int rw) {
-    ZDA = 0;
     ZDA.mode(Pinmode::out);
+    ZDA = 0;
     for (int i = 0; i < 7; ++i) {
         zdiSet((b & 0x40) != 0);
         b <<= 1;
@@ -97,42 +63,41 @@ void zdiStart (uint8_t b, int rw) {
     zdiSet(rw); zdiSet(1);
 }
 
-void zdiInN (uint8_t addr, uint8_t* ptr, int n) {
-    zdiStart(addr, 1);
-    ZDA.mode(Pinmode::out_od);
-    while (--n >= 0) {
-        uint8_t r = 0;
-        for (int i = 0; i < 8; ++i) {
-            zcl(0); zcl(1);
-            r <<= 1;
-            r |= ZDA & 1;
-        }
-        *ptr++ = r;
-        zdiSet(1);
+uint8_t zdiInBits () {
+    uint8_t r = 0;
+    for (int i = 0; i < 8; ++i) {
+        zcl(0); zcl(1);
+        r <<= 1;
+        r |= ZDA & 1;
     }
+    zdiSet(1);
+    return r;
 }
 
 uint8_t zdiIn (uint8_t addr) {
-    uint8_t r = 0;
-    zdiInN(addr, &r, 1);
-    return r;
+    zdiStart(addr, 1);
+    ZDA.mode(Pinmode::in_pullup);
+    return zdiInBits();
+}
+
+void zdiOutBits (uint8_t b) {
+    for (int i = 0; i < 8; ++i) {
+        zdiSet((b & 0x80) != 0);
+        b <<= 1;
+    }
+    zdiSet(1);
 }
 
 void zdiOutN (uint8_t addr, const uint8_t* ptr, int n) {
     zdiStart(addr, 0);
-    while (--n >= 0) {
-        uint8_t b = *ptr++;
-        for (int i = 0; i < 8; ++i) {
-            zdiSet((b & 0x80) != 0);
-            b <<= 1;
-        }
-        zdiSet(1);
-    }
-    ZDA.mode(Pinmode::out_od);
+    zdiOutBits(*ptr++);
+    while (--n >= 0)
+        zdiOutBits(*ptr++);
 }
 
 void zdiOut (uint8_t addr, uint8_t val) {
-    zdiOutN(addr, &val, 1);
+    zdiStart(addr, 0);
+    zdiOutBits(val);
 }
 
 void zIns (uint8_t v0) {
@@ -140,37 +105,30 @@ void zIns (uint8_t v0) {
 }
 
 void zIns (uint8_t v0, uint8_t v1) {
-    uint8_t buf [] = { v1, v0 };
-    zdiOutN(0x24, buf, sizeof buf);
+    zdiOut(0x24, v1);
+    zdiOutBits(v0);
 }
 
 void zIns (uint8_t v0, uint8_t v1, uint8_t v2) {
-    uint8_t buf [] = { v2, v1, v0 };
-    zdiOutN(0x23, buf, sizeof buf);
+    zdiOut(0x23, v2);
+    zdiOutBits(v1);
+    zdiOutBits(v0);
 }
 
 void zIns (uint8_t v0, uint8_t v1, uint8_t v2, uint8_t v3) {
-    uint8_t buf [] = { v3, v2, v1, v0 };
-    zdiOutN(0x22, buf, sizeof buf);
+    zdiOut(0x22, v3);
+    zdiOutBits(v2);
+    zdiOutBits(v1);
+    zdiOutBits(v0);
 }
 
 void zIns (uint8_t v0, uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4) {
-    uint8_t buf [] = { v4, v3, v2, v1, v0 };
-    zdiOutN(0x21, buf, sizeof buf);
+    zdiOut(0x21, v4);
+    zdiOutBits(v3);
+    zdiOutBits(v2);
+    zdiOutBits(v1);
+    zdiOutBits(v0);
 }
-
-#if 0
-: mb> ( -- u )            \ get MBASE
-  $08 $16 >zdi            \ set adl mode
-  $00 $16 >zdi  $12 zdi>  \ mbase => <u>
-  $09 $16 >zdi ;          \ set z80 mode
-
-: >mb ( u -- )  \ set MBASE
-  $08 $16 >zdi            \ set adl mode
-  $13 >zdi  $80 $16 >zdi  \ ld a,<u>
-  $ED $6D ins2            \ ld mb,a
-  $09 $16 >zdi ;          \ set z80 mode
-#endif
 
 uint8_t getMbase () {
     zdiOut(0x16, 0x08); // set ADL
@@ -185,8 +143,6 @@ void setMbase (uint8_t b) {
     zdiOut(0x15, b); // set U
     zdiOut(0x16, 0x80); // write MBASE
     //zIns(0xED, 0x6D);
-    //zdiOut(0x24, 0x6D);
-    //zdiOut(0x25, 0xED);
     zdiOut(0x16, 0x09); // reset ADL
 }
 
@@ -203,14 +159,14 @@ int main() {
     printf(".%02x", zdiIn(0x01));
     printf(".%02x\n", zdiIn(0x02));
 
-    printf("status %02x\n", zdiIn(0x03));
-    zdiOut(0x16, 0x09); // reset ADL
-    printf("status %02x\n", zdiIn(0x03));
+    //printf("status %02x\n", zdiIn(0x03));
+    //zdiOut(0x16, 0x09); // reset ADL
+    //printf("status %02x\n", zdiIn(0x03));
 
-    printf("b1 %02x", getMbase());
+    printf("b %02x", getMbase());
     setMbase(0x45);
-    printf(" --> ");
-    printf("b2 %02x\n", getMbase());
+    printf(" -> ");
+    printf("%02x\n", getMbase());
 
     while (true) {}
 }
