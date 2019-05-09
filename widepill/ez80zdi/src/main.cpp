@@ -21,21 +21,26 @@ void ezInit () {
     ZDA.mode(Pinmode::out_od);
     ZCL.mode(Pinmode::out);
 
+    // disable JTAG in AFIO-MAPR to release PB3, PB4, and PA15
+    // (looks like this has to be done *after* the GPIO mode inits)
+    constexpr uint32_t afio = 0x40010000;
+    MMIO32(afio+0x04) |= (2<<24); // disable JTAG, keep SWD enabled
+
     // generate a 9 MHz signal with 50% duty cycle on PB0, using TIM3
-    timer.init(8);
-    timer.pwm(4);
+    timer.init(4);
+    timer.pwm(2);
 }
 
 void ezReset () {
     RST = 0;
-    ZCL = 0; // p.257
+    ZCL = 1; // p.257
     ZDA = 1;
     wait_ms(2);
     RST = 1;
 }
 
 void zclDelay () {
-    for (int i = 0; i < 10; ++i) __asm("");
+    for (int i = 0; i < 5; ++i) __asm("");
 }
 
 void zcl (int f) {
@@ -82,17 +87,18 @@ void zdiSet (int f) {
     zcl(0); ZDA = f; zcl(1); ZDA = 1;
 }
 
-void zdiStart (uint8_t b) {
+void zdiStart (uint8_t b, int rw) {
     ZDA = 0;
     ZDA.mode(Pinmode::out);
     for (int i = 0; i < 7; ++i) {
         zdiSet((b & 0x40) != 0);
         b <<= 1;
     }
+    zdiSet(rw); zdiSet(1);
 }
 
 void zdiInN (uint8_t addr, uint8_t* ptr, int n) {
-    zdiStart(addr); zdiSet(1); zdiSet(1);
+    zdiStart(addr, 1);
     ZDA.mode(Pinmode::out_od);
     while (--n >= 0) {
         uint8_t r = 0;
@@ -102,8 +108,8 @@ void zdiInN (uint8_t addr, uint8_t* ptr, int n) {
             r |= ZDA & 1;
         }
         *ptr++ = r;
+        zdiSet(1);
     }
-    zcl(0); ZDA = 1; zcl(1);
 }
 
 uint8_t zdiIn (uint8_t addr) {
@@ -113,15 +119,15 @@ uint8_t zdiIn (uint8_t addr) {
 }
 
 void zdiOutN (uint8_t addr, const uint8_t* ptr, int n) {
-    zdiSet(addr); zdiSet(0); zdiSet(1);
+    zdiStart(addr, 0);
     while (--n >= 0) {
         uint8_t b = *ptr++;
         for (int i = 0; i < 8; ++i) {
             zdiSet((b & 0x80) != 0);
             b <<= 1;
         }
+        zdiSet(1);
     }
-    zcl(0); ZDA = 1; zcl(1);
     ZDA.mode(Pinmode::out_od);
 }
 
@@ -167,19 +173,21 @@ void zIns (uint8_t v0, uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4) {
 #endif
 
 uint8_t getMbase () {
-    zdiOut(0x16, 0x08);
-    zdiOut(0x16, 0x00);
-    uint8_t b = zdiIn(0x16);
-    zdiOut(0x16, 0x09);
+    zdiOut(0x16, 0x08); // set ADL
+    zdiOut(0x16, 0x00); // read MBASE
+    uint8_t b = zdiIn(0x12); // get U
+    zdiOut(0x16, 0x09); // reset ADL
     return b;
 }
 
 void setMbase (uint8_t b) {
-    zdiOut(0x16, 0x08);
-    zdiOut(0x13, b);
-    zdiOut(0x16, 0x80);
-    zIns(0xED, 0x6D);
-    zdiOut(0x16, 0x09);
+    zdiOut(0x16, 0x08); // set ADL
+    zdiOut(0x15, b); // set U
+    zdiOut(0x16, 0x80); // write MBASE
+    //zIns(0xED, 0x6D);
+    //zdiOut(0x24, 0x6D);
+    //zdiOut(0x25, 0xED);
+    zdiOut(0x16, 0x09); // reset ADL
 }
 
 int main() {
@@ -191,8 +199,17 @@ int main() {
     ezInit();
     ezReset();
 
-    printf("b1 %02x\n", getMbase());
+    printf("v %02x", zdiIn(0x00));
+    printf(".%02x", zdiIn(0x01));
+    printf(".%02x\n", zdiIn(0x02));
+
+    printf("status %02x\n", zdiIn(0x03));
+    zdiOut(0x16, 0x09); // reset ADL
+    printf("status %02x\n", zdiIn(0x03));
+
+    printf("b1 %02x", getMbase());
     setMbase(0x45);
+    printf(" --> ");
     printf("b2 %02x\n", getMbase());
 
     while (true) {}
