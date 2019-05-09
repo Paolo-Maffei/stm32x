@@ -35,7 +35,7 @@ void ezInit () {
 void ezReset () {
     RST = 0;
     ZCL = 1; // p.257
-    ZDA = 1;
+    ZDA = 0; // p.243
     wait_ms(2);
     RST = 1;
 }
@@ -51,10 +51,12 @@ void zcl (int f) {
 }
 
 void zdiSet (bool f) {
-    zcl(0); ZDA = f; zcl(1); ZDA = 1;
+    zcl(0); ZDA = f; zcl(1);
 }
 
 void zdiStart (uint8_t b, int rw) {
+    ZDA = 0;
+    zcl(1);
     ZDA.mode(Pinmode::out);
     ZDA = 0;
     for (int i = 0; i < 7; ++i) {
@@ -78,7 +80,7 @@ uint8_t zdiInBits (bool last =0) {
 uint8_t zdiIn (uint8_t addr) {
     zdiStart(addr, 1);
     ZDA.mode(Pinmode::out_od);
-    uint8_t b = zdiInBits(1);
+    return zdiInBits(1);
 }
 
 void zdiOutBits (uint8_t b, bool last =0) {
@@ -134,21 +136,15 @@ void zCmd (uint8_t cmd) {
 }
 
 uint8_t getMbase () {
-    //zCmd(0x08); // set ADL
     zCmd(0x00); // read MBASE
     uint8_t b = zdiIn(0x12); // get U
-    //zCmd(0x09); // reset ADL
     return b;
 }
 
 void setMbase (uint8_t b) {
-    //zCmd(0x08); // set ADL
     zCmd(0x00); // read MBASE
     zdiOut(0x15, b); // set U
-    //zdiOut(0x13, b); // set U
     zCmd(0x80); // write MBASE
-    //zIns(0xED, 0x6D);
-    //zCmd(0x09); // reset ADL
 }
 
 void readMem (uint32_t addr, void* ptr, unsigned len) {
@@ -159,9 +155,8 @@ void readMem (uint32_t addr, void* ptr, unsigned len) {
 
     zdiStart(0x20, 1);
     ZDA.mode(Pinmode::out_od);
-    uint8_t b = zdiInBits(1);
-    for (int i = 0; i < len; ++i)
-        ((uint8_t*) ptr)[i] = zdiInBits(i < len-1);
+    for (unsigned i = 0; i < len; ++i)
+        ((uint8_t*) ptr)[i] = zdiInBits(i >= len-1);
 }
 
 int main() {
@@ -174,16 +169,29 @@ int main() {
     ezInit();
     ezReset();
 
-    printf("v%02x", zdiIn(0x00));
-    printf(".%02x", zdiIn(0x01));
-    printf(".%02x\n", zdiIn(0x02));
+    printf("s%02x ", zdiIn(3));
+
+    printf("v%02x", zdiIn(1));
+    printf(".%02x", zdiIn(0));
+    printf(".%02x ", zdiIn(2));
 
     printf("s%02x ", zdiIn(3));
+    //zIns(0x76);                     // halt
+    //printf("s%02x ", zdiIn(3));
+    //zdiOut(0x10, 0x80);             // break
+    //printf("s%02x ", zdiIn(3));
     zCmd(0x08);                     // set ADL
-    printf("s%02x ", zdiIn(3));
-    zIns(0x76);                     // halt
-    printf("s%02x ", zdiIn(3));
-    zdiOut(0x10, 0x80);             // break
+    //zCmd(0x09);                     // reset ADL
+    printf("s%02x\n", zdiIn(3));
+
+    wait_ms(1000);
+
+    uint8_t buf [16];
+    readMem(0x000000, buf, sizeof buf);
+    printf("s%02x\n", zdiIn(3));
+    for (unsigned i = 0; i < sizeof buf; ++i)
+        printf(" %02x", buf[i]);
+    printf("\n");
     printf("s%02x\n", zdiIn(3));
 
     printf("b%02x ", getMbase());
@@ -198,17 +206,6 @@ int main() {
     printf("s%02x ", zdiIn(3));
     zdiOut(0x13, 0x54);             // set L
     printf("l%02x\n", zdiIn(0x10));
-
-    wait_ms(1000);
-
-    uint8_t buf [16];
-    printf("s%02x\n", zdiIn(3));
-    readMem(0x000000, buf, sizeof buf);
-    printf("s%02x\n", zdiIn(3));
-    for (unsigned i = 0; i < sizeof buf; ++i)
-        printf(" %02x", buf[i]);
-    printf("\n");
-    printf("s%02x\n", zdiIn(3));
 
     while (true) {
         led.toggle();
