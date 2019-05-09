@@ -7,6 +7,7 @@ int printf(const char* fmt, ...) {
     return 0;
 }
 
+PinA<1> led;
 Timer<3> timer;
 
 PinB<0> XIN;
@@ -17,7 +18,7 @@ PinB<8> RST;
 void ezInit () {
     // initialise all the main control pins
     RST.mode(Pinmode::out_od);
-    XIN.mode(Pinmode::alt_out); // XXX alt_out_50mhz
+    XIN.mode(Pinmode::alt_out_50mhz); // XXX alt_out_50mhz
     ZDA.mode(Pinmode::out);
     ZCL.mode(Pinmode::out);
 
@@ -26,9 +27,9 @@ void ezInit () {
     constexpr uint32_t afio = 0x40010000;
     MMIO32(afio+0x04) |= (2<<24); // disable JTAG, keep SWD enabled
 
-    // generate a 9 MHz signal with 50% duty cycle on PB0, using TIM3
-    timer.init(4);
-    timer.pwm(2);
+    // generate a 36 MHz signal with 50% duty cycle on PB0, using TIM3
+    timer.init(2);
+    timer.pwm(1);
 }
 
 void ezReset () {
@@ -40,7 +41,7 @@ void ezReset () {
 }
 
 void zclDelay () {
-    for (int i = 0; i < 10; ++i) __asm("");
+     __asm("nop");
 }
 
 void zcl (int f) {
@@ -49,7 +50,7 @@ void zcl (int f) {
     zclDelay();
 }
 
-void zdiSet (int f) {
+void zdiSet (bool f) {
     zcl(0); ZDA = f; zcl(1); ZDA = 1;
 }
 
@@ -60,113 +61,157 @@ void zdiStart (uint8_t b, int rw) {
         zdiSet((b & 0x40) != 0);
         b <<= 1;
     }
-    zdiSet(rw); zdiSet(1);
+    zdiSet(rw); zdiSet(0);
 }
 
-uint8_t zdiInBits () {
+uint8_t zdiInBits (bool last =0) {
     uint8_t r = 0;
     for (int i = 0; i < 8; ++i) {
         zcl(0); zcl(1);
         r <<= 1;
         r |= ZDA & 1;
     }
-    zdiSet(1);
+    zdiSet(last);
     return r;
 }
 
 uint8_t zdiIn (uint8_t addr) {
     zdiStart(addr, 1);
-    ZDA.mode(Pinmode::in_pullup);
-    return zdiInBits();
+    ZDA.mode(Pinmode::out_od);
+    uint8_t b = zdiInBits(1);
 }
 
-void zdiOutBits (uint8_t b) {
+void zdiOutBits (uint8_t b, bool last =0) {
     for (int i = 0; i < 8; ++i) {
         zdiSet((b & 0x80) != 0);
         b <<= 1;
     }
-    zdiSet(1);
-}
-
-void zdiOutN (uint8_t addr, const uint8_t* ptr, int n) {
-    zdiStart(addr, 0);
-    zdiOutBits(*ptr++);
-    while (--n >= 0)
-        zdiOutBits(*ptr++);
+    zdiSet(last);
 }
 
 void zdiOut (uint8_t addr, uint8_t val) {
     zdiStart(addr, 0);
-    zdiOutBits(val);
+    zdiOutBits(val, 1);
 }
 
 void zIns (uint8_t v0) {
-    zdiOut(0x25, v0);
+    zdiStart(0x25, 0);
+    zdiOutBits(v0, 1);
 }
 
 void zIns (uint8_t v0, uint8_t v1) {
-    zdiOut(0x24, v1);
-    zdiOutBits(v0);
+    zdiStart(0x24, 0);
+    zdiOutBits(v1);
+    zdiOutBits(v0, 1);
 }
 
 void zIns (uint8_t v0, uint8_t v1, uint8_t v2) {
-    zdiOut(0x23, v2);
+    zdiStart(0x23, 0);
+    zdiOutBits(v2);
     zdiOutBits(v1);
-    zdiOutBits(v0);
+    zdiOutBits(v0, 1);
 }
 
 void zIns (uint8_t v0, uint8_t v1, uint8_t v2, uint8_t v3) {
-    zdiOut(0x22, v3);
-    zdiOutBits(v2);
-    zdiOutBits(v1);
-    zdiOutBits(v0);
-}
-
-void zIns (uint8_t v0, uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4) {
-    zdiOut(0x21, v4);
+    zdiStart(0x22, 0);
     zdiOutBits(v3);
     zdiOutBits(v2);
     zdiOutBits(v1);
-    zdiOutBits(v0);
+    zdiOutBits(v0, 1);
+}
+
+void zIns (uint8_t v0, uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4) {
+    zdiStart(0x21, 0);
+    zdiOutBits(v4);
+    zdiOutBits(v3);
+    zdiOutBits(v2);
+    zdiOutBits(v1);
+    zdiOutBits(v0, 1);
+}
+
+void zCmd (uint8_t cmd) {
+    zdiOut(0x16, cmd);
 }
 
 uint8_t getMbase () {
-    zdiOut(0x16, 0x08); // set ADL
-    zdiOut(0x16, 0x00); // read MBASE
+    //zCmd(0x08); // set ADL
+    zCmd(0x00); // read MBASE
     uint8_t b = zdiIn(0x12); // get U
-    zdiOut(0x16, 0x09); // reset ADL
+    //zCmd(0x09); // reset ADL
     return b;
 }
 
 void setMbase (uint8_t b) {
-    zdiOut(0x16, 0x08); // set ADL
+    //zCmd(0x08); // set ADL
+    zCmd(0x00); // read MBASE
     zdiOut(0x15, b); // set U
-    zdiOut(0x16, 0x80); // write MBASE
+    //zdiOut(0x13, b); // set U
+    zCmd(0x80); // write MBASE
     //zIns(0xED, 0x6D);
-    zdiOut(0x16, 0x09); // reset ADL
+    //zCmd(0x09); // reset ADL
+}
+
+void readMem (uint32_t addr, void* ptr, unsigned len) {
+    zdiOut(0x13, addr);
+    zdiOut(0x14, addr >> 8);
+    zdiOut(0x15, addr >> 16);
+    zCmd(0x87); // write PC
+
+    zdiStart(0x20, 1);
+    ZDA.mode(Pinmode::out_od);
+    uint8_t b = zdiInBits(1);
+    for (int i = 0; i < len; ++i)
+        ((uint8_t*) ptr)[i] = zdiInBits(i < len-1);
 }
 
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock());
+    led.mode(Pinmode::out);
     wait_ms(500);
     printf("\n---\n");
 
     ezInit();
     ezReset();
 
-    printf("v %02x", zdiIn(0x00));
+    printf("v%02x", zdiIn(0x00));
     printf(".%02x", zdiIn(0x01));
     printf(".%02x\n", zdiIn(0x02));
 
-    //printf("status %02x\n", zdiIn(0x03));
-    //zdiOut(0x16, 0x09); // reset ADL
-    //printf("status %02x\n", zdiIn(0x03));
+    printf("s%02x ", zdiIn(3));
+    zCmd(0x08);                     // set ADL
+    printf("s%02x ", zdiIn(3));
+    zIns(0x76);                     // halt
+    printf("s%02x ", zdiIn(3));
+    zdiOut(0x10, 0x80);             // break
+    printf("s%02x\n", zdiIn(3));
 
-    printf("b %02x", getMbase());
+    printf("b%02x ", getMbase());
     setMbase(0x45);
-    printf(" -> ");
-    printf("%02x\n", getMbase());
+    printf("b%02x\n", getMbase());
 
-    while (true) {}
+    printf("s%02x ", zdiIn(3));
+    zdiOut(0x13, 0x98);             // set L
+    printf("l%02x ", zdiIn(0x10));
+    zdiOut(0x13, 0x76);             // set L
+    printf("l%02x ", zdiIn(0x10));
+    printf("s%02x ", zdiIn(3));
+    zdiOut(0x13, 0x54);             // set L
+    printf("l%02x\n", zdiIn(0x10));
+
+    wait_ms(1000);
+
+    uint8_t buf [16];
+    printf("s%02x\n", zdiIn(3));
+    readMem(0x000000, buf, sizeof buf);
+    printf("s%02x\n", zdiIn(3));
+    for (unsigned i = 0; i < sizeof buf; ++i)
+        printf(" %02x", buf[i]);
+    printf("\n");
+    printf("s%02x\n", zdiIn(3));
+
+    while (true) {
+        led.toggle();
+        wait_ms(500);
+    }
 }
