@@ -130,11 +130,9 @@ uint8_t getMbase () {
 }
 
 void setMbase (uint8_t b) {
-    zCmd(0x08);                     // set ADL
     zCmd(0x00); // read MBASE
     zdiOut(0x15, b); // set U
     zCmd(0x80); // write MBASE
-    zCmd(0x09);                     // reset ADL
 }
 
 void readMem (uint32_t addr, void* ptr, unsigned len) {
@@ -218,13 +216,19 @@ int main() {
         led.toggle();
         printf("\n%c: ", ch);
         switch (ch) {
-            case 'b': zdiOut(0x10, 0x80); break;
-            case 'c': zdiOut(0x10, 0x00); break;
-            case 'h': zIns(0x76); // halt
-            case 'n': zIns(0x00); // nop
+            case 'b': zdiOut(0x10, 0x80); break; // break
+            case 'c': zdiOut(0x10, 0x00); break; // continue
+            case 'h': zIns(0x76); break; // halt
+            case 'n': zIns(0x00); break; // nop
+            case 'R': zdiOut(0x11, 0x80); break; // reset
+            case 'H': ezReset(); break; // hardware reset
+            case 'a': zCmd(0x08); break; // set ADL
+            case 'z': zCmd(0x09); break; // reset ADL
 
             case '1': setMbase(0x45); break;
             case '2': setMbase(0x12); break;
+
+            default: printf("?\n\n   ");
         }
     }
 }
