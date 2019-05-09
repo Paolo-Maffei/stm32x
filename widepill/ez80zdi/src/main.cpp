@@ -18,7 +18,7 @@ PinB<8> RST;
 void ezInit () {
     // initialise all the main control pins
     RST.mode(Pinmode::out_od);
-    XIN.mode(Pinmode::alt_out_50mhz); // XXX alt_out_50mhz
+    XIN.mode(Pinmode::alt_out); // XXX alt_out_50mhz
     ZDA.mode(Pinmode::out);
     ZCL.mode(Pinmode::out);
 
@@ -40,65 +40,53 @@ void ezReset () {
     RST = 1;
 }
 
-void zclDelay () {
-     __asm("nop");
+static void zcl (int f) {
+    __asm("nop"); __asm("nop"); ZCL = f; __asm("nop"); __asm("nop");
 }
 
-void zcl (int f) {
-    zclDelay();
-    ZCL = f;
-    zclDelay();
-}
-
-void zdiSet (bool f) {
+static void zdiSet (bool f) {
     zcl(0); ZDA = f; zcl(1);
 }
 
-void zdiStart (uint8_t b, int rw) {
-    ZDA = 0;
-    zcl(1);
-    ZDA.mode(Pinmode::out);
-    ZDA = 0;
-    for (int i = 0; i < 7; ++i) {
-        zdiSet((b & 0x40) != 0);
-        b <<= 1;
-    }
-    zdiSet(rw); zdiSet(0);
-}
-
-uint8_t zdiInBits (bool last =0) {
-    uint8_t r = 0;
+static uint8_t zdiInBits (bool last =0) {
+    uint8_t b = 0;
     for (int i = 0; i < 8; ++i) {
         zcl(0); zcl(1);
-        r <<= 1;
-        r |= ZDA & 1;
+        b <<= 1;
+        b |= ZDA & 1;
     }
-    zdiSet(last);
-    return r;
+    zdiSet(1);
+    return b;
 }
 
-uint8_t zdiIn (uint8_t addr) {
-    zdiStart(addr, 1);
-    ZDA.mode(Pinmode::out_od);
-    return zdiInBits(1);
-}
-
-void zdiOutBits (uint8_t b, bool last =0) {
+static void zdiOutBits (uint8_t b, bool last =0) {
     for (int i = 0; i < 8; ++i) {
         zdiSet((b & 0x80) != 0);
         b <<= 1;
     }
-    zdiSet(last);
+    zdiSet(1);
 }
 
-void zdiOut (uint8_t addr, uint8_t val) {
+static void zdiStart (uint8_t b, int rw) {
+    ZDA = 0;
+    zdiOutBits((b<<1) | rw);
+}
+
+static uint8_t zdiIn (uint8_t addr) {
+    zdiStart(addr, 1);
+    ZDA.mode(Pinmode::in_pullup);
+    uint8_t b = zdiInBits(1);
+    ZDA.mode(Pinmode::out);
+    return b;
+}
+
+static void zdiOut (uint8_t addr, uint8_t val) {
     zdiStart(addr, 0);
     zdiOutBits(val, 1);
 }
 
 void zIns (uint8_t v0) {
-    zdiStart(0x25, 0);
-    zdiOutBits(v0, 1);
+    zdiOut(0x25, v0);
 }
 
 void zIns (uint8_t v0, uint8_t v1) {
@@ -142,21 +130,29 @@ uint8_t getMbase () {
 }
 
 void setMbase (uint8_t b) {
+    zCmd(0x08);                     // set ADL
     zCmd(0x00); // read MBASE
     zdiOut(0x15, b); // set U
     zCmd(0x80); // write MBASE
+    zCmd(0x09);                     // reset ADL
 }
 
 void readMem (uint32_t addr, void* ptr, unsigned len) {
-    zdiOut(0x13, addr);
-    zdiOut(0x14, addr >> 8);
-    zdiOut(0x15, addr >> 16);
-    zCmd(0x87); // write PC
+    if (len > 0) {
+        --addr; // p.255 start reading one byte early
 
-    zdiStart(0x20, 1);
-    ZDA.mode(Pinmode::out_od);
-    for (unsigned i = 0; i < len; ++i)
-        ((uint8_t*) ptr)[i] = zdiInBits(i >= len-1);
+        zdiOut(0x13, addr);
+        zdiOut(0x14, addr >> 8);
+        zdiOut(0x15, addr >> 16); // must be in ADL mode
+        zCmd(0x87); // write PC
+
+        zdiStart(0x20, 1);
+        ZDA.mode(Pinmode::in_pullup);
+        zdiInBits(0); // ignore first read
+        for (unsigned i = 0; i < len; ++i)
+            ((uint8_t*) ptr)[i] = zdiInBits(i >= len-1);
+        ZDA.mode(Pinmode::out);
+    }
 }
 
 int main() {
@@ -184,14 +180,22 @@ int main() {
     //zCmd(0x09);                     // reset ADL
     printf("s%02x\n", zdiIn(3));
 
-    wait_ms(1000);
+    //wait_ms(1000);
 
     uint8_t buf [16];
-    readMem(0x000000, buf, sizeof buf);
-    printf("s%02x\n", zdiIn(3));
-    for (unsigned i = 0; i < sizeof buf; ++i)
-        printf(" %02x", buf[i]);
-    printf("\n");
+    for (unsigned addr = 0; addr < 64; addr += 16) {
+        readMem(addr, buf, sizeof buf);
+        for (unsigned i = 0; i < sizeof buf; ++i)
+            printf(" %02x", buf[i]);
+        printf("\n");
+    }
+
+    //printf("s%02x ", zdiIn(3));
+    //zIns(0x76);                     // halt
+    printf("s%02x ", zdiIn(3));
+    zdiOut(0x10, 0x00);             // continue
+    printf("s%02x ", zdiIn(3));
+    zdiOut(0x10, 0x80);             // break
     printf("s%02x\n", zdiIn(3));
 
     printf("b%02x ", getMbase());
