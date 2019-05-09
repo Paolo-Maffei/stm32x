@@ -211,8 +211,20 @@ int main() {
     zdiOut(0x13, 0x54);             // set L
     printf("l%02x\n", zdiIn(0x10));
 
+    printf("   ");
     while (true) {
+        printf("status %02x bank %02x: ", zdiIn(3), getMbase());
+        int ch = console.getc();
         led.toggle();
-        wait_ms(500);
+        printf("\n%c: ", ch);
+        switch (ch) {
+            case 'b': zdiOut(0x10, 0x80); break;
+            case 'c': zdiOut(0x10, 0x00); break;
+            case 'h': zIns(0x76); // halt
+            case 'n': zIns(0x00); // nop
+
+            case '1': setMbase(0x45); break;
+            case '2': setMbase(0x12); break;
+        }
     }
 }
