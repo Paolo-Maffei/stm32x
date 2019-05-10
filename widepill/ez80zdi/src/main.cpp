@@ -25,6 +25,13 @@ const uint8_t hello [] = {
     0x6C, 0x6F, 0x20, 0x77, 0x6F, 0x72, 0x6C, 0x64, 0x21, 0x0A, 0x0D, 0x00,
 };
 
+const uint8_t flash [] = {
+    0x01, 0xF5, 0x00, 0x3E, 0xB6, 0xED, 0x79, 0x3E, 0x49, 0xED, 0x79, 0x0E, 
+    0xF9, 0x3E, 0x29, 0xED, 0x79, 0x0E, 0xF5, 0x3E, 0xB6, 0xED, 0x79, 0x3E, 
+    0x49, 0xED, 0x79, 0x0E, 0xFA, 0x3E, 0x00, 0xED, 0x79, 0x0E, 0xFF, 0x3E, 
+    0x01, 0xED, 0x79, 0x18, 0xFE, 
+};
+
 void ezInit () {
     // initialise all the main control pins
     RST.mode(Pinmode::out_od);
@@ -286,7 +293,7 @@ int main() {
             {
                 uint8_t buf [16];
                 for (unsigned addr = 0; addr < 64; addr += 16) {
-                    readMem(0x20E000 + addr, buf, sizeof buf);
+                    readMem(0xFFE000 + addr, buf, sizeof buf);
                     for (unsigned i = 0; i < sizeof buf; ++i)
                         printf(" %02x", buf[i]);
                     printf("\n");
@@ -298,7 +305,8 @@ int main() {
             case '1': setMbase(0x20); break;
             case '2': setMbase(0xFF); break;
 
-            case 'w': writeMem(0x20E000, hello, sizeof hello); break;
+            case 'f': writeMem(0xFFE000, flash, sizeof flash); break;
+            case 'w': writeMem(0xFFE000, hello, sizeof hello); break;
             case 'j': setPC(0xFFE000); break; 
             default: printf("?\n");
         }
