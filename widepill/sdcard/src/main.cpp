@@ -21,34 +21,22 @@ int main () {
     enableSysTick();
     led.mode(Pinmode::out);
 
-    wait_ms(500);
-    printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-
     // disable JTAG in AFIO-MAPR to release PB3, PB4, and PA15
     constexpr uint32_t afio = 0x40010000;
     MMIO32(afio + 0x04) |= 1 << 25;
 
     spi.init();
     if (sd.init()) {
-        printf("sdhc %d\n", sd.sdhc);
-        wait_ms(10);
         console.baud(115200, fullSpeedClock());
+        wait_ms(100);
+        printf("\nsdhc %d\n", sd.sdhc);
 
         fat.init();
 
         printf("base %d spc %d rdir %d rmax %d data %d\n",
             fat.base, fat.spc, fat.rdir, fat.rmax, fat.data);
-#if 0
-        for (int i = 0; i < 5; ++i) {
-            printf("%3d:", i);
-            sd.read512(fat.rdir+i, fat.buf);
-            for (int j = 0; j < 20; ++j)
-                printf(" %02x", fat.buf[j]);
-            printf("\n");
-        }
-#endif
+
         sd.read512(fat.rdir, fat.buf);
-        //fat.dumpHex(32);
         for (int i = 0; i < 512; i += 32) {
             int length = *(int32_t*) (fat.buf+i+28);
             if (length >= 0 && '!' < fat.buf[i] && fat.buf[i] <= '~') {
