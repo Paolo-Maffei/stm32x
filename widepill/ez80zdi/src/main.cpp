@@ -12,9 +12,10 @@
 //  PA2 = eZ80 RX0, pin 74
 //  PA3 = eZ80 TX0, pin 73
 
-#define SLOW 40  // switches between 4 and 36 MHz clocks (flash demo assumes 4)
-
 #include <jee.h>
+#include <string.h>
+
+#define SLOW 40  // switches between 4 and 36 MHz clocks (flash demo assumes 4)
 
 UartBufDev< PinA<9>, PinA<10> > console;
 UartBufDev< PinA<2>, PinA<3> > serial;
@@ -245,6 +246,54 @@ void dumpReg () {
     }
 }
 
+uint32_t seedBuf (uint32_t seed, uint8_t mask, uint8_t *ptr, unsigned len) {
+    while (len--) {
+        *ptr++ = (seed>>8) & mask;
+        // see https://en.wikipedia.org/wiki/Linear_congruential_generator
+        seed = (22695477U * seed) + 1U;
+    }
+    return seed;
+}
+
+void memoryTest (uint32_t base, uint32_t size, uint8_t mask) {
+    // needs to be in ADL mode!
+    uint8_t wrBuf [1<<8], rdBuf [1<<8];
+    for (unsigned bank = 0; bank < 16; ++bank) {
+        unsigned addr = base + (bank<<16);
+        if (addr >= base + size)
+            break;
+        printf("%02xxxxx: %d ", addr >> 16, bank);
+
+        uint32_t seed = bank * mask;
+        for (unsigned offset = 0; offset <= 1<<16; offset += 1<<8) {
+            if (addr + offset >= base + size)
+                break;
+            seed = seedBuf(seed, mask, wrBuf, sizeof wrBuf);
+            writeMem(addr+offset, wrBuf, sizeof wrBuf);
+        }
+        printf(" => ");
+
+        seed = bank;
+        for (unsigned offset = 0; offset <= 1<<16; offset += 1<<8) {
+            if (addr + offset >= base + size)
+                break;
+            seed = seedBuf(seed, mask, wrBuf, sizeof wrBuf);
+            readMem(addr+offset, rdBuf, sizeof rdBuf);
+            if (memcmp(wrBuf, rdBuf, sizeof wrBuf) != 0) {
+                printf(" *FAILED* in %04xxx", (addr+offset) >> 8);
+                for (unsigned i = 0; i < sizeof wrBuf; ++i) {
+                    if (i % 64 == 0)
+                        printf("\n    %06x: ", addr+offset+i);
+                    printf("%c", wrBuf[i] != rdBuf[i] ? '?' : '.');
+                }
+                printf("\n");
+                return;
+            }
+        }
+        printf(" %08x  OK\n", seed);
+    }
+}
+
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock());
@@ -288,6 +337,20 @@ int main() {
             case 'a': zCmd(0x08);         break; // set ADL
             case 'z': zCmd(0x09);         break; // reset ADL
             case 'r': dumpReg();          break; // register dump
+
+            case 't': // internal 16 KB RAM
+                memoryTest(0xFFC000, 0x4000, 0xFF);
+                break;
+            case 'T': // external 512..2048 KB ram
+                memoryTest(0x200000, 0x100000, 0xFF);
+                break;
+            case 'B': // external ram, single page at 0x200000, bits 0..7
+                for (int i = 0; i < 8; ++i) {
+                    printf("  bit %d @ ", i);
+                    memoryTest(0x200000, 0x100, 1<<i);
+                    //memoryTest(0xFFC000, 0x4000, 1<<i);
+                }
+                break;
 
             case 'm': { // memory dump
                 uint8_t buf [16];
