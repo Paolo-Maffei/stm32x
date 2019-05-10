@@ -16,6 +16,15 @@ PinB<2> ZDA;
 PinB<4> ZCL;
 PinB<8> RST;
 
+const uint8_t hello [] = {
+    0x06, 0x00, 0x0E, 0xA5, 0x3E, 0x03, 0xED, 0x79, 0x0E, 0xC3, 0x3E, 0x80,
+    0xED, 0x79, 0x0E, 0xC0, 0x3E, 0x1A, 0xED, 0x79, 0x0E, 0xC3, 0x3E, 0x03,
+    0xED, 0x79, 0x0E, 0xC2, 0x3E, 0x06, 0xED, 0x79, 0x21, 0x39, 0xE0, 0x7E,
+    0xA7, 0x28, 0x10, 0x0E, 0xC5, 0xED, 0x78, 0xE6, 0x20, 0x28, 0xF8, 0x0E,
+    0xC0, 0x7E, 0xED, 0x79, 0x23, 0x18, 0xEC, 0x18, 0xFE, 0x48, 0x65, 0x6C,
+    0x6C, 0x6F, 0x20, 0x77, 0x6F, 0x72, 0x6C, 0x64, 0x21, 0x0A, 0x0D, 0x00,
+};
+
 void ezInit () {
     // initialise all the main control pins
     RST.mode(Pinmode::out_od);
@@ -30,9 +39,9 @@ void ezInit () {
 
 #define SLOW 40
 #if SLOW
-    // generate a 8 MHz signal with 44% duty cycle on PB0, using TIM3
-    timer.init(9);
-    timer.pwm(4);
+    // generate a 4 MHz signal with 50% duty cycle on PB0, using TIM3
+    timer.init(18);
+    timer.pwm(9);
 #else
     // generate a 36 MHz signal with 50% duty cycle on PB0, using TIM3
     timer.init(2);
@@ -158,21 +167,39 @@ void setMbase (uint8_t b) {
 #endif
 }
 
-void readMem (uint32_t addr, void* ptr, unsigned len) {
+void setPC (uint32_t addr) {
+    zdiOut(0x13, addr);
+    zdiOut(0x14, addr >> 8);
+    zdiOut(0x15, addr >> 16); // must be in ADL mode
+    zCmd(0x87); // write PC
+}
+
+uint32_t getPC () {
+    zCmd(0x07); // read PC
+    uint8_t l = zdiIn(0x10);
+    uint8_t h = zdiIn(0x11);
+    uint8_t u = zdiIn(0x12);
+    return (u<<16) | (h<<8) | l;
+}
+
+void readMem (uint32_t addr, void *ptr, unsigned len) {
     if (len > 0) {
-        --addr; // p.255 start reading one byte early
-
-        zdiOut(0x13, addr);
-        zdiOut(0x14, addr >> 8);
-        zdiOut(0x15, addr >> 16); // must be in ADL mode
-        zCmd(0x87); // write PC
-
+        setPC(--addr); // p.255 start reading one byte early
         zdiStart(0x20, 1);
         ZDA.mode(Pinmode::in_pullup);
         zdiInBits(0); // ignore first read
         for (unsigned i = 0; i < len; ++i)
             ((uint8_t*) ptr)[i] = zdiInBits(i >= len-1);
         ZDA.mode(Pinmode::out);
+    }
+}
+
+void writeMem (uint32_t addr, const void *ptr, unsigned len) {
+    if (len > 0) {
+        setPC(addr);
+        zdiStart(0x30, 0);
+        for (unsigned i = 0; i < len; ++i)
+            zdiOutBits(((const uint8_t*) ptr)[i], i >= len-1);
     }
 }
 
@@ -183,13 +210,18 @@ void dumpReg () {
 
     for (int i = 0; i < 8; ++i) {
         zCmd(i);
-        uint8_t l = - zdiIn(0x10);
-        uint8_t h = - zdiIn(0x11);
-        uint8_t u = - zdiIn(0x12);
+        uint8_t l = zdiIn(0x10);
+        uint8_t h = zdiIn(0x11);
+        uint8_t u = zdiIn(0x12);
         printf("  %s = %02x:%02x%02x", regs[i], u, h, l);
         if (i % 4 == 3)
             printf("\n");
     }
+}
+
+void jump (uint32_t addr) {
+    setPC(addr);
+    zdiOut(0x10, 0x00);
 }
 
 int main() {
@@ -205,19 +237,13 @@ int main() {
     ezInit();
     ezReset();
 
-    printf("s%02x ", zdiIn(3));
-
     printf("v%02x", zdiIn(1));
     printf(".%02x", zdiIn(0));
-    printf(".%02x ", zdiIn(2));
+    printf(".%02x\n", zdiIn(2));
 
+#if 0
     printf("s%02x ", zdiIn(3));
-    //zIns(0x76);                     // halt
-    //printf("s%02x ", zdiIn(3));
-    //zdiOut(0x10, 0x80);             // break
-    //printf("s%02x ", zdiIn(3));
     zCmd(0x08);                     // set ADL
-    //zCmd(0x09);                     // reset ADL
     printf("s%02x\n", zdiIn(3));
 
     //printf("s%02x ", zdiIn(3));
@@ -227,23 +253,11 @@ int main() {
     printf("s%02x ", zdiIn(3));
     zdiOut(0x10, 0x80);             // break
     printf("s%02x\n", zdiIn(3));
-
-    printf("b%02x ", getMbase());
-    setMbase(0x45);
-    printf("b%02x\n", getMbase());
-
-    printf("s%02x ", zdiIn(3));
-    zdiOut(0x13, 0x98);             // set L
-    printf("l%02x ", zdiIn(0x10));
-    zdiOut(0x13, 0x76);             // set L
-    printf("l%02x ", zdiIn(0x10));
-    printf("s%02x ", zdiIn(3));
-    zdiOut(0x13, 0x54);             // set L
-    printf("l%02x\n", zdiIn(0x10));
+#endif
 
     while (true) {
         uint8_t stat = zdiIn(3);
-        printf("status %02x bank %02x > ", stat, getMbase());
+        printf("s%02x %02x: ", stat, getMbase());
         if ((stat & 0x10) == 0)
             zCmd(0x09); // reset ADL
 
@@ -272,7 +286,7 @@ int main() {
             {
                 uint8_t buf [16];
                 for (unsigned addr = 0; addr < 64; addr += 16) {
-                    readMem(addr, buf, sizeof buf);
+                    readMem(0x20E000 + addr, buf, sizeof buf);
                     for (unsigned i = 0; i < sizeof buf; ++i)
                         printf(" %02x", buf[i]);
                     printf("\n");
@@ -281,9 +295,11 @@ int main() {
             break;
 
             case '0': setMbase(0x00); break;
-            case '1': setMbase(0x01); break;
-            case '2': setMbase(0x02); break;
+            case '1': setMbase(0x20); break;
+            case '2': setMbase(0xFF); break;
 
+            case 'w': writeMem(0x20E000, hello, sizeof hello); break;
+            case 'j': setPC(0xFFE000); break; 
             default: printf("?\n");
         }
     }
