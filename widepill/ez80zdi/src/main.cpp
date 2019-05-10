@@ -255,16 +255,17 @@ uint32_t seedBuf (uint32_t seed, uint8_t mask, uint8_t *ptr, unsigned len) {
     return seed;
 }
 
-void memoryTest (uint32_t base, uint32_t size, uint8_t mask) {
+bool memoryTest (uint32_t base, uint32_t size, uint8_t mask =0xFF) {
     // needs to be in ADL mode!
     uint8_t wrBuf [1<<8], rdBuf [1<<8];
     for (unsigned bank = 0; bank < 16; ++bank) {
         unsigned addr = base + (bank<<16);
         if (addr >= base + size)
             break;
-        printf("%02xxxxx: %d ", addr >> 16, bank);
 
-        uint32_t seed = bank * mask;
+        uint32_t seed = (bank+1) * mask;
+        printf("%02xxxxx: %d ", addr >> 16, seed);
+
         for (unsigned offset = 0; offset <= 1<<16; offset += 1<<8) {
             if (addr + offset >= base + size)
                 break;
@@ -273,7 +274,7 @@ void memoryTest (uint32_t base, uint32_t size, uint8_t mask) {
         }
         printf(" => ");
 
-        seed = bank;
+        seed = (bank+1) * mask;
         for (unsigned offset = 0; offset <= 1<<16; offset += 1<<8) {
             if (addr + offset >= base + size)
                 break;
@@ -281,17 +282,34 @@ void memoryTest (uint32_t base, uint32_t size, uint8_t mask) {
             readMem(addr+offset, rdBuf, sizeof rdBuf);
             if (memcmp(wrBuf, rdBuf, sizeof wrBuf) != 0) {
                 printf(" *FAILED* in %04xxx", (addr+offset) >> 8);
+                // show differences
                 for (unsigned i = 0; i < sizeof wrBuf; ++i) {
                     if (i % 64 == 0)
                         printf("\n    %06x: ", addr+offset+i);
                     printf("%c", wrBuf[i] != rdBuf[i] ? '?' : '.');
                 }
+                if (mask != 0xFF) {
+                    // show the bits which have been read as '1'
+                    for (unsigned i = 0; i < sizeof wrBuf; ++i) {
+                        if (i % 64 == 0)
+                            printf("\n    %06x: ", addr+offset+i);
+                        printf("%c", rdBuf[i] & mask ? '+' : ' ');
+                    }
+                } else {
+                    // show bytes as written and as read back
+                    for (unsigned i = 0; i < sizeof rdBuf; ++i) {
+                        if (i % 8 == 0)
+                            printf("\n\t%06x:", addr+offset+i);
+                        printf(" %02x:%02x", wrBuf[i], rdBuf[i]);
+                    }
+                }
                 printf("\n");
-                return;
+                return false;
             }
         }
         printf(" %08x  OK\n", seed);
     }
+    return true;
 }
 
 int main() {
@@ -338,17 +356,24 @@ int main() {
             case 'z': zCmd(0x09);         break; // reset ADL
             case 'r': dumpReg();          break; // register dump
 
-            case 't': // internal 16 KB RAM
-                memoryTest(0xFFC000, 0x4000, 0xFF);
+            case 't': // test internal 16 KB RAM
+                memoryTest(0xFFC000, 0x4000);
                 break;
-            case 'T': // external 512..2048 KB ram
-                memoryTest(0x200000, 0x100000, 0xFF);
+            case 'T': // test external 512..2048 KB ram in banks of 64 KB
+                memoryTest(0x200000, 0x100000);
                 break;
-            case 'B': // external ram, single page at 0x200000, bits 0..7
+            case 'B': // test walking bits 0..7, to detect data bit problems
+                // internal ram, 4 KB at 0xFFF000
+                printf("Testing internal ram bits 0..7:\n");
                 for (int i = 0; i < 8; ++i) {
                     printf("  bit %d @ ", i);
-                    memoryTest(0x200000, 0x100, 1<<i);
-                    //memoryTest(0xFFC000, 0x4000, 1<<i);
+                    memoryTest(0xFFF000, 0x1000, 1<<i);
+                }
+                // external ram, 4 KB at 0x200000
+                printf("Testing EXTERNAL ram bits 0..7:\n");
+                for (int i = 0; i < 8; ++i) {
+                    printf("  bit %d @ ", i);
+                    memoryTest(0x200000, 0x1000, 1<<i);
                 }
                 break;
 
