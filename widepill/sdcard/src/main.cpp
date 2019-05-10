@@ -32,7 +32,6 @@ int main () {
         printf("\nsdhc %d\n", sd.sdhc);
 
         fat.init();
-
         printf("base %d spc %d rdir %d rmax %d data %d\n",
             fat.base, fat.spc, fat.rdir, fat.rmax, fat.data);
 
