@@ -1,3 +1,19 @@
+// Bring-up test code for the ez-retro, i.e. eZ80 connected to a Blue Pill
+//
+// hello ram test: a2zwjcb
+// hello flash test: a2zfjcba0zwjcb
+// 
+// Connections:
+//
+//  PB0 = eZ80 XIN, pin 86
+//  PB2 = eZ80 ZDA, pin 69 (w/ 10 kΩ pull-up)
+//  PB4 = eZ80 ZCL, pin 67 (w/ 10 kΩ pull-up)
+//  PB8 = eZ80 RESET, pin 55
+//  PA2 = eZ80 RX0, pin 74
+//  PA3 = eZ80 TX0, pin 73
+
+#define SLOW 40  // switches between 4 and 36 MHz clocks (flash demo assumes 4)
+
 #include <jee.h>
 
 UartBufDev< PinA<9>, PinA<10> > console;
@@ -16,6 +32,7 @@ PinB<2> ZDA;
 PinB<4> ZCL;
 PinB<8> RST;
 
+// see embello/explore/1608-forth/ezr/asm/hello.asm
 const uint8_t hello [] = {
     0x06, 0x00, 0x0E, 0xA5, 0x3E, 0x03, 0xED, 0x79, 0x0E, 0xC3, 0x3E, 0x80,
     0xED, 0x79, 0x0E, 0xC0, 0x3E, 0x1A, 0xED, 0x79, 0x0E, 0xC3, 0x3E, 0x03,
@@ -25,6 +42,7 @@ const uint8_t hello [] = {
     0x6C, 0x6F, 0x20, 0x77, 0x6F, 0x72, 0x6C, 0x64, 0x21, 0x0A, 0x0D, 0x00,
 };
 
+// see embello/explore/1608-forth/ezr/asm/flash.asm
 const uint8_t flash [] = {
     0x01, 0xF5, 0x00, 0x3E, 0xB6, 0xED, 0x79, 0x3E, 0x49, 0xED, 0x79, 0x0E, 
     0xF9, 0x3E, 0x29, 0xED, 0x79, 0x0E, 0xF5, 0x3E, 0xB6, 0xED, 0x79, 0x3E, 
@@ -44,7 +62,6 @@ void ezInit () {
     constexpr uint32_t afio = 0x40010000;
     MMIO32(afio+0x04) |= (2<<24); // disable JTAG, keep SWD enabled
 
-#define SLOW 40
 #if SLOW
     // generate a 4 MHz signal with 50% duty cycle on PB0, using TIM3
     timer.init(18);
@@ -161,12 +178,14 @@ uint8_t getMbase () {
 void setMbase (uint8_t b) {
     //zCmd(0x08); // set ADL
 #if 0
+    // FIXME can't get this to work, why is MBASE not changing?
     zCmd(0x00); // read MBASE
     zdiOut(0x13, zdiIn(0x10)); // keep L
     zdiOut(0x14, zdiIn(0x11)); // keep H
     zdiOut(0x15, b); // set U
     zCmd(0x80); // write MBASE
 #else
+    // TODO could be simplified with "ld a,<b>"
     zCmd(0x00); // read MBASE
     zdiOut(0x13, b); // set L
     zCmd(0x80); // write MBASE
@@ -185,7 +204,7 @@ uint32_t getPC () {
     zCmd(0x07); // read PC
     uint8_t l = zdiIn(0x10);
     uint8_t h = zdiIn(0x11);
-    uint8_t u = zdiIn(0x12);
+    uint8_t u = zdiIn(0x12); // only useful in ADL mode
     return (u<<16) | (h<<8) | l;
 }
 
@@ -226,11 +245,6 @@ void dumpReg () {
     }
 }
 
-void jump (uint32_t addr) {
-    setPC(addr);
-    zdiOut(0x10, 0x00);
-}
-
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock());
@@ -247,20 +261,6 @@ int main() {
     printf("v%02x", zdiIn(1));
     printf(".%02x", zdiIn(0));
     printf(".%02x\n", zdiIn(2));
-
-#if 0
-    printf("s%02x ", zdiIn(3));
-    zCmd(0x08);                     // set ADL
-    printf("s%02x\n", zdiIn(3));
-
-    //printf("s%02x ", zdiIn(3));
-    //zIns(0x76);                     // halt
-    printf("s%02x ", zdiIn(3));
-    zdiOut(0x10, 0x00);             // continue
-    printf("s%02x ", zdiIn(3));
-    zdiOut(0x10, 0x80);             // break
-    printf("s%02x\n", zdiIn(3));
-#endif
 
     while (true) {
         uint8_t stat = zdiIn(3);
@@ -289,8 +289,7 @@ int main() {
             case 'z': zCmd(0x09);         break; // reset ADL
             case 'r': dumpReg();          break; // register dump
 
-            case 'm':
-            {
+            case 'm': { // memory dump
                 uint8_t buf [16];
                 for (unsigned addr = 0; addr < 64; addr += 16) {
                     readMem(0xFFE000 + addr, buf, sizeof buf);
@@ -308,6 +307,7 @@ int main() {
             case 'f': writeMem(0xFFE000, flash, sizeof flash); break;
             case 'w': writeMem(0xFFE000, hello, sizeof hello); break;
             case 'j': setPC(0xFFE000); break; 
+
             default: printf("?\n");
         }
     }
