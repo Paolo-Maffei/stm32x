@@ -258,7 +258,7 @@ uint32_t seedBuf (uint32_t seed, uint8_t mask, uint8_t *ptr, unsigned len) {
 bool memoryTest (uint32_t base, uint32_t size, uint8_t mask =0xFF) {
     // needs to be in ADL mode!
     uint8_t wrBuf [1<<8], rdBuf [1<<8];
-    for (unsigned bank = 0; bank < 16; ++bank) {
+    for (unsigned bank = 0; bank < 32; ++bank) {
         unsigned addr = base + (bank<<16);
         if (addr >= base + size)
             break;
@@ -363,9 +363,12 @@ int main() {
             case 't': // test internal 16 KB RAM
                 memoryTest(0xFFC000, 0x4000);
                 break;
-            case 'T': // test external 512..2048 KB ram in banks of 64 KB
-                memoryTest(0x200000, 0x100000);
+            case 'T': { // test external 512..2048 KB ram in banks of 64 KB
+                uint32_t t = ticks;
+                memoryTest(0x200000, 0x200000);
+                printf("%d ms\n", ticks - t);
                 break;
+            }
             case 'B': // test walking bits 0..7, to detect data bit problems
                 // internal ram, 4 KB at 0xFFF000
                 printf("Testing internal ram bits 0..7:\n");
@@ -379,6 +382,10 @@ int main() {
                     printf("  bit %d @ ", i);
                     memoryTest(0x200000, 0x1000, 1<<i);
                 }
+                break;
+            case 'N': // no wait states for external ram (default is 7)
+                zIns(0x3E,0x08); // ld a,08h
+                zIns(0xED, 0x39, 0xAA); // out0 (0AAh),a
                 break;
 
             case 'm': { // memory dump
