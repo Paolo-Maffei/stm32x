@@ -318,6 +318,39 @@ bool memoryTest (uint32_t base, uint32_t size, uint8_t mask =0xFF) {
     return true;
 }
 
+uint8_t memRepeatMap (uint8_t val) {
+    uint8_t r = 0;
+    for (int i = 0; i < 8; ++i) {
+        uint8_t tst;
+        readMem(0x800000 + (1<<(22-i)), &tst, 1);
+        if (tst == val)
+            r |= 1<<i;
+    }
+    return r;
+}
+
+int memSizer () {
+    uint8_t val;
+    // get the current byte at the start of memory
+    readMem(0x800000, &val, 1);
+    // look for repetitions at a+4M, a+2M, a+1M, a+512K .. a+32K
+    uint8_t v = memRepeatMap(val);
+    // increment the value stored in memory
+    ++val; writeMem(0x800000, &val, 1);    // v+1
+    // look for repetitions again, ignore any not seen before
+    v &= memRepeatMap(val);
+    // restore the original value so this test is non-destructive
+    --val; writeMem(0x800000, &val, 1);    // restore
+    // now find the smallest repetition, this will be the memory size
+    if (v & 1)
+        for (int i = 0; i < 8; ++i)
+            if ((v & (1<<i)) == 0) {
+                return 1 << (13-i);
+                printf("%d KB\n", 1<<(13-i));
+            }
+    return 0; // no sensible memory size detected
+}
+
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock());
@@ -356,15 +389,16 @@ int main() {
             printf("%c\n", ch);
 
         switch (ch) {
-            case 'b': zdiOut(0x10, 0x80);          break; // break
-            case 'c': zdiOut(0x10, 0x00);          break; // continue
-            case 'h': zIns(0x76);                  break; // halt
-            case 'n': zIns(0x00);                  break; // nop
-            case 'R': zdiOut(0x11, 0x80); ZCL = 1; break; // reset
-            case 'H': ezReset();                   break; // hardware reset
-            case 'a': zCmd(0x08);                  break; // set ADL
-            case 'z': zCmd(0x09);                  break; // reset ADL
-            case 'r': dumpReg();                   break; // register dump
+            case 'b': zdiOut(0x10, 0x80);            break; // break
+            case 'c': zdiOut(0x10, 0x00);            break; // continue
+            case 'h': zIns(0x76);                    break; // halt
+            case 'n': zIns(0x00);                    break; // nop
+            case 'R': zdiOut(0x11, 0x80); ZCL = 1;   break; // reset
+            case 'H': ezReset();                     break; // hardware reset
+            case 'a': zCmd(0x08);                    break; // set ADL
+            case 'z': zCmd(0x09);                    break; // reset ADL
+            case 'r': dumpReg();                     break; // register dump
+            case 's': printf("%d KB\n", memSizer()); break; // detect mem size
 
             case 't': // test internal 16 KB RAM
                 memoryTest(0xFFC000, 0x4000);
