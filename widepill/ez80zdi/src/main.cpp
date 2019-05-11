@@ -15,7 +15,7 @@
 #include <jee.h>
 #include <string.h>
 
-#define SLOW 40  // switches between 4 and 36 MHz clocks (flash demo assumes 4)
+#define SLOW 0  // switches between 4 and 36 MHz clocks (flash demo assumes 4)
 
 UartBufDev< PinA<9>, PinA<10> > console;
 UartBufDev< PinA<2>, PinA<3> > serial;
@@ -320,7 +320,11 @@ int main() {
     printf("\n---\n");
 
     serial.init();
+#if SLOW
     serial.baud(19200, 72000000);
+#else
+    serial.baud(19200 * 36/4, 72000000);
+#endif
 
     ezInit();
     ezReset();
@@ -346,15 +350,15 @@ int main() {
             printf("%c\n", ch);
 
         switch (ch) {
-            case 'b': zdiOut(0x10, 0x80); break; // break
-            case 'c': zdiOut(0x10, 0x00); break; // continue
-            case 'h': zIns(0x76);         break; // halt
-            case 'n': zIns(0x00);         break; // nop
-            case 'R': zdiOut(0x11, 0x80); break; // reset
-            case 'H': ezReset();          break; // hardware reset
-            case 'a': zCmd(0x08);         break; // set ADL
-            case 'z': zCmd(0x09);         break; // reset ADL
-            case 'r': dumpReg();          break; // register dump
+            case 'b': zdiOut(0x10, 0x80);          break; // break
+            case 'c': zdiOut(0x10, 0x00);          break; // continue
+            case 'h': zIns(0x76);                  break; // halt
+            case 'n': zIns(0x00);                  break; // nop
+            case 'R': zdiOut(0x11, 0x80); ZCL = 1; break; // reset
+            case 'H': ezReset();                   break; // hardware reset
+            case 'a': zCmd(0x08);                  break; // set ADL
+            case 'z': zCmd(0x09);                  break; // reset ADL
+            case 'r': dumpReg();                   break; // register dump
 
             case 't': // test internal 16 KB RAM
                 memoryTest(0xFFC000, 0x4000);
