@@ -43,16 +43,10 @@ const uint8_t hello [] = {
     0x6C, 0x6F, 0x20, 0x77, 0x6F, 0x72, 0x6C, 0x64, 0x21, 0x0A, 0x0D, 0x00,
 };
 
-// see embello/explore/1608-forth/ezr/asm/flash.asm
+// see embello/explore/1608-forth/ezr/asm/flash.asm - adjusted for 4 MHz
 const uint8_t flash [] = {
     0x01, 0xF5, 0x00, 0x3E, 0xB6, 0xED, 0x79, 0x3E, 0x49, 0xED, 0x79, 0x0E, 
-    0xF9, 0x3E,
-#if SLOW
-                0x15, // ceil(5.1*4)
-#else
-                0xB8, // ceil(5.1*36)
-#endif
-                      0xED, 0x79, 0x0E, 0xF5, 0x3E, 0xB6, 0xED, 0x79, 0x3E, 
+    0xF9, 0x3E, 0x15, 0xED, 0x79, 0x0E, 0xF5, 0x3E, 0xB6, 0xED, 0x79, 0x3E, 
     0x49, 0xED, 0x79, 0x0E, 0xFA, 0x3E, 0x00, 0xED, 0x79, 0x0E, 0xFF, 0x3E, 
     0x01, 0xED, 0x79, 0x18, 0xFE, 
 };
@@ -89,7 +83,9 @@ void ezReset () {
 }
 
 static void delay () {
-    for (int i = 0; i < SLOW; ++i) __asm(""); // prevents optimisation
+#if SLOW
+    for (int i = 0; i < 40; ++i) __asm(""); // prevents optimisation
+#endif
 }
 
 static void zcl (int f) {
@@ -176,14 +172,12 @@ void zCmd (uint8_t cmd) {
 }
 
 uint8_t getMbase () {
-    zCmd(0x08); // set ADL
     zCmd(0x00); // read MBASE
     uint8_t b = zdiIn(0x12); // get U
     return b;
 }
 
 void setMbase (uint8_t b) {
-    //zCmd(0x08); // set ADL
 #if 0
     // FIXME can't get this to work, why is MBASE not changing?
     zCmd(0x00); // read MBASE
@@ -192,10 +186,7 @@ void setMbase (uint8_t b) {
     zdiOut(0x15, b); // set U
     zCmd(0x80); // write MBASE
 #else
-    // TODO could be simplified with "ld a,<b>"
-    zCmd(0x00); // read MBASE
-    zdiOut(0x13, b); // set L
-    zCmd(0x80); // write MBASE
+    zIns(0x3E,b); // ld a,<b>
     zIns(0xED, 0x6D); // ld mb,a
 #endif
 }
@@ -360,9 +351,9 @@ int main() {
 
     serial.init();
 #if SLOW
-    serial.baud(19200, 72000000);
+    serial.baud(9600, 72000000/2);
 #else
-    serial.baud(19200 * 36/4, 72000000);
+    serial.baud(9600 * 36/4, 72000000/2);
 #endif
 
     ezInit();
@@ -374,6 +365,7 @@ int main() {
 
     while (true) {
         uint8_t stat = zdiIn(3);
+        zCmd(0x08); // set ADL
         printf("s%02x %02x: ", stat, getMbase());
         if ((stat & 0x10) == 0)
             zCmd(0x09); // reset ADL
@@ -446,6 +438,15 @@ int main() {
             case 'f': writeMem(0xFFE000, flash, sizeof flash); break;
             case 'w': writeMem(0xFFE000, hello, sizeof hello); break;
             case 'j': setPC(0xFFE000); break; 
+
+            case 'S': // disconnect the clock
+                XIN.mode(Pinmode::in_float);
+                break;
+            case 'Z': // disconnect the ZDI and reset pins
+                ZDA.mode(Pinmode::in_float);
+                ZCL.mode(Pinmode::in_float);
+                RST.mode(Pinmode::in_float);
+                break;
 
             default: printf("?\n");
         }
