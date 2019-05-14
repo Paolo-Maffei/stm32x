@@ -15,7 +15,7 @@
 #include <jee.h>
 #include <string.h>
 
-#define SLOW 0  // switches between 4 and 36 MHz clocks (flash demo assumes 4)
+#define SLOW 1  // switches between 4 and 36 MHz clocks (flash demo assumes 4)
 
 UartBufDev< PinA<9>, PinA<10> > console;
 UartBufDev< PinA<2>, PinA<3> > serial;
@@ -53,13 +53,14 @@ const uint8_t flash [] = {
 
 void ezInit () {
     // initialise all the main control pins
+    RST = 1; ZDA = 1; ZCL = 1;
     RST.mode(Pinmode::out_od);
     XIN.mode(Pinmode::alt_out); // XXX alt_out_50mhz
     ZDA.mode(Pinmode::out);
     ZCL.mode(Pinmode::out); // XXX out_50mhz
 
     // disable JTAG in AFIO-MAPR to release PB3, PB4, and PA15
-    // (looks like this has to be done *after* the GPIO mode inits)
+    // (looks like this has to be done *after* some GPIO mode inits)
     constexpr uint32_t afio = 0x40010000;
     MMIO32(afio+0x04) |= (2<<24); // disable JTAG, keep SWD enabled
 
@@ -357,7 +358,7 @@ int main() {
 #endif
 
     ezInit();
-    ezReset();
+    ezReset(); // TODO should not be needed (maybe due to JTAG on power-up?)
 
     printf("v%02x", zdiIn(1));
     printf(".%02x", zdiIn(0));
@@ -446,7 +447,11 @@ int main() {
                 ZDA.mode(Pinmode::in_float);
                 ZCL.mode(Pinmode::in_float);
                 RST.mode(Pinmode::in_float);
+                while (true) {} // don't let main loop get control again
                 break;
+
+            case '\r': // console.getc();
+            case '\n': printf("\r"); break;
 
             default: printf("?\n");
         }
