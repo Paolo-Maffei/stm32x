@@ -32,7 +32,7 @@ void Set_Contrast_Control_Register (uint8_t mod);
 void Display_Chess (uint8_t value1,uint8_t value2);
 void Display_Picture (const uint8_t pic[]);
 void DrawString (uint16_t x, uint16_t y, const char *pStr);
-void DrawSingleAscii (uint16_t x, uint16_t y, const char *pAscii);
+void DrawSingleAscii (uint16_t x, uint16_t y, uint8_t ascii);
 void Gray_test (void);
 void Data_processing (uint8_t temp);
 
@@ -447,8 +447,8 @@ void Write_Instruction(uint8_t cmd) {
     CS1=1;
 }
 
-//turns 1byte B/W data to 4 bye gray data  
-void Data_processing(uint8_t temp) {
+//turns 1 byte B/W data to 4 byte gray data  
+uint32_t expand8to32 (uint8_t temp) {
     uint8_t temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8;
     uint8_t h11,h12,h13,h14,h15,h16,h17,h18,d1,d2,d3,d4;
 
@@ -473,10 +473,22 @@ void Data_processing(uint8_t temp) {
     d3=h15|h16;
     d4=h17|h18;
 
-    Write_Data(d1);
-    Write_Data(d2);
-    Write_Data(d3);
-    Write_Data(d4);
+    return d1 | d2<<8 | d3<<16 | d4<<24;
+}
+
+uint32_t expand [256];
+
+void prepareExpand () {
+    for (unsigned i = 0; i < 256; ++i)
+        expand[i] = expand8to32(i);
+}
+
+void Data_processing(uint8_t temp) {
+    uint32_t v = expand[temp];
+    Write_Data(v);
+    Write_Data(v>>8);
+    Write_Data(v>>16);
+    Write_Data(v>>24);
 }
 
 // Set row address 0~32
@@ -565,28 +577,25 @@ void Clear_ram() {
             Write_Data(0x00); 
 }
 
-void Display_Chess(uint8_t value1,uint8_t value2) {
-    uint8_t i,k;
+void Display_Chess (uint8_t value1, uint8_t value2) {
     Set_Row_Address(0);
     Set_Column_Address(0);		
     Write_Instruction(0x5c);
-    for (i=0;i<32;i++) {  	
-        for (k=0;k<32;k++)
+    for (unsigned i=0;i<32;i++) {  	
+        for (unsigned k=0;k<32;k++)
             Data_processing(value1);
-        for (k=0;k<32;k++)
+        for (unsigned k=0;k<32;k++)
             Data_processing(value2);
     }
 }
 
-//DISPLAY ASCLL
-void DrawSingleAscii(uint16_t x, uint16_t y, const char *pAscii) {
-    uint8_t i;
+void DrawSingleAscii(uint16_t x, uint16_t y, uint8_t ascii) {
     uint8_t str;
     uint16_t OffSet;
 
-    OffSet = (*pAscii - 32)*16;
+    OffSet = (ascii - 32)*16;
 
-    for (i=0;i<16;i++) {
+    for (unsigned i=0;i<16;i++) {
         Set_Row_Address(y+i);
         Set_Column_Address(x);
         Write_Instruction(0x5c);
@@ -597,20 +606,18 @@ void DrawSingleAscii(uint16_t x, uint16_t y, const char *pAscii) {
 
 void DrawString(uint16_t x, uint16_t y, const char *pStr) {
     while (*pStr != 0) {
-        DrawSingleAscii(x, y, pStr);
+        DrawSingleAscii(x, y, *pStr++);
         x += 2;
-        pStr += 1;              
     }
 }
 
 void Display_Picture(const uint8_t pic[]) {
-    uint8_t i,j;
     Set_Row_Address(0); 		
     Set_Column_Address(0);
     Write_Instruction(0x5c);
 
-    for (i=0;i<64;i++)
-        for (j=0;j<32;j++)
+    for (unsigned i=0;i<64;i++)
+        for (unsigned j=0;j<32;j++)
             Data_processing(pic[i*32+j]);
 }
 
@@ -652,6 +659,8 @@ int main () {
     RST.mode(Pinmode::out);   RST = 1;
 
     DATA_BUS.modeMap(0b0000000011111111, Pinmode::out);
+
+    prepareExpand();
 
     while (1) {
         printf("%d\n", ticks);
