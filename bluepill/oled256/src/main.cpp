@@ -447,48 +447,14 @@ void Write_Instruction(uint8_t cmd) {
     CS1=1;
 }
 
+static const uint8_t gMap [] = { 0x00, 0x0F, 0xF0, 0xFF };
+
 //turns 1 byte B/W data to 4 byte gray data  
-uint32_t expand8to32 (uint8_t temp) {
-    uint8_t temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8;
-    uint8_t h11,h12,h13,h14,h15,h16,h17,h18,d1,d2,d3,d4;
-
-    temp1=temp&0x80;
-    temp2=(temp&0x40)>>3;
-    temp3=(temp&0x20)<<2;
-    temp4=(temp&0x10)>>1;
-    temp5=(temp&0x08)<<4;
-    temp6=(temp&0x04)<<1;
-    temp7=(temp&0x02)<<6;
-    temp8=(temp&0x01)<<3;
-    h11=temp1|temp1>>1|temp1>>2|temp1>>3;
-    h12=temp2|temp2>>1|temp2>>2|temp2>>3;
-    h13=temp3|temp3>>1|temp3>>2|temp3>>3;
-    h14=temp4|temp4>>1|temp4>>2|temp4>>3;
-    h15=temp5|temp5>>1|temp5>>2|temp5>>3;
-    h16=temp6|temp6>>1|temp6>>2|temp6>>3;
-    h17=temp7|temp7>>1|temp7>>2|temp7>>3;
-    h18=temp8|temp8>>1|temp8>>2|temp8>>3;
-    d1=h11|h12;
-    d2=h13|h14;
-    d3=h15|h16;
-    d4=h17|h18;
-
-    return d1 | d2<<8 | d3<<16 | d4<<24;
-}
-
-uint32_t expand [256];
-
-void prepareExpand () {
-    for (unsigned i = 0; i < 256; ++i)
-        expand[i] = expand8to32(i);
-}
-
 void Data_processing(uint8_t temp) {
-    uint32_t v = expand[temp];
-    Write_Data(v);
-    Write_Data(v>>8);
-    Write_Data(v>>16);
-    Write_Data(v>>24);
+    for (int i = 0; i < 4; ++i) {
+        Write_Data(gMap[temp>>6]);
+        temp <<= 2;
+    }
 }
 
 // Set row address 0~32
@@ -659,8 +625,6 @@ int main () {
     RST.mode(Pinmode::out);   RST = 1;
 
     DATA_BUS.modeMap(0b0000000011111111, Pinmode::out);
-
-    prepareExpand();
 
     while (1) {
         printf("%d\n", ticks);
