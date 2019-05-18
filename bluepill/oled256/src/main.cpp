@@ -426,7 +426,7 @@ void display_Contrast_level(uint8_t number) {
 
 void Delay (uint16_t n) {
     //while (n) n--;
-    wait_ms((n + 9) / 10);
+    wait_ms((n + 19) / 20);
 }
 
 void Write_Data(uint8_t dat) {
@@ -653,31 +653,34 @@ int main () {
 
     DATA_BUS.modeMap(0b0000000011111111, Pinmode::out);
 
-    Delay(100);
-
     while (1) {
         printf("%d\n", ticks);
 
         Initial();
 
         Write_Instruction(0xA5);//--all display on
-        Delay(65000);
+        Delay(25000);
         Write_Instruction(0xA4);//--all Display off
         Delay(5000);
 
         Write_Instruction(0xA6);//--set normal display
 
-        Display_Picture(pic);
-        Delay(65000);
+        uint32_t t = ticks;
+        for (int i = 0; i < 100; ++i)
+            Display_Picture(pic);
+        t = ticks - t;
+        printf("t %d.%02d ms\n", t/100, t%100);
+
+        Delay(25000);
         Write_Instruction(0xA7);//--set Inverse Display	
         Display_Picture(pic);
-        Delay(65000);
+        Delay(25000);
         Write_Instruction(0xA6);//--set normal display
         Display_Picture(pic1);
-        Delay(65000);
+        Delay(25000);
         Write_Instruction(0xA7);//--set Inverse Display	
         Display_Picture(pic1);
-        Delay(65000);
+        Delay(25000);
 
         Write_Instruction(0xA6);//--set normal display
 
@@ -686,27 +689,25 @@ int main () {
         DrawString(0, 16, "EASTRISING ");
         DrawString(0, 32, "WWW.BUY-DISPLAY.COM");
         DrawString(0, 48, "2013.04.22");
-        Delay(65000);
+        Delay(25000);
 
         Gray_test(); 
-        Delay(65000);
+        Delay(25000);
 
         Display_Chess(0x55,0xAA);
-        Delay(65000);
+        Delay(15000);
         Display_Chess(0xAA,0x55);
-        Delay(65000);
-
+        Delay(15000);
         Display_Chess(0x55,0x55);
-        Delay(65000);
+        Delay(15000);
         Display_Chess(0xAA,0xAA);
-        Delay(65000);
-
+        Delay(15000);
         Display_Chess(0xFF,0x00);
-        Delay(65000);
+        Delay(15000);
         Display_Chess(0x00,0xFF);
-        Delay(65000);
-        Display_Chess(0x00,0x00); //clear display	  
+        Delay(15000);
 
-        Delay(65000);
+        Display_Chess(0x00,0x00); //clear display	  
+        Delay(25000);
     }
 }
