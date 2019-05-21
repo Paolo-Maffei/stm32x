@@ -92,23 +92,21 @@ int main() {
         for (int i = 0; i < 1000000; ++i)
             wrDram(i, i);
         t = ticks - t;
-        printf("%d.%03d µs/write, ", t/1000, t%1000);
+        printf("%d.%03d µs/wr, ", t/1000, t%1000);
 
         t = ticks;
         for (int i = 0; i < 1000000; ++i)
             rdDram(i);
         t = ticks - t;
-        printf("%d.%03d µs/read: ", t/1000, t%1000);
+        printf("%d.%03d µs/rd: ", t/1000, t%1000);
 
         wait_ms(1000); // test to make sure that refresh keeps the data intact
 
-        for (int i = 0; i < 5000; ++i) {
+        for (int i = 0; i < 10240; ++i) {
             if (i % 256 == 0)
                 printf(".");
             uint8_t x = i, y = rdDram(i);
-            // FIXME my current test build has data bit 6 stuck high :(
-            //if (x ^ y)
-            if ((x ^ y) & ~0x40)
+            if (x ^ y)
                 printf(" %d=%02x", i, x ^ y);
         }
         printf("\n");
