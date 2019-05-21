@@ -95,15 +95,14 @@ int main() {
         printf("%d.%03d µs/write, ", t/1000, t%1000);
 
         t = ticks;
-        for (int i = 0; i < 1000000; ++i) {
-            volatile uint8_t x = rdDram(i);
-        }
+        for (int i = 0; i < 1000000; ++i)
+            rdDram(i);
         t = ticks - t;
         printf("%d.%03d µs/read: ", t/1000, t%1000);
 
         wait_ms(1000); // test to make sure that refresh keeps the data intact
 
-        for (int i = 0; i < 10000; ++i) {
+        for (int i = 0; i < 5000; ++i) {
             if (i % 256 == 0)
                 printf(".");
             uint8_t x = i, y = rdDram(i);
