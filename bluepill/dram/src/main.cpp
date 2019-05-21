@@ -90,7 +90,7 @@ int main() {
     while (true) {
         t = ticks;
         for (int i = 0; i < 1000000; ++i)
-            wrDram(i, i);
+            wrDram(i, i+i/257);
         t = ticks - t;
         printf("%d.%03d µs/wr, ", t/1000, t%1000);
 
@@ -105,7 +105,7 @@ int main() {
         for (int i = 0; i < 10240; ++i) {
             if (i % 256 == 0)
                 printf(".");
-            uint8_t x = i, y = rdDram(i);
+            uint8_t x = i+i/257, y = rdDram(i);
             if (x ^ y)
                 printf(" %d=%02x", i, x ^ y);
         }
