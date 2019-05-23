@@ -40,18 +40,18 @@ Notes:
 
 Here is the prototype setup:
 
-![](setup.jpg)
+![](img/setup.jpg)
 
 This is the back side of that LCD, with an Arduino "shield" form factor:
 
-![](shield.jpg)
+![](img/shield.jpg)
 
 This is the STM32F407VGT6 board used for this demo:
 
-![](diymore.jpg)
+![](img/diymore.jpg)
 
 These boards would fit together quite nicely:
 
-![](combined.jpg)
+![](img/combined.jpg)
 
 With the µC running at 168 MHz, the byte write rate to the LCD is about 16 MB/s.
