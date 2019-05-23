@@ -2,14 +2,16 @@
 
 This is a demo of driving a 3.5" 480x320 LCD in 8-bit parallel mode.
 
-The driver is in the [JeeH](https://git.jeelabs.org/jcw/jeeh) library,
-it assumes the LCD has been mapped into the address space using the FSMC.
-Due to the 8-bit parallel mode and the FSMC, redraws are quick: 20 ms.
+The driver code is in the
+[JeeH](https://git.jeelabs.org/jcw/jeeh/src/branch/master/jee/mem-ili9486.h)
+library, it assumes the LCD has been mapped into the address space using the
+FSMC.  Due to the 8-bit parallel mode and the FSMC, redraws are quick: 20 ms.
 
 Notes:
 
 * The µSD card socket on the back of the LCD board has not been connected yet.
-* The BMP only supplies 3.3V. The LCD needs 5V, supplied by second USB cable.
+* The BMP only supplies 3.3V. The LCD backlight needs 5V, supplied by a second
+  USB cable.
 
 ## BMP connections
 * 1 = gnd
@@ -52,4 +54,4 @@ These boards would fit together quite nicely:
 
 ![](combined.jpg)
 
-The µC is running at 168 MHz, the byte write rate to the LCD is about 16 MB/s.
+With the µC running at 168 MHz, the byte write rate to the LCD is about 16 MB/s.
