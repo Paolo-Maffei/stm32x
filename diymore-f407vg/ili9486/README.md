@@ -4,7 +4,7 @@ This is a demo of driving a 3.5" 480x320 LCD in 8-bit parallel mode.
 
 The driver is in the [JeeH](https://git.jeelabs.org/jcw/jeeh) library,
 it assumes the LCD has been mapped into the address space using the FSMC.
-Due to the use of 8-bit parallel mode and the FSMC, redraws are quick: 20 ms.
+Due to the 8-bit parallel mode and the FSMC, redraws are quick: 20 ms.
 
 Notes:
 
@@ -47,5 +47,9 @@ This is the back side of that LCD, with an Arduino "shield" form factor:
 This is the STM32F407VGT6 board used for this demo:
 
 ![](diymore.jpg)
+
+These boards would fit together quite nicely:
+
+![](combined.jpg)
 
 The µC is running at 168 MHz, the byte write rate to the LCD is about 16 MB/s.
