@@ -33,6 +33,6 @@ int main() {
         led = 0;
         wait_ms(100);
         led = 1;
-        wait_ms(900);
+        wait_ms(400);
     }
 }
