@@ -21,7 +21,7 @@ static void initFsmcLcd () {
     constexpr uint32_t bcr1 = Periph::fsmc;
     constexpr uint32_t btr1 = bcr1 + 0x04;
     MMIO32(bcr1) = (1<<12) | (1<<7);
-    MMIO32(btr1) = (5<<8); // a slight delay is needed to avoid signal errors
+    MMIO32(btr1) = (2<<8); // a slight delay is needed to avoid signal errors
     MMIO32(bcr1) |= (1<<0);
 }
 
@@ -40,6 +40,7 @@ int main () {
 
     uint32_t t = ticks;
     lcd.clear();
+    //lcd.fill(0, 0, lcd.width, lcd.height, 0xFFFF);
     printf("clear %d ms\n", ticks - t);
 
     for (int i = 0; i < 200; ++i)
