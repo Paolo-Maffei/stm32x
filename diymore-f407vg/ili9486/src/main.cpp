@@ -1,7 +1,7 @@
 // see [1] https://jeelabs.org/ref/STM32F4-RM0090.pdf
 
 #include <jee.h>
-#include "mem-ili9486.h"
+#include <jee/mem-ili9486.h>
 
 ILI9486<0x60100000> lcd;
 
