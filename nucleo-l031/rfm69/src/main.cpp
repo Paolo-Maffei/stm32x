@@ -11,7 +11,6 @@ int printf(const char* fmt, ...) {
     return 0;
 }
 
-//PinB<3> led; // pin not available, as the on-board LED is tied to SCK
 PinA<0> dio0;
 PinA<8> dio3;
 
@@ -20,8 +19,8 @@ RF69< decltype(spi) > rf;
 
 int main() {
     console.init();
-    console.baud(115200, fullSpeedClock());
-    //led.mode(Pinmode::out);
+    enableSysTick();
+
     dio0.mode(Pinmode::in_float);
     dio3.mode(Pinmode::in_float);
 
@@ -63,8 +62,6 @@ int main() {
         auto rxLen = rf.receive(rxBuf, sizeof rxBuf);
 
         if (rxLen >= 0) {
-            //led = 0;
-
             printf("RF69 #%d: ", rxLen);
             for (int i = 0; i < rxLen; ++i) {
                 printf("%02x", rxBuf[i]);
@@ -72,8 +69,6 @@ int main() {
                     printf(" ");
             }
             printf(" r%4d l%2d a%4d\n", rf.rssi, rf.lna, rf.afc);
-
-            //led = 1;
         }
     }
 }
