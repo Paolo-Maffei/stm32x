@@ -20,6 +20,7 @@ int main() {
 
     spi.init();
     rf.init(63, 42, 8683);  // node 63, group 42, 868.3 MHz
+    rf.txPower(5);
 
     int seq = 0;
     while (true) {
