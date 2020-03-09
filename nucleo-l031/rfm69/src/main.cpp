@@ -19,7 +19,8 @@ RF69< decltype(spi) > rf;
 
 int main() {
     console.init();
-    enableSysTick();
+    console.baud(115200, fullSpeedClock());
+    //enableSysTick();
 
     dio0.mode(Pinmode::in_float);
     dio3.mode(Pinmode::in_float);
