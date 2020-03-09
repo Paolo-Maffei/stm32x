@@ -24,7 +24,7 @@ CN4-01  VIN     -
 CN4-02  GND     -                       
 CN4-03  RESET   NRST                    
 CN4-04  +5V     -                       
-CN4-05  A7      PA2             ST-Link TX      
+CN4-05  A7      PA2             ST-Link       
 CN4-06  A6      PA7                     NSS
 CN4-07  A5      PA6                     MOSI
 CN4-08  A4      PA5                     MISO
