@@ -20,18 +20,18 @@ int main() {
 
     spi.init();
     rf.init(63, 42, 8683);  // node 63, group 42, 868.3 MHz
-    rf.txPower(10);
+    rf.txPower(6);
 
     int seq = 0;
     while (true) {
-        uint8_t rxBuf [64];
-        auto rxLen = rf.receive(rxBuf, sizeof rxBuf);
-
         if (ticks % 1000 == 0) {
             wait_ms(1);
             rf.send(0, &seq, sizeof seq);
             ++seq;
         }
+
+        uint8_t rxBuf [64];
+        auto rxLen = rf.receive(rxBuf, sizeof rxBuf);
 
         if (rxLen >= 0) {
             led = 0;
