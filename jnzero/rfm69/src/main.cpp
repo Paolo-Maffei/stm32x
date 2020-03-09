@@ -15,7 +15,8 @@ RF69< decltype(spi) > rf;
 
 int main() {
     console.init();
-    console.baud(115200, fullSpeedClock());
+    //console.baud(115200, fullSpeedClock());
+    enableSysTick();
     led.mode(Pinmode::out); led = 1;
 
     spi.init();
