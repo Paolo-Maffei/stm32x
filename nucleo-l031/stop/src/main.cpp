@@ -1,31 +1,37 @@
+// Power down demo, using stop mode and periodic wakeup events from the RTC
+
 #include <jee.h>
 
-PinA<1> led;
+UartDev< PinA<2>, PinA<3> > console;
+
+int printf(const char* fmt, ...) {
+    va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
+	return 0;
+}
+
+PinB<3> led;
 
 RTC rtc;
 
 int main() {
-    Port<'A'>::modeMap(0b1111111111111111, Pinmode::in_analog);
-    led.mode(Pinmode::out_od);
+    console.init();
+    //enableSysTick();
+    led.mode(Pinmode::out);
 
     rtc.init();
-    rtc.wakeup(2000);
+    //rtc.set(RTC::DateTime{18,2,28,23,59,55});
+    rtc.wakeup(3*37000/16); // approx 3s, based on 37 kHz LSI clock
 
-    constexpr uint32_t scr = 0xE000ED10;
-    MMIO32(scr) |= (1<<2); // set SLEEPDEEP
-
-    // FWU, ULP, CWUF, LPSDSR
-    MMIO32(Periph::pwr) |= (1<<10) | (1<<9) | (1<<2) | (1<<0);
-
+    int i = 0;
     while (true) {
-        led = 0;
-        for (int i = 0; i < 5; ++i) __asm("");
-        led = 1;
+        led.toggle();
 
-        MMIO32(rtc.isr) &= ~(1<<10);  // clear WUTF
+        RTC::DateTime dt = rtc.get();
+        printf("%d %02d/%02d/%02d %02d:%02d:%02d\n", ++i,
+                dt.yr, dt.mo, dt.dy, dt.hh, dt.mm, dt.ss);
+        for (int j = 0; j < 10000; ++j) asm ("");
 
-        __asm("wfe");
+        rtc.arm();
+        powerDown(false);
     }
 }
-
-extern "C" void SystemInit () {}
