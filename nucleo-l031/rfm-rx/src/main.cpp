@@ -42,9 +42,9 @@ int main() {
     MMIO32(Periph::exti+0x08) |= (1<<0) | (1<<8); // RTSR, rising edge events
 
     while (true) {
-recover:
         rf.listen();
 
+recover:
         MMIO32(Periph::exti+0x14) = (1<<0) | (1<<8); // clear events
         while (!dio3)
             powerDown(false);
