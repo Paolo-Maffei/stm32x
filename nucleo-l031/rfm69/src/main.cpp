@@ -48,6 +48,7 @@ int main() {
 
         if (!dio3 && ticks % 1000 == 0) {
             static int seq = 0;
+            rf.setMode(rf.MODE_STANDBY);
             rf.send(0, &seq, sizeof seq);
             ++seq;
             while (!dio0) {} // wait for packet sent to start
