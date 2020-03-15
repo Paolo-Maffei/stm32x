@@ -16,7 +16,7 @@ RF69< decltype(spi) > rf;
 
 int main() {
     console.init();
-    console.baud(115200, fullSpeedClock());
+    console.baud(115200, fullSpeedClock(false)); // HSI16, no PLL
     //enableSysTick();
 
     dio0.mode(Pinmode::in_float);
@@ -27,9 +27,10 @@ int main() {
     rfrst.mode(Pinmode::out);
     rfrst = 1; wait_ms(2); rfrst = 0; wait_ms(10);
 
-    spi.init();
+    spi.init(0); // div=0 @ 16 MHz: 8 Mhz
     rf.init(63, 42, 8683);  // node 63, group 42, 868.3 MHz
     rf.txPower(3);
+    rf.listen();
 
     // prepare DIO pins for GPIO polling, instead of the RF69's SPI polling
     constexpr int DIO0 = 1, DIO1 = 3, DIO2 = 3, DIO3 = 2, DIO5 = 3;//1;
@@ -51,7 +52,7 @@ int main() {
             ++seq;
             while (!dio0) {} // wait for packet sent to start
             while (dio0) {} // wait for packet sent to complete
-            rf.resume();
+            rf.listen();
             continue;
         }
 
