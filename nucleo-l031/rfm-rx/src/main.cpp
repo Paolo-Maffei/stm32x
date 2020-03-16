@@ -17,8 +17,8 @@ RF69< decltype(spi) > rf;
 int main() {
     console.init();
     console.baud(115200, fullSpeedClock(false)); // HSI16, no PLL
-    //enableSysTick();
     MMIO32(Periph::rcc+0x0C) |= (1<<15); // use HSI16 after stop mode
+    //enableSysTick();
 
     dio0.mode(Pinmode::in_float);
     dio3.mode(Pinmode::in_float);
@@ -41,21 +41,18 @@ int main() {
     MMIO32(Periph::exti+0x04) |= (1<<0) | (1<<8); // EMR, unmask events PA0+PA8
     MMIO32(Periph::exti+0x08) |= (1<<0) | (1<<8); // RTSR, rising edge events
 
-    while (true) {
-        rf.listen();
+    rf.listen();
 
-recover:
+    while (true) {
         MMIO32(Periph::exti+0x14) = (1<<0) | (1<<8); // clear events
         while (!dio3)
             powerDown(false);
 
         rf.rssiCapture();
 
-        while (dio3 && !dio0)
-            if (!dio3)
-                goto recover;
-            else
-                powerDown(false);
+        MMIO32(Periph::exti+0x14) = (1<<0) | (1<<8); // clear events
+        while (dio3)
+            powerDown(false);
 
         uint8_t rxBuf [66];
         int rxLen = rf.receive(rxBuf, sizeof rxBuf);
