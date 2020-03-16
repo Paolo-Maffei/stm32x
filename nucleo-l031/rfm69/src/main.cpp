@@ -16,8 +16,8 @@ RF69< decltype(spi) > rf;
 
 int main() {
     console.init();
-    console.baud(115200, fullSpeedClock(false)); // HSI16, no PLL
-    //enableSysTick();
+    //console.baud(115200, fullSpeedClock(false)); // HSI16, no PLL
+    enableSysTick();
 
     dio0.mode(Pinmode::in_float);
     dio3.mode(Pinmode::in_float);
@@ -29,8 +29,7 @@ int main() {
 
     spi.init(0); // div=0 @ 16 MHz: 8 Mhz
     rf.init(63, 42, 8683);  // node 63, group 42, 868.3 MHz
-    rf.txPower(3);
-    rf.listen();
+    rf.txPower(0);
 
     // prepare DIO pins for GPIO polling, instead of the RF69's SPI polling
     constexpr int DIO0 = 1, DIO1 = 3, DIO2 = 3, DIO3 = 2, DIO5 = 3;//1;
@@ -41,6 +40,8 @@ int main() {
     // for new incoming packets, but it also sends out a packet once a second
 
     while (true) {
+        rf.listen();
+
         // when waiting for a new incoming packet, don't use SPI polling
         // instead, poll the DIO0 and DIO3 pins (will use interrupts later)
 
@@ -53,13 +54,12 @@ int main() {
             ++seq;
             while (!dio0) {} // wait for packet sent to start
             while (dio0) {} // wait for packet sent to complete
-            rf.listen();
             continue;
         }
 
         rf.rssiCapture();
 
-        while (dio3 && !dio0) {} // wait for DIO3 == 1 && DIO0 1 => 0
+        while (dio3) {} // wait for DIO3 1 => 0
 
         uint8_t rxBuf [66];
         int rxLen = rf.receive(rxBuf, sizeof rxBuf);
