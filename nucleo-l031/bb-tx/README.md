@@ -13,9 +13,9 @@ PA4     NSS
 PA5     SCK             
 PA6     MISO            
 PA7     MOSI            
-PB1     RESET           
+PA9             TX > BMP        
 PA10            RX < BMP        
 PA14            SWCLK   
 PA13            SWDIO   
-PA9             TX > BMP        
+PB1     RESET           
 ```
