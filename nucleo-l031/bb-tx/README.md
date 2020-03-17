@@ -2,7 +2,7 @@
 
 ![](image.png)
 
-```
+```text
 STM32   RFM69   BMP     Notes
 ======  ======  =====   =====
 PA0     DIO0            
