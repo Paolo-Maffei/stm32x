@@ -18,7 +18,7 @@ int main() {
     console.baud(115200, fullSpeedClock());
     led.mode(Pinmode::out);
 
-    rtc.init();
+    rtc.init(true);
     //rtc.set(RTC::DateTime{18,2,28,23,59,55});
 
     while (true) {
