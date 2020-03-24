@@ -1,31 +1,47 @@
-#include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/gpio.h>
-#include <libopencm3/usb/usbd.h>
+#include <jee.h>
 
-extern "C" usbd_device* setupUsb ();
+UartBufDev< PinA<9>, PinA<10> > console;
 
-extern "C" void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t) {
+int printf(const char* fmt, ...) {
+    va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
+    return 0;
+}
+
+// avoid including the libopencm3 headers, there are some comflicts with JeeH
+extern "C" {
+typedef struct _usbd_device usbd_device;
+extern uint16_t usbd_ep_write_packet(usbd_device*,uint8_t,const void*,uint16_t);
+extern uint16_t usbd_ep_read_packet(usbd_device*,uint8_t,void*,uint16_t);
+extern void usbd_poll(usbd_device *usbd_dev);
+
+usbd_device* setupUsb (); // in src/usb.c
+void cdcacm_data_rx_cb (usbd_device*, uint8_t);
+}
+
+void cdcacm_data_rx_cb (usbd_device* dev, uint8_t) {
     char buf[64];
-    int len = usbd_ep_read_packet(usbd_dev, 0x01, buf, sizeof buf);
+    int len = usbd_ep_read_packet(dev, 0x01, buf, sizeof buf);
 
     // this approach is flawed: data is lost when it can't all be sent at once
     if (len)
-        usbd_ep_write_packet(usbd_dev, 0x82, buf, len);
+        usbd_ep_write_packet(dev, 0x82, buf, len);
 }
 
-int main (void) {
-    rcc_clock_setup_in_hse_8mhz_out_72mhz();
+int main () {
+    // avoid "unused" warnings
+    (void) enableClkAt8MHz;
+    (void) powerDown;
+
+    console.init();
+    console.baud(115200, fullSpeedClock());
 
     // pulse PA12 low to force re-enumeration
-    rcc_periph_clock_enable(RCC_GPIOA);
-    gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ,
-                GPIO_CNF_OUTPUT_PUSHPULL, GPIO12);
-    for (int i = 0; i < 10000000; i++) asm ("");
-    gpio_set_mode(GPIOA, GPIO_MODE_INPUT,
-                GPIO_CNF_INPUT_FLOAT, GPIO12);
+    PinA<12> usbPin;
+    usbPin.mode(Pinmode::out);
+    wait_ms(2);
+    usbPin.mode(Pinmode::in_float);
 
-    usbd_device* usbd_dev = setupUsb();
-
+    usbd_device* dev = setupUsb();
     while (1)
-        usbd_poll(usbd_dev);
+        usbd_poll(dev);
 }
