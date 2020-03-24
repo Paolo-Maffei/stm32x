@@ -1,21 +1,4 @@
-/*
- * This file is part of the libopencm3 project.
- *
- * Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
- *
- * This library is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this library.  If not, see <http://www.gnu.org/licenses/>.
- */
+// See LGPL3 license info at the end of this file.
 
 #include <stdlib.h>
 #include <libopencm3/stm32/rcc.h>
@@ -166,8 +149,9 @@ static const char *usb_strings[] = {
 /* Buffer to be used for control requests. */
 uint8_t usbd_control_buffer[128];
 
-static enum usbd_request_return_codes cdcacm_control_request(usbd_device *usbd_dev, struct usb_setup_data *req, uint8_t **buf,
-        uint16_t *len, void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req))
+static int cdcacm_control_request(usbd_device *usbd_dev,
+        struct usb_setup_data *req, uint8_t **buf, uint16_t *len,
+        int (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req))
 {
     (void)complete;
     (void)buf;
@@ -175,6 +159,7 @@ static enum usbd_request_return_codes cdcacm_control_request(usbd_device *usbd_d
 
     switch(req->bRequest) {
     case USB_CDC_REQ_SET_CONTROL_LINE_STATE: {
+#if 0
         /*
          * This Linux cdc_acm driver requires this to be implemented
          * even though it's optional in the CDC spec, and we don't
@@ -192,6 +177,7 @@ static enum usbd_request_return_codes cdcacm_control_request(usbd_device *usbd_d
         local_buf[8] = req->wValue & 3;
         local_buf[9] = 0;
         // usbd_ep_write_packet(0x83, buf, 10);
+#endif
         return USBD_REQ_HANDLED;
         }
     case USB_CDC_REQ_SET_LINE_CODING: 
@@ -203,18 +189,7 @@ static enum usbd_request_return_codes cdcacm_control_request(usbd_device *usbd_d
     return USBD_REQ_NOTSUPP;
 }
 
-static void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep)
-{
-    (void)ep;
-
-    char buf[64];
-    int len = usbd_ep_read_packet(usbd_dev, 0x01, buf, 64);
-
-    if (len) {
-        usbd_ep_write_packet(usbd_dev, 0x82, buf, len);
-        buf[len] = 0;
-    }
-}
+void cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep);
 
 static void cdcacm_set_config(usbd_device *usbd_dev, uint16_t wValue)
 {
@@ -231,25 +206,30 @@ static void cdcacm_set_config(usbd_device *usbd_dev, uint16_t wValue)
                 cdcacm_control_request);
 }
 
-int main(void)
-{
-    usbd_device *usbd_dev;
-
-    rcc_clock_setup_in_hse_8mhz_out_72mhz();
-
-    rcc_periph_clock_enable(RCC_GPIOA);
-
-    // pulse PA12 low to force re-enumeration
-    gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ,
-                GPIO_CNF_OUTPUT_PUSHPULL, GPIO12);
-    gpio_clear(GPIOA, GPIO12);
-    for (int i = 0; i < 10000000; i++) asm ("");
-    gpio_set_mode(GPIOA, GPIO_MODE_INPUT,
-                GPIO_CNF_INPUT_FLOAT, GPIO12);
-
-    usbd_dev = usbd_init(&st_usbfs_v1_usb_driver, &dev, &config, usb_strings, 3, usbd_control_buffer, sizeof(usbd_control_buffer));
-    usbd_register_set_config_callback(usbd_dev, cdcacm_set_config);
-
-    while (1)
-        usbd_poll(usbd_dev);
+usbd_device* setupUsb (void) {
+    usbd_device* usbDev = usbd_init(&st_usbfs_v1_usb_driver, &dev, &config,
+                                    usb_strings, 3, usbd_control_buffer,
+                                    sizeof(usbd_control_buffer));
+    usbd_register_set_config_callback(usbDev, cdcacm_set_config);
+    return usbDev;
 }
+
+/* Adapted from usb_cdcacm in libopencm3-examples -jcw, 2020
+ *
+ * This file is part of the libopencm3 project.
+ *
+ * Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
+ *
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
