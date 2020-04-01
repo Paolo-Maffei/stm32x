@@ -25,7 +25,6 @@ int main() {
     console.init();
     enableSysTick();
     led.mode(Pinmode::out);
-    //MMIO32(Periph::rcc+0x0C) |= (1<<15); // use HSI16 after stop mode
 
     dio0.mode(Pinmode::in_float);
     dio1.mode(Pinmode::in_float);
@@ -49,39 +48,44 @@ int main() {
 
     MMIO32(Periph::exti+0x04) |= (1<<0) | (1<<3); // EMR, unmask events PA0+PA3
     MMIO32(Periph::exti+0x08) |= (1<<0) | (1<<3); // RTSR, rising edge events
+//  MMIO32(Periph::exti+0x0C) |=          (1<<3); // FTSR, falling edge events
 
     rf.listen();
     printf("\nReset.\n");
     wait_ms(3);
 
-    Iwdg watchdog;
+    Iwdg watchdog (4);
 
     while (true) {
-        led.toggle();
-        watchdog.kick();
-
         MMIO32(Periph::exti+0x14) = (1<<0) | (1<<3); // clear events
+        led = 1;
         while (!dio3)
             powerDown(false);
+        led = 0;
 
         rf.rssiCapture();
 
         MMIO32(Periph::exti+0x14) = (1<<0) | (1<<3); // clear events
+        led = 1;
         while (dio3)
             powerDown(false);
+        led = 0;
 
         uint8_t rxBuf [66];
         int rxLen = rf.receive(rxBuf, sizeof rxBuf);
 
-        if (rxLen >= 0) {
-            printf("RF69 #%d: ", rxLen);
-            for (int i = 0; i < rxLen; ++i) {
-                printf("%02x", rxBuf[i]);
-                if (i < 2)
-                    printf(" ");
-            }
-            printf(" r%4d l%2d a %d (%d)\n", rf.rssi, rf.lna, rf.afc, ticks);
-            for (int i = 0; i < 1000; ++i) asm (""); // let usart tx drain
+        if (rxLen < 0)
+            continue;
+
+        printf("RF69 #%d: ", rxLen);
+        for (int i = 0; i < rxLen; ++i) {
+            printf("%02x", rxBuf[i]);
+            if (i < 2)
+                printf(" ");
         }
+        printf(" r%4d l%2d a %d (%d)\n", rf.rssi, rf.lna, rf.afc, ticks);
+        for (int i = 0; i < 1000; ++i) asm (""); // let usart tx drain
+
+        watchdog.kick();
     }
 }
