@@ -10,6 +10,9 @@ int printf(const char* fmt, ...) {
 PinA<5> led;
 
 int main() {
+    (void) powerDown;
+    (void) fullSpeedClock;
+
     console.init();
     console.baud(115200, fullSpeedClock());
 
