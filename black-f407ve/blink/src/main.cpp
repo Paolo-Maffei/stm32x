@@ -6,7 +6,7 @@ UartBufDev< PinA<9>, PinA<10> > console;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
-	return 0;
+    return 0;
 }
 
 PinA<6> led;
