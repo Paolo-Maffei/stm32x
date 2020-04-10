@@ -29,8 +29,8 @@ int main() {
 
     adc.init();
     spi.init();
-    rf.init(63, 42, 8683);
-    rf.txPower(0);
+    //rf.init(63, 42, 8683);
+    //rf.txPower(0);
 
     while (true) {
         int aVal = adc.read(ct1);
