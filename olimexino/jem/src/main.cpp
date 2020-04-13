@@ -69,7 +69,7 @@ int main() {
         uint32_t t = ticks;
         dmaCapture();
         t = ticks - t;
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < NSAMP; ++i)
             for (int j = 0; j < NCHAN; ++j)
                 printf("%d%c", adcData[i][j], j < NCHAN-1 ? ',' : '\n');
         printf("%d\n", t);
