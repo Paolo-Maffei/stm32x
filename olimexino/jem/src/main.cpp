@@ -18,7 +18,7 @@ ADC<1> adc;
 Timer<3> timer;
 
 constexpr int NSAMP = 2000, NCHAN = 4;
-uint16_t adcData [(NSAMP+1)*NCHAN];
+uint16_t adcData [NSAMP][NCHAN];
 
 SpiHw< PinA<7>, PinA<6>, PinA<5>, PinA<4> > spi;
 RF69< decltype(spi) > rf;
@@ -31,8 +31,9 @@ static void dmaInit () {
 
     // configure 4-chan acquisition PC0/PC1/PC2/PC3, analog channels 10..13
     MMIO32(adc.smpr1) = (2<<9) | (2<<6) | (2<<3) | (6<<0); // 71.5/13.5 cycles
-    MMIO32(adc.base+0x34) = (13<<15) | (12<10) | (11<<5) | (10<<0); // SQR3
-    MMIO32(adc.base+0x2C) = (3<<20);                                // SQR1
+    MMIO32(adc.sqr3) = (13<<15) | (12<<10) | (11<<5) | (10<<0);
+    MMIO32(adc.base+0x2C) = (NCHAN-1)<<20;    // SQR1
+    Periph::bit(adc.cr1, 8) = 1;              // SCAN
 
     Periph::bit(Periph::rcc+0x14, 0) = 1;     // DMA1EN
     MMIO32(dma1+0x14) = (uint32_t) adcData;   // CMAR1
@@ -41,15 +42,16 @@ static void dmaInit () {
 }
 
 static void dmaCapture () {
-    Periph::bit(adc.cr1, 8) = 1;              // SCAN XXX
     MMIO32(dma1+0x0C) = NSAMP*NCHAN;          // CNDTR1
     Periph::bit(dma1+0x08, 0) = 1;            // EN
+    Periph::bit(adc.cr2, 0) = 1;              // ADEN
 
     // wait for the DMA capture to complete
     while (Periph::bit(dma1+0x00, 1) == 0) {} // TCIF1 in ISR
+
     Periph::bit(dma1+0x04, 0) = 1;            // CGIF1 in IFCR
     Periph::bit(dma1+0x08, 0) = 0;            // ~EN
-    Periph::bit(adc.cr1, 8) = 0;              // ~SCAN XXX
+    Periph::bit(adc.cr2, 0) = 0;              // ~ADEN
 }
 
 int main() {
@@ -65,10 +67,11 @@ int main() {
     //rf.init(63, 42, 8683);
     //rf.txPower(0);
 
-    adc.init(); // init all the I/O pins to analog
-    adc.read(ct1); adc.read(ct2); adc.read(ct3); adc.read(vac);
-    dmaInit();
     timer.init(16*36); // 16 µs & 36 MHz APB1
+    adc.init(); // init all the I/O pins to analog
+    adc.read(vac); adc.read(ct1); adc.read(ct2); adc.read(ct3);
+    dmaInit();
+    dmaCapture(); // ignore first mis-aligned capture
 
     while (true) {
         wait_ms(1000);
@@ -76,9 +79,9 @@ int main() {
         uint32_t t = ticks;
         dmaCapture();
         t = ticks - t;
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < NSAMP; ++i)
             for (int j = 0; j < NCHAN; ++j)
-                printf("%d%c", adcData[i*NCHAN+j], j < NCHAN-1 ? ',' : '\n');
+                printf("%d%c", adcData[i][j], j < NCHAN-1 ? ',' : '\n');
         printf("%d\n", t);
     }
 }
