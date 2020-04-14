@@ -9,10 +9,10 @@ int printf(const char* fmt, ...) {
 }
 
 PinA<5> led;
-PinC<0> ct1;
-PinC<1> ct2;
-PinC<2> ct3;
-PinC<3> vac;
+PinC<0> vac;
+PinC<1> ct1;
+PinC<2> ct2;
+PinC<3> ct3;
 
 ADC<1> adc;
 Timer<3> timer;
@@ -30,7 +30,7 @@ static void dmaInit () {
     MMIO32(adc.cr2) = (1<<20) | (4<<17) | (1<<8) | (1<<0);
 
     // configure 4-chan acquisition PC0/PC1/PC2/PC3, analog channels 10..13
-    MMIO32(adc.smpr1) = (6<<9) | (2<<6) | (2<<3) | (2<<0); // 71.5/13.5 cycles
+    MMIO32(adc.smpr1) = (2<<9) | (2<<6) | (2<<3) | (6<<0); // 71.5/13.5 cycles
     MMIO32(adc.base+0x34) = (13<<15) | (12<10) | (11<<5) | (10<<0); // SQR3
     MMIO32(adc.base+0x2C) = (3<<20);                                // SQR1
 
@@ -78,7 +78,7 @@ int main() {
         t = ticks - t;
         for (int i = 0; i < 10; ++i)
             for (int j = 0; j < NCHAN; ++j)
-                printf("%d%c", adcData[1+i*NCHAN+j], j < NCHAN-1 ? ',' : '\n');
+                printf("%d%c", adcData[i*NCHAN+j], j < NCHAN-1 ? ',' : '\n');
         printf("%d\n", t);
     }
 }
