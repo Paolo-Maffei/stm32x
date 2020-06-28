@@ -22,19 +22,26 @@ int main() {
     spi.init();
     rf.init(63, 42, 8683);  // node 63, group 42, 868.3 MHz
     rf.txPower(0);
+    rf.listen();
 
     int seq = 0;
     while (true) {
+#if 1
         if (ticks % 1000 == 0) {
             wait_ms(1);
             rf.send(0, &seq, sizeof seq);
             ++seq;
+            wait_ms(10);
+            rf.listen();
+            continue;
         }
+#endif
 
         uint8_t rxBuf [64];
         auto rxLen = rf.receive(rxBuf, sizeof rxBuf);
 
         if (rxLen >= 0) {
+            rf.rssiCapture();
             led = 0;
 
             printf("RF69 #%d: ", rxLen);
