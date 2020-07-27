@@ -1,6 +1,6 @@
 #include <jee.h>
 
-UartDev< PinD<8>, PinD<9> > console;
+UartBufDev< PinD<8>, PinD<9> > console;
 
 int printf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
