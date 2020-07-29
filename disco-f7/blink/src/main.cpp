@@ -11,8 +11,7 @@ PinK<3> led;
 
 int main() {
     console.init();
-    //console.baud(115200, fullSpeedClock());
-    enableSysTick();
+    console.baud(115200, fullSpeedClock()/2);
 
     led.mode(Pinmode::out);
     led = 0;
