@@ -8,6 +8,8 @@
 // Remote debugging using :3333
 // (gdb) load
 // (gdb) c
+//
+// or: USB-MiniJTAG by Haoyu with "upload_protocol = jlink"
 
 #include <jee.h>
 
@@ -22,13 +24,11 @@ PinE<0> led;
 
 int main() {
     console.init();
-	enableSysTick();
-
+    console.baud(115200, fullSpeedClock() / 4);
     led.mode(Pinmode::out);
 
-    while (1) {
+    while (true) {
         printf("%d\n", ticks);
-
         led = 0;
         wait_ms(100);
         led = 1;
